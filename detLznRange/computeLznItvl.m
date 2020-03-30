@@ -11,7 +11,7 @@ mean_idx=round(length(x)/2)
 
 % Plot lzn itvls
 figure(figNum)
-plot([x(lb) x(lb)],[fx_lzn(lb) fx_true(lb)],'k-o',[x(ub) x(ub)],[fx_lzn(ub) fx_true(ub)],'k-o',[x(mean_idx) x(mean_idx)],[fx_lzn(mean_idx) fx_true(mean_idx)],'m-'); 
+plot([x(lb) x(lb)],[fx_lzn(lb) fx_true(lb)],'k-o',[x(ub) x(ub)],[fx_lzn(ub) fx_true(ub)],'k-o'); 
 
 xlb=x(lb); xub=x(ub);
 fx_max=max(fx_true);

@@ -37,25 +37,29 @@ Sweep_ub=1.5*Sbase;
 
 %% Make PV curves 
 % vary P, plot P-V and P-del curve
-[pvals,solns1] = makePVcurve(Sweep_lb,Sweep_ub,Sbase,Vbase,R12,X12,V1)
+[pvals,solns1] = makePVcurve(Sweep_lb,Sweep_ub,Sbase,Vbase,R12,X12,V1);
 
 % vary Q, plot Q-V and Q-del curve
-[qvals,solns2] = makeQVcurve(Sweep_lb,Sweep_ub,Sbase,Vbase,R12,X12,V1)
+[qvals,solns2] = makeQVcurve(Sweep_lb,Sweep_ub,Sbase,Vbase,R12,X12,V1);
 
 
 %% Run opt problem that solves for lzn itvl
-[plb1,pub1,errVmax1,slope_vp]=computeLznItvl(pvals/Sbase,solns1.lznV2/Vbase,solns1.trueV2/Vbase,1) % (x,fx_lzn,fx_true)
-[plb2,pub2,errDelmax1,slope_delp]=computeLznItvl(pvals/Sbase,solns1.lznDel2,solns1.trueDel2,2) % (x,fx_lzn,fx_true)
+[plb1,pub1,errVmax1,slope_vp]=computeLznItvl(pvals/Sbase,solns1.lznV2/Vbase,solns1.trueV2/Vbase,1); % (x,fx_lzn,fx_true)
+[plb2,pub2,errDelmax1,slope_delp]=computeLznItvl(pvals/Sbase,solns1.lznDel2,solns1.trueDel2,2); % (x,fx_lzn,fx_true)
 p_lb=max(plb1,plb2)*Sbase/100; % units of kW
 p_ub=min(pub1,pub2)*Sbase/100;
 
-[qlb1,qub1,errVmax2,slope_vq]=computeLznItvl(qvals/Sbase,solns2.lznV2/Vbase,solns2.trueV2/Vbase,3) % (x,fx_lzn,fx_true)
-[qlb2,qub2,errDelmax2,slope_delq]=computeLznItvl(qvals/Sbase,solns2.lznDel2,solns2.trueDel2,4) % (x,fx_lzn,fx_true)
+[qlb1,qub1,errVmax2,slope_vq]=computeLznItvl(qvals/Sbase,solns2.lznV2/Vbase,solns2.trueV2/Vbase,3); % (x,fx_lzn,fx_true)
+[qlb2,qub2,errDelmax2,slope_delq]=computeLznItvl(qvals/Sbase,solns2.lznDel2,solns2.trueDel2,4); % (x,fx_lzn,fx_true)
 q_lb=max([qlb1,qlb2])*Sbase/100;
 q_ub=min([qub1,qub2])*Sbase/100;
 
 %% Determine dbc bounds
-p0=Sbase/100; q0=Sbase/100; % init cond, kWatts units
+% Given user defined operating point, compute max disturbance in pos/neg
+% dir to stay in lzn itvl
+oppPt=[Sbase/100 Sbase/100]; % [p0 q0], these are the nodal powers at bus 2 of equiv 2-bus sys
+
+p0=oppPt(1); q0=oppPt(2); % init cond, kWatts units
 % If init cond not in lzn range, given sys/config infeas immediately
 if (q0 <q_lb || q0 >q_ub)
     feas=false;
@@ -77,29 +81,38 @@ end
 
 % dont violate ub: p0+d+u_pmax<p_ub
 % dont violate lb: p0-d-u_pmax>p_lb
-dbcP_ub=min(p_ub-p0-u_pmax,p0-p_lb-u_pmax) % kW units
-dbcQ_ub=min(q_ub-q0-u_pmax,q0-q_lb-u_qmax)
+dbcP_ub=p_ub-p0-u_pmax % kW units
+dbcP_lb=p0-p_lb-u_pmax % not used yet
+dbcQ_ub=q_ub-q0-u_qmax
+dbcQ_lb=q0-q_lb-u_qmax % not used yet
 
-%% Label all plots with lines indicating the length of umax and dmax
+%% Label plots with lines indicating the length of umax and d_pos, d_neg
+% d_pos is how much a disturbance can push the operating point in the
+% negative direction without going out of bounds
+
 figure(1) % PV
-plot([min(pvals)/Sbase min(pvals)/Sbase+u_pmax*100/Sbase], [(min(solns1.trueV2)+max(solns1.trueV2))/(2*Vbase) (min(solns1.trueV2)+max(solns1.trueV2))/(2*Vbase)]);
-plot([min(pvals)/Sbase min(pvals)/Sbase+dbcP_ub*100/Sbase], [(min(solns1.trueV2)+max(solns1.trueV2))/(2.01*Vbase) (min(solns1.trueV2)+max(solns1.trueV2))/(2.01*Vbase)]);
-legend('linearization','true','lzn lb','lzn ub','example opp pt','u_{max}','d_{max}');
+plot([oppPt(1)*100/Sbase oppPt(1)*100/Sbase+u_pmax*100/Sbase], [(min(solns1.trueV2)+max(solns1.trueV2))/(2*Vbase) (min(solns1.trueV2)+max(solns1.trueV2))/(2*Vbase)]);
+plot([oppPt(1)*100/Sbase oppPt(1)*100/Sbase-dbcP_lb*100/Sbase], [(min(solns1.trueV2)+max(solns1.trueV2))/(2.01*Vbase) (min(solns1.trueV2)+max(solns1.trueV2))/(2.01*Vbase)]);
+plot([oppPt(1)*100/Sbase oppPt(1)*100/Sbase+dbcP_ub*100/Sbase], [(min(solns1.trueV2)+max(solns1.trueV2))/(2.02*Vbase) (min(solns1.trueV2)+max(solns1.trueV2))/(2.02*Vbase)]);
+legend('linearization','true','lzn lb','lzn ub','u_{max}','d_{neg}','d_{pos}');
 
 figure(2) % Pdel
-plot([min(pvals)/Sbase min(pvals)/Sbase+u_pmax*100/Sbase], [(min(solns1.trueDel2)+max(solns1.trueDel2))/2 (min(solns1.trueDel2)+max(solns1.trueDel2))/2]);
-plot([min(pvals)/Sbase min(pvals)/Sbase+dbcP_ub*100/Sbase], [(min(solns1.trueDel2)+max(solns1.trueDel2))/2.3 (min(solns1.trueDel2)+max(solns1.trueDel2))/2.3]);
-legend('linearization','true','lzn lb','lzn ub','example opp pt','u_{max}','d_{max}');
+plot([oppPt(1)*100/Sbase oppPt(1)*100/Sbase+u_pmax*100/Sbase], [(min(solns1.trueDel2)+max(solns1.trueDel2))/2 (min(solns1.trueDel2)+max(solns1.trueDel2))/2]);
+plot([oppPt(1)*100/Sbase oppPt(1)*100/Sbase-dbcP_lb*100/Sbase], [(min(solns1.trueDel2)+max(solns1.trueDel2))/2.3 (min(solns1.trueDel2)+max(solns1.trueDel2))/2.3]);
+plot([oppPt(1)*100/Sbase oppPt(1)*100/Sbase+dbcP_ub*100/Sbase], [(min(solns1.trueDel2)+max(solns1.trueDel2))/2.6 (min(solns1.trueDel2)+max(solns1.trueDel2))/2.6]);
+legend('linearization','true','lzn lb','lzn ub','u_{max}','d_{neg}','d_{pos}');
 
 figure(3) % QV
-plot([min(qvals)/Sbase min(qvals)/Sbase+u_qmax*100/Sbase], [(min(solns2.trueV2)+max(solns2.trueV2))/(2*Vbase) (min(solns2.trueV2)+max(solns2.trueV2))/(2*Vbase)]);
-plot([min(qvals)/Sbase min(qvals)/Sbase+dbcQ_ub*100/Sbase], [(min(solns2.trueV2)+max(solns2.trueV2))/(2.01*Vbase) (min(solns2.trueV2)+max(solns2.trueV2))/(2.01*Vbase)]);
-legend('linearization','true','lzn lb','lzn ub','example opp pt','u_{max}','d_{max}');
+plot([oppPt(2)*100/Sbase oppPt(2)*100/Sbase+u_qmax*100/Sbase], [(min(solns2.trueV2)+max(solns2.trueV2))/(2*Vbase) (min(solns2.trueV2)+max(solns2.trueV2))/(2*Vbase)]);
+plot([oppPt(2)*100/Sbase oppPt(2)*100/Sbase-dbcQ_lb*100/Sbase], [(min(solns2.trueV2)+max(solns2.trueV2))/(2.01*Vbase) (min(solns2.trueV2)+max(solns2.trueV2))/(2.01*Vbase)]);
+plot([oppPt(2)*100/Sbase oppPt(2)*100/Sbase+dbcQ_ub*100/Sbase], [(min(solns2.trueV2)+max(solns2.trueV2))/(2.02*Vbase) (min(solns2.trueV2)+max(solns2.trueV2))/(2.02*Vbase)]);
+legend('linearization','true','lzn lb','lzn ub','u_{max}','d_{neg}','d_{pos}');
 
 figure(4) % Qdel
-plot([min(qvals)/Sbase min(qvals)/Sbase+u_qmax*100/Sbase], [(min(solns2.trueDel2)+max(solns2.trueDel2))/2 (min(solns2.trueDel2)+max(solns2.trueDel2))/2]);
-plot([min(qvals)/Sbase min(qvals)/Sbase+dbcQ_ub*100/Sbase], [(min(solns2.trueDel2)+max(solns2.trueDel2))/2.3 (min(solns2.trueDel2)+max(solns2.trueDel2))/2.3]);
-legend('linearization','true','lzn lb','lzn ub','example opp pt','u_{max}','d_{max}');
+plot([oppPt(2)*100/Sbase oppPt(2)*100/Sbase+u_qmax*100/Sbase], [(min(solns2.trueDel2)+max(solns2.trueDel2))/2 (min(solns2.trueDel2)+max(solns2.trueDel2))/2]);
+plot([oppPt(2)*100/Sbase oppPt(2)*100/Sbase-dbcQ_lb*100/Sbase], [(min(solns2.trueDel2)+max(solns2.trueDel2))/2.3 (min(solns2.trueDel2)+max(solns2.trueDel2))/2.3]);
+plot([oppPt(2)*100/Sbase oppPt(2)*100/Sbase+dbcQ_ub*100/Sbase], [(min(solns2.trueDel2)+max(solns2.trueDel2))/2.6 (min(solns2.trueDel2)+max(solns2.trueDel2))/2.6]);
+legend('linearization','true','lzn lb','lzn ub','u_{max}','d_{neg}','d_{pos}');
 
 % Last step: format results on 4 PV curve plots illustrating dbc range, lzn
 % range, and init cond
@@ -109,14 +122,16 @@ legend('linearization','true','lzn lb','lzn ub','example opp pt','u_{max}','d_{m
 
 % find max true-lzn error, 
 [errVmax1, errVmax2, errDelmax1, errDelmax2] % 1 is when vary P, 2 is when vary Q
+% errVmax is in Vpu, errDelmax is in deg
 
 % find max dbc (in pos and neg dir) wrt opp pt
-[oppPt,dp_pos,dq_neg]
-%^ UNDER CONSTRUCTION
+[oppPt,dbcP_ub,dbcP_lb,dbcQ_ub,dbcQ_lb]
+% oppPt=[p0 q0], in kW units
+% dbc bounds in kW units
 
 % find max/min/mean slope across P/Qsweep for true curve
 [slope_vp, slope_delp, slope_vq, slope_delq]
-
+% slopes are in Vpu/Spu or Degrees/Spu
 
 
 
