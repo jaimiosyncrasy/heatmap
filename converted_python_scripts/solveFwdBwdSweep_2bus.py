@@ -12,12 +12,13 @@ def solveFwdBwdSweep_2bus(R12, X12, V1, P2, Q2):
     Vs = V1.copy()  # per unit
 
     # Init Cond
+    V1 = []
     V2 = []
     Vconv = []
     Vnom = Vs.copy()  # to check convergence
     tol = 0.0001
     k = 0
-    V1[k] = 0
+    V1.append(0)
     V2.append(0)
     Vconv.append([0, 0])
 
@@ -25,7 +26,7 @@ def solveFwdBwdSweep_2bus(R12, X12, V1, P2, Q2):
     k += 1
 
     # Fwd Sweep
-    V1[k] = Vs
+    V1.append(Vs)
     V2.append(Vs)
 
     # Check convergence:
@@ -38,7 +39,7 @@ def solveFwdBwdSweep_2bus(R12, X12, V1, P2, Q2):
     while any(node >= tol for node in Vconv[k]):  # break when all nodes less than tol
         k += 1  # new iteration
         # Fwd sweep
-        V1[k] = V1[k - 1]  # same as prev iter ZERO?
+        V1.append(V1[k - 1])  # same as prev iter ZERO?
         V2.append(Vs - (z12 * I12))
 
         # Check convergence:
