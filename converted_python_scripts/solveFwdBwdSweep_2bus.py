@@ -9,13 +9,14 @@ def solveFwdBwdSweep_2bus(R12, X12, V1, P2, Q2):
     # Givens: z12, V1, P2, Q2
     S2 = complex(P2, Q2)  # per unit
     z12 = complex(R12, X12)  # per unit
-    Vs = V1.copy()  # per unit
+    Vs = V1  # per unit
 
     # Init Cond
     V1 = []
     V2 = []
     Vconv = []
-    Vnom = Vs.copy()  # to check convergence
+    Vnom = Vs  # to check convergence
+
     tol = 0.0001
     k = 0
     V1.append(0)
@@ -58,15 +59,19 @@ def solveFwdBwdSweep_2bus(R12, X12, V1, P2, Q2):
     '''Output Results'''
     print('~~~~~~~ PF Results: ')
     Vsoln = [V1[-1], V2[-1]]  # /Vs to put into pu
+    print(Vsoln)
     convergedIfZero = Vconv[-1]
+    print(convergedIfZero)
     numIter = len(Vconv) - 1  # -1 because Vconv initialized at zero
+    print(numIter)
     print('~~~~~~~ Finished FBS Method for SOlving PF')
 
     '''Polar to rect conversion for testing/probing'''
     mag = [abs(ele) for ele in Vsoln]
     ang = [np.degrees(cmath.phase(ele)) for ele in Vsoln]
     Vsoln_polarCoor = [mag, ang]  # Vpu, deg
-
+    print('mag:',Vsoln_polarCoor[0])
+    print('ang:', Vsoln_polarCoor[1])
     V2 = abs(Vsoln[1])
     del2 = np.degrees(cmath.phase(Vsoln[1]))
 
