@@ -9,15 +9,17 @@ def solveFwdBwdSweep_2bus(R12, X12, V1, P2, Q2):
     # Givens: z12, V1, P2, Q2
     S2 = complex(P2, Q2)  # per unit
     z12 = complex(R12, X12)  # per unit
-    Vs = V1.copy()  # per unit
+    Vs = V1  # per unit
 
     # Init Cond
+    V1 = []
     V2 = []
     Vconv = []
-    Vnom = Vs.copy()  # to check convergence
+    Vnom = Vs  # to check convergence
+
     tol = 0.0001
     k = 0
-    V1[k] = 0
+    V1.append(0)
     V2.append(0)
     Vconv.append([0, 0])
 
@@ -25,7 +27,7 @@ def solveFwdBwdSweep_2bus(R12, X12, V1, P2, Q2):
     k += 1
 
     # Fwd Sweep
-    V1[k] = Vs
+    V1.append(Vs)
     V2.append(Vs)
 
     # Check convergence:
@@ -38,7 +40,7 @@ def solveFwdBwdSweep_2bus(R12, X12, V1, P2, Q2):
     while any(node >= tol for node in Vconv[k]):  # break when all nodes less than tol
         k += 1  # new iteration
         # Fwd sweep
-        V1[k] = V1[k - 1]  # same as prev iter ZERO?
+        V1.append(V1[k - 1])  # same as prev iter ZERO?
         V2.append(Vs - (z12 * I12))
 
         # Check convergence:
@@ -57,15 +59,19 @@ def solveFwdBwdSweep_2bus(R12, X12, V1, P2, Q2):
     '''Output Results'''
     print('~~~~~~~ PF Results: ')
     Vsoln = [V1[-1], V2[-1]]  # /Vs to put into pu
+    print(Vsoln)
     convergedIfZero = Vconv[-1]
+    print(convergedIfZero)
     numIter = len(Vconv) - 1  # -1 because Vconv initialized at zero
+    print(numIter)
     print('~~~~~~~ Finished FBS Method for SOlving PF')
 
     '''Polar to rect conversion for testing/probing'''
     mag = [abs(ele) for ele in Vsoln]
     ang = [np.degrees(cmath.phase(ele)) for ele in Vsoln]
     Vsoln_polarCoor = [mag, ang]  # Vpu, deg
-
+    print('mag:',Vsoln_polarCoor[0])
+    print('ang:', Vsoln_polarCoor[1])
     V2 = abs(Vsoln[1])
     del2 = np.degrees(cmath.phase(Vsoln[1]))
 
