@@ -17,7 +17,7 @@ import my_feeder_funcs as ff
 import my_impedance_funcs as imp
 import my_configVis_funcs as vis
 import my_detControlMatExistence_funcs as ctrl
-import my_detLznRange_funcs as lzn
+import my_heatmapSetup_funcs as hm
 
 
 

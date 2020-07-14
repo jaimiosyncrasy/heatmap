@@ -17,9 +17,10 @@ import time
 import matplotlib.pyplot as plt
 import my_feeder_funcs as ff
 import my_impedance_funcs as imp
-import my_configVis_funcs as vis
 import my_detControlMatExistence_funcs as ctrl
 import my_detLznRange_funcs as lzn
+import my_heatmapSetup_funcs as hm
+
 
 def markActuatorConfig(lst_act_locs, feeder, file_name):
     # lst_act_locs = list of node names where actuators are placed
@@ -311,7 +312,7 @@ def phaseCouplingPerNode(feeder,depths):
     coupling_ratios = {}
     
     for node in nodes:
-        edge_path = ctrl.get_path_to_substation(feeder, node,depths)
+        edge_path = hm.get_path_to_substation(feeder, node,depths)
         self_imped = 0
         mutual_imped = 0
             
