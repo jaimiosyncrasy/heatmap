@@ -207,6 +207,9 @@ def markFeas(feas, test_act_loc, graph):
     return
 
 def make_indv_heatmap(feeder, all_act_locs, perf_nodes, node_index_map,depths):
+    # given the already-placed all_act_locs and perf_nodes, assess feasibility for placing one more actuator at each node
+    # given the already-placed all_act_locs and perf_nodes, assess feasibility for placing one more co-located actuator/perf node pair at each node
+
     #all_act_locs and perf_node = lists of node names as strings
     graph = feeder.network
     n = len(graph.nodes) #number of nodes in network

@@ -55,26 +55,48 @@ def computeFParamSpace_v1(feeder, act_locs, perf_nodes):
     return Fq_lb,Fp_lb
 
 #version 2
-def computeFParamSpace_v2(feeder, act_locs, perf_nodes,R,X,depths):
+def computeFParamSpace_v2(feeder, act_locs, perf_nodes,R,X,depths,node_index_Map):
     # Compute (Fp,Fq) ranges as a func of impedance paths between act nodes, perf nodes, and substation
     gamma=[0.08, 0.35] # scaling, according to units of Q-V and P-delta loops
     c=[1, 1]
-    sensEst_dvdq,sensEst_deldp= (np.empty((0,1)) for i in range(2)) # list of 3x3 matrices
-    for i in len(act_locs): # for each (perf,act) pair
-        act=act_locs[i]
-        perf=perf_nodes[i]
-        
-        Zgood=R(act,perf)+j*X(act,perf) # 3x3 matrix
-        Zbad1=imp.get_total_impedance_from_substation(feeder,act,depths) - Zgood
-        Zbad2=imp.get_total_impedance_between_two_buses(feeder,act,perf,depths) - Zbad1
-        
-        der1=1-np.divide(c[1]*Zbad1,Zgood+Zbad1) # derating for actuator not colocated
-        der2=1-np.divide(c[2]*Zbad2,Zgood+Zbad2) # derating for perf node not on samepath to substation as act
-        sensEst_dvdq[i]=der1*der2*gamma[1]*mainPath # each element is 3x3 matrix
-        sensEst_deldp[i]=der1*der2*gamma[2]*mainPath
-    end
-    Fq_lb=np.min(sensEst_dvdq)
-    Fp_lb=np.min(sensEst_deldp)
+    sensEst_dvdq,sensEst_deldp= (np.empty((0,1)) for i in range(2))
+    
+    for act in act_locs: # for each (perf,act) pair
+        print(node_index_Map)
+        act_idx=node_index_Map[act] # index of act node
+        print('act idx=',act_idx)
+
+        perf_idx=act_idx #index of act node
+        perf=perf_nodes[0] # temp
+        # indexing  a[start:stop] --> items start through stop-1
+        print(R)
+        print(len(R))
+        Zgood=np.empty((3,3))
+        Zgood=R[act_idx:(act_idx+3),perf_idx:(perf_idx+3)]+X[act_idx:(act_idx+3),perf_idx:(perf_idx+3)]*1j # 3x3 matrix
+        #Zgood=R[act_idx:(act_idx+3),perf_idx:(perf_idx+3)]
+        print('Zgood=\n',Zgood)
+        D=imp.get_total_impedance_from_substation(feeder,act,depths)
+        print(D)
+        mylist=list(D.values())
+        print(mylist)
+        #Zbad1=imp.get_total_impedance_from_substation(feeder,act,depths) - Zgood
+        #Zbad2=imp.get_total_impedance_between_two_buses(feeder,act,perf,depths) - Zbad1
+
+#         der1=1-np.divide(c[1]*Zbad1,Zgood+Zbad1) # derating for actuator not colocated
+#         der2=1-np.divide(c[2]*Zbad2,Zgood+Zbad2) # derating for perf node not on samepath to substation as act
+#         print(der1)
+#         print(der2)
+#         print(mainPath)
+#         sensEst_dvdq[i]=der1*der2*gamma[1]*mainPath # each element is 3x3 matrix
+#         sensEst_deldp[i]=der1*der2*gamma[2]*mainPath
+
+#for my_buses,list1, list2,list3 in zip(my_buses,list1,list2,list3):
+ #   print(my_buses,list1, list2,list3)
+
+    #Fq_lb=np.min(sensEst_dvdq)
+    #Fp_lb=np.min(sensEst_deldp)
+    Fq_lb=1
+    Fp_lb=2
     return Fq_lb,Fp_lb
 
 #   Compute (Fp,Fq) ranges as a func 
