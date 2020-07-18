@@ -21,12 +21,8 @@ import my_detControlMatExistence_funcs as ctrl
 import my_detLznRange_funcs as lzn
 
 
-'DO NOT NEED TO EDIT THIS CELL BEFORE RUNNING'
-# See pseudocode doc for more complete descriptions of each method:
-# https://docs.google.com/document/d/1VdYNN96FhywGcb0QNml61C8GLlIXbs8bU1Bh2cINPt0/edit
-
-def get_path_to_substation(feeder, node):
-    #returns list of edges between node and substation
+def get_path_to_substation(feeder, node,depths):
+    #returns list of edges, not impedances, between node and substation
     #node = node name as string
     #feeder = initiaized feeder object
     graph = feeder.network
@@ -40,7 +36,7 @@ def get_path_to_substation(feeder, node):
     return node_path
 
 
-def createRXmatrices(feeder, node_index_map):
+def createRXmatrices(feeder, node_index_map,depths):
     #calculated using phase A impedances unless there is no phase A then phase B else phase C
     #feeder = initiaized feeder object
     #node_index_map = dictionary of node indices with node names as keys
@@ -51,7 +47,7 @@ def createRXmatrices(feeder, node_index_map):
     P = {} #initializing line path dictionary
    
     for node in graph.nodes:
-        P[node] = get_path_to_substation(feeder, node)
+        P[node] = get_path_to_substation(feeder, node,depths)
     
     for n_outer in graph.nodes: #outer loop
         index_outer = node_index_map[n_outer]
@@ -64,7 +60,7 @@ def createRXmatrices(feeder, node_index_map):
             x_sum = 0
             
             for edge in intersection_list: #iterates through shared edges and sums their impedances
-                tot_edge_impedance = get_total_impedance_between_two_buses(feeder, edge[0], edge[1])
+                tot_edge_impedance = imp.get_total_impedance_between_two_buses(feeder, edge[0], edge[1],depths)
                 
                 if tot_edge_impedance['Phase 1']:
                     phase_edge_impedance = tot_edge_impedance['Phase 1']
@@ -81,7 +77,7 @@ def createRXmatrices(feeder, node_index_map):
     return R, X
 
 
-def createRXmatrices_3ph(feeder, node_index_map):
+def createRXmatrices_3ph(feeder, node_index_map,depths):
     #includes all 3 phases
     #feeder = initiaized feeder object
     #node_index_map = dictionary of node indices with node names as keys
@@ -92,7 +88,7 @@ def createRXmatrices_3ph(feeder, node_index_map):
     P = {} #initializing line path dictionary
    
     for node in graph.nodes:
-        P[node] = get_path_to_substation(feeder, node)
+        P[node] = get_path_to_substation(feeder, node,depths)
     
     for n_outer in graph.nodes: #outer loop
         index_outer = node_index_map[n_outer]
@@ -106,14 +102,14 @@ def createRXmatrices_3ph(feeder, node_index_map):
             
             for edge in intersection_list: #iterates through shared edges and sums their impedances
                 impedance = feeder.network.get_edge_data(edge[1], edge[0], default=None)['connector']
-                tot_edge_impedance = impedance.Z if isinstance(impedance, line) else np.zeros((3,3)) 
+                tot_edge_impedance = impedance.Z if isinstance(impedance, setup_nx.line) else np.zeros((3,3)) 
                 imped_sum += tot_edge_impedance
             
             for i_row in range(3):
                 
                 for i_col in range(3):
-                    R[(3 * index_outer) + i_row][(3 * index_inner) + i_col] = 2 * imped_sum[i_row][i_col].real
-                    X[(3 * index_outer) + i_row][(3 * index_inner) + i_col] = 2 * imped_sum[i_row][i_col].imag
+                    R[i_row * index_outer][i_col * index_inner] = 2 * imped_sum[i_row][i_col].real
+                    X[i_row * index_outer][i_col * index_inner] = 2 * imped_sum[i_row][i_col].imag
             
     return R, X
 
@@ -141,27 +137,29 @@ def getKey(dictionary, value):
     return key 
 
 
-def setupStateSpace(n, feeder, node_index_map):
+def setupStateSpace(n, feeder, node_index_map,depths):
     #n = number of nodes in network
     #feeder = initiaized feeder object
     #node_index_map = dictionary of node indices with node names as keys
     A = np.identity(6*n)
-    R, X = createRXmatrices(feeder, node_index_map)
+    R, X = createRXmatrices(feeder, node_index_map,depths)
     concat_XR = np.concatenate((X, R), axis = 1)
     concat_XR_halfs = np.concatenate(((-1/2) * R, (1/2) * X), axis = 1)
     B = np.concatenate((concat_XR, concat_XR_halfs))
     return A, B
 
 
-#def computeFeas(feeder, act_locs, A, B, indicMat):
-    #node_1 = list(feeder.network.successors(substation_name))
-    #z12 = get_total_impedance_from_substation(feeder, node_1[0])['Phase 1']
-    #matExist = detControlMatExistence(A, B, indicMat)
-    #maxLznError = detLznRange(feeder, Vbase_ll, Sbase, z12, act_locs)
+# correct version
+def computeFeas_v1(feeder, perf_nodes, A, B, indicMat,substation_name,depths):
+    node_1 = list(feeder.network.successors(substation_name))
+    z12 = imp.get_total_impedance_from_substation(feeder, node_1[0],depths) # 3 phase
+    MYfeas,MYfeasFs,MYnumfeas,MYnumTried,MYnumact = ctrl.detControlMatExistence(A, B, indicMat)
+    #maxLznError = lzn.detLznRange(feeder, Vbase_ll, Sbase, z12, act_locs)
     #return matExist, maxLznError
-    
-    
-def computeFeas(feeder, act_locs, A, B, indicMat):
+    return MYfeas
+
+# workaround version
+def computeFeas_v2(feeder, act_locs, perf_nodes, A, B, indicMat):
     random_bit = np.random.choice(2,1)
     if random_bit[0] == 0:
         feas = True
@@ -177,13 +175,10 @@ def updateStateSpace(n, act_locs, perf_nodes, node_index_map):
     #act_locs = list of actuators locations in network (list of strings)
     #perf_node = performance node as string
     #node_index_map = dictionary of node indices for indicMat and F matrix
-    indicMat = np.zeros((6*n,6*n))
-    
-    for i in range(len(act_locs)): 
-        act = act_locs[i]
-        perf = perf_nodes[i]
+    indicMat = np.zeros((2*n,2*n))
+    perf_index = node_index_map[perf_nodes]
+    for act in act_locs: 
         act_index = node_index_map[act]
-        perf_index = node_index_map[perf]
         indicMat[act_index][perf_index] = 1
         indicMat[act_index+n][perf_index+n] = 1
     return indicMat
@@ -211,11 +206,14 @@ def markFeas(feas, test_act_loc, graph):
         graph.nodes[test_act_loc]['fillcolor'] = 'red'
     return
 
-def eval_config1(feeder, all_act_locs, perf_nodes, node_index_map):
+def make_indv_heatmap(feeder, all_act_locs, perf_nodes, node_index_map,depths):
+    # given the already-placed all_act_locs and perf_nodes, assess feasibility for placing one more actuator at each node
+    # given the already-placed all_act_locs and perf_nodes, assess feasibility for placing one more co-located actuator/perf node pair at each node
+
     #all_act_locs and perf_node = lists of node names as strings
     graph = feeder.network
     n = len(graph.nodes) #number of nodes in network
-    A, B = setupStateSpace(n, feeder, node_index_map)
+    A, B = setupStateSpace(n, feeder, node_index_map, depths)
     lzn_error_run_sum = 0
     lst_feas_configs = []
     
@@ -230,7 +228,7 @@ def eval_config1(feeder, all_act_locs, perf_nodes, node_index_map):
     
     for test in test_nodes:
         indicMat = updateStateSpace(n, [test]+all_act_locs, perf_nodes, node_index_map)
-        feas, maxError = computeFeas(feeder, [test]+all_act_locs, perf_nodes, A, B, indicMat)
+        feas, maxError = computeFeas_v2(feeder, [test]+all_act_locs, perf_nodes, A, B, indicMat)
         lzn_error_dic[test] = maxError
         markFeas(feas, test, graph)
         if feas:
@@ -241,28 +239,13 @@ def eval_config1(feeder, all_act_locs, perf_nodes, node_index_map):
     return lst_feas_configs
 
 
-def eval_config(feeder, all_act_locs, perf_nodes, node_index_map):
+def runHeatMapProcess(feeder, all_act_locs, perf_nodes, node_index_map,depths):
     #all_act_locs and perf_nodes = lists of node names as strings
-    graph = feeder.network
-    n = len(graph.nodes) #number of nodes in network
-    A, B = setupStateSpace(n, feeder, node_index_map)
-    
-    indicMat = updateStateSpace(n, all_act_locs, perf_nodes, node_index_map)
-    feas, maxError = computeFeas(feeder, all_act_locs, perf_nodes, A, B, indicMat)
-    markFeas(feas, test, graph)
-    
-    print('Actuator configuration is feasible') if feas else print('Actuator configuration is not feasible')
-    return feas, maxError
-
-
-def runHeatMapProcess(feeder, all_act_locs, perf_nodes, node_index_map):
-    #all_act_locs and perf_node = lists of node names as strings
     a = 0
     graph = feeder.network
     cur_act_locs = []
-    cur_perf_nodes = []
     n = len(graph.nodes) #number of nodes in network
-    A, B = setupStateSpace(n, feeder, node_index_map)
+    A, B = setupStateSpace(n, feeder, node_index_map,depths)
     lzn_error_run_sum = 0
     lst_feas_configs = []
     
@@ -277,8 +260,8 @@ def runHeatMapProcess(feeder, all_act_locs, perf_nodes, node_index_map):
                 test_nodes.append(node)
     
         for test in test_nodes: #inner loop
-            indicMat = updateStateSpace(n, [test]+cur_act_locs, [test]+cur_perf_nodes, node_index_map)
-            feas, maxError = computeFeas(feeder, [test]+cur_act_locs, A, B, indicMat)
+            indicMat = updateStateSpace(n, [test]+cur_act_locs, perf_nodes, node_index_map)
+            feas, maxError = computeFeas_v2(feeder, [test]+cur_act_locs, perf_nodes, A, B, indicMat)
             lzn_error_dic[test] = maxError
             markFeas(feas, test, graph)
             if feas:
@@ -290,7 +273,6 @@ def runHeatMapProcess(feeder, all_act_locs, perf_nodes, node_index_map):
         
         if a <= len(all_act_locs):
             cur_act_locs = all_act_locs[0:a]
-            cur_perf_nodes = perf_nodes[0:a]
             lzn_error_run_sum += lzn_error_dic[cur_act_locs[-1]]
             print('The total max linearization error after '+ str(a) +' actuators have been placed = '+ str(lzn_error_run_sum))
     return lst_feas_configs, lzn_error_run_sum
