@@ -206,37 +206,18 @@ def markFeas(feas, test_act_loc, graph):
         graph.nodes[test_act_loc]['fillcolor'] = 'red'
     return
 
-def make_indv_heatmap(feeder, all_act_locs, perf_nodes, node_index_map,depths):
-    # given the already-placed all_act_locs and perf_nodes, assess feasibility for placing one more actuator at each node
-    # given the already-placed all_act_locs and perf_nodes, assess feasibility for placing one more co-located actuator/perf node pair at each node
-
-    #all_act_locs and perf_node = lists of node names as strings
+def eval_config(feeder, all_act_locs, perf_nodes, node_index_map, depths):
+    #all_act_locs and perf_nodes = lists of node names as strings
     graph = feeder.network
     n = len(graph.nodes) #number of nodes in network
-    A, B = setupStateSpace(n, feeder, node_index_map, depths)
-    lzn_error_run_sum = 0
-    lst_feas_configs = []
+    A, B = setupStateSpace(n, feeder, node_index_map)
     
-    for act in all_act_locs: 
-        markActLoc(graph, act)
-            
-    lzn_error_dic = {} #contains maxLznError for each choice of actuator location with node name as key  
-    test_nodes = []
-    for node in graph.nodes:
-        if node not in all_act_locs:
-            test_nodes.append(node)
+    indicMat = updateStateSpace(n, all_act_locs, perf_nodes, node_index_map)
+    feas, maxError = computeFeas(feeder, all_act_locs, perf_nodes, A, B, indicMat)
+    markFeas(feas, test, graph)
     
-    for test in test_nodes:
-        indicMat = updateStateSpace(n, [test]+all_act_locs, perf_nodes, node_index_map)
-        feas, maxError = computeFeas_v2(feeder, [test]+all_act_locs, perf_nodes, A, B, indicMat)
-        lzn_error_dic[test] = maxError
-        markFeas(feas, test, graph)
-        if feas:
-            lst_feas_configs += [cur_act_locs + [test]]
-        
-    nx.nx_pydot.write_dot(graph, 'single_act_config_test_' + file_name)
-    render('dot', 'png', 'single_act_config_test_' + file_name)   
-    return lst_feas_configs
+    print('Actuator configuration is feasible') if feas else print('Actuator configuration is not feasible')
+    return feas, maxError
 
 
 def runHeatMapProcess(feeder, all_act_locs, perf_nodes, node_index_map,depths):
