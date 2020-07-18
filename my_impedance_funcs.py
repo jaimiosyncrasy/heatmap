@@ -28,7 +28,7 @@ def get_total_impedance_from_substation(feeder, node_name, depths):
     node_name_full = node_name
 
     #Notice that since this is a tree, any node will only have at most one predecessor
-    total_impedance = {'Phase 1' : 0.0, 'Phase 2' : 0.0, 'Phase 3' : 0.0}
+    total_impedance = np.zeros((3,3))
     
     current_node = node_name_full
     pred_list = None
@@ -49,10 +49,9 @@ def get_total_impedance_from_substation(feeder, node_name, depths):
             print("WARNING: No connection between nodes " + str(pred_list[0]) + " and " + str(current_node) + ".")
             return 0
         else:
-            imp_dict = impedance.Z if isinstance(impedance, setup_nx.line) else np.zeros((3,3)) # isinstance asks whether impedance is of type "line"
-            total_impedance['Phase 1'] += imp_dict[0][0]
-            total_impedance['Phase 2'] += imp_dict[1][1]
-            total_impedance['Phase 3'] += imp_dict[2][2]
+            imp_dict = impedance.Z if isinstance(impedance, line) else np.zeros((3,3))
+            
+            total_impedance += imp_dict
             
             current_node = pred_list[0]
             pred_list = list(feeder.network.predecessors(current_node))
@@ -65,11 +64,11 @@ def get_total_impedance_from_substation(feeder, node_name, depths):
 #    / \
 #   B   C
 
-def get_total_impedance_between_two_buses(feeder, node_name_1, node_name_2,depths):
+def get_total_impedance_between_two_buses(feeder, node_name_1, node_name_2, depths):
     bus_1 = node_name_1
     bus_2 = node_name_2
    
-    total_impedance = {'Phase 1' : 0.0, 'Phase 2' : 0.0, 'Phase 3' : 0.0}
+    total_impedance = np.zeros((3,3))
     
     depth_1 = 0
     depth_2 = 0
@@ -96,11 +95,9 @@ def get_total_impedance_between_two_buses(feeder, node_name_1, node_name_2,depth
             print("WARNING: No connection between nodes " + str(pred_list_max[0]) + " and " + str(max_depth_bus) + ".")
             return 0
         else:
-            imp_dict = impedance.Z if isinstance(impedance, setup_nx.line) else np.zeros((3,3))
+            imp_dict = impedance.Z if isinstance(impedance, line) else np.zeros((3,3))
             
-            total_impedance['Phase 1'] += imp_dict[0][0]
-            total_impedance['Phase 2'] += imp_dict[1][1]
-            total_impedance['Phase 3'] += imp_dict[2][2]
+            total_impedance += imp_dict
             
             #Case of where we the two buses are directly linked by purely upstream connections, allowing us to
             #terminate our calculations earlier
@@ -131,10 +128,8 @@ def get_total_impedance_between_two_buses(feeder, node_name_1, node_name_2,depth
         else:
             imp_dict_min = impedance_bus_min.Z if isinstance(impedance_bus_min, line) else np.zeros((3,3))
             
-            total_impedance['Phase 1'] += imp_dict_min[0][0]
-            total_impedance['Phase 2'] += imp_dict_min[1][1]
-            total_impedance['Phase 3'] += imp_dict_min[2][2]
-            
+            total_impedance += imp_dict_min
+        
             min_depth_bus = pred_list_min[0]
             pred_list_min = list(feeder.network.predecessors(min_depth_bus))
             
@@ -145,10 +140,8 @@ def get_total_impedance_between_two_buses(feeder, node_name_1, node_name_2,depth
         else:
             imp_dict_max = impedance_bus_max.Z if isinstance(impedance_bus_max, line) else np.zeros((3,3))
             
-            total_impedance['Phase 1'] += imp_dict_max[0][0]
-            total_impedance['Phase 2'] += imp_dict_max[1][1]
-            total_impedance['Phase 3'] += imp_dict_max[2][2]
-            
+            total_impedance += imp_dict_max
+        
             max_depth_bus = pred_list_max[0]
             pred_list_max = list(feeder.network.predecessors(max_depth_bus))
             
@@ -165,10 +158,8 @@ def get_total_impedance_between_two_buses(feeder, node_name_1, node_name_2,depth
     else:
         imp_dict_min = impedance_bus_min.Z if isinstance(impedance_bus_min, line) else np.zeros((3,3))
 
-        total_impedance['Phase 1'] += imp_dict_min[0][0]
-        total_impedance['Phase 2'] += imp_dict_min[1][1]
-        total_impedance['Phase 3'] += imp_dict_min[2][2]
-
+        total_impedance += imp_dict_min
+    
     impedance_bus_max = feeder.network.get_edge_data(pred_list_max[0], max_depth_bus, default=None)['connector']
     if impedance_bus_max == None:
         print("WARNING: No connection between nodes " + str(pred_list_max[0]) + " and " + str(max_depth_bus) + ".")
@@ -176,20 +167,17 @@ def get_total_impedance_between_two_buses(feeder, node_name_1, node_name_2,depth
     else:
         imp_dict_max = impedance_bus_max.Z if isinstance(impedance_bus_max, line) else np.zeros((3,3))
 
-        total_impedance['Phase 1'] += imp_dict_max[0][0]
-        total_impedance['Phase 2'] += imp_dict_max[1][1]
-        total_impedance['Phase 3'] += imp_dict_max[2][2]
+        total_impedance += imp_dict_max
         
     return total_impedance
     
 #Returns the X/R ratio from a node up to the substation       
-def get_XR_ratio(feeder, node_name,depths):
-    impedances_per_phase = get_total_impedance_from_substation(feeder, node_name,depths)
-    print(impedances_per_phase)
-    p1_z = impedances_per_phase['Phase 1']
-    p2_z = impedances_per_phase['Phase 2']
-    p3_z = impedances_per_phase['Phase 3']
-
+def get_XR_ratio(feeder, node_name, depths):
+    impedances_per_phase = get_total_impedance_from_substation(feeder, node_name)
+    
+    p1_z = impedances_per_phase[0][0]
+    p2_z = impedances_per_phase[1][1]
+    p3_z = impedances_per_phase[2][2]
     p1_xr = np.imag(p1_z) / np.real(p1_z) 
     p2_xr = np.imag(p1_z) / np.real(p2_z)
     p3_xr = np.imag(p1_z) / np.real(p3_z)
