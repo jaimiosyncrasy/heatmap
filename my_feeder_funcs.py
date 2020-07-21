@@ -82,6 +82,21 @@ def nx_plot(feeder):
 def make_graph(feeder, file_name):
     #file_name = string specifying name of dot file created when make_graph() is called
     #feeder = initialized feeder object from feeder_init()
-    nx.nx_pydot.write_dot(feeder.network, file_name)
+    #for node in feeder.network.nodes:
+        #feeder.network.nodes[node]['shape'] = 'point'
+    graph = feeder.network
+    nodes = graph.nodes
+    edges = graph.edges
+    graph.size = .1
+    for n in nodes:
+        graph.nodes[n]['fontsize'] = 8
+        graph.nodes[n]['shape'] = 'point'
+        graph.nodes[n]['xlabel'] = n[4:]
+        
+    for e in edges:
+        graph.edges[e]['arrowhead'] = 'none'
+        graph.edges[e]['color'] = 'grey'
+    
+    nx.nx_pydot.write_dot(graph, file_name)
     render('dot', 'png', file_name)  
     return
