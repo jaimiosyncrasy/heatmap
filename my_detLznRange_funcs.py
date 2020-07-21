@@ -341,7 +341,6 @@ def computePQsweep_losses(feeder, act_locs, P_lb_results, P_ub_results, Q_lb_res
     PQ_bounds = [Psweep_lb, Psweep_ub, Qsweep_lb, Qsweep_ub]
     return PQ_bounds
 
-# Solve fwd-bwd sweep single phase
 def solveFwdBwdSweep_2bus(R12, X12, V1, P2, Q2):
     # Initialization
     #print('~~~~~~~ Starting FBS Method for Solving PF')
@@ -416,92 +415,6 @@ def solveFwdBwdSweep_2bus(R12, X12, V1, P2, Q2):
     del2 = np.degrees(cmath.phase(Vsoln[1]))
 
     return V2, del2 # end of solve PF on 2-bus
-
-# Solve fwd-bwd sweep 3-phase
-def solveFwdBwdSweep_2bus_3ph(R12, X12, Vs, P2, Q2):
-    # Initialization
-    print('~~~~~~~ Starting FBS Method for Solving PF')
-
-    # Givens: z12, V1, P2, Q2
-    S2=P2+Q2*1j # per unit
-    z12 = R12+X12*1j  # per unit
-    Vs=np.transpose(Vs) # make 1x3 vector, Vs is per unit
-
-    # Init Cond
-    V1,V2,Vconv=(np.empty((0,3)) for i in range(3))
-    Vnom = Vs  # to check convergence
-    
-    tol = 0.0001
-    k = 0
-    V1=np.append(V1,np.zeros((1,3)),axis=0)
-    V2=np.append(V2,np.zeros((1,3)),axis=0)
-    Vconv=np.append(Vconv,np.zeros((2,3)),axis=0)
-
-   #  '''First Iteration'''
-    k += 1
-    
-    # Fwd Sweep
-    V1=np.append(V1,Vs,axis=0) # concatenate along rows
-    V2=np.append(V2,Vs,axis=0)
-
-     # Check convergence:
-    a=np.array(np.divide(abs((abs(V1[k]) - abs(V1[k - 1]))),Vnom))
-    b=np.array(np.divide(abs((abs(V2[k]) - abs(V2[k - 1]))),Vnom))
-    c=np.concatenate((a, b), axis=0)
-    Vconv=np.append(Vconv,c,axis=0)
-                   
-     # Backward sweep
-    I12 = np.conj(np.divide(np.transpose(S2),V2[k]))
-    #print('I12=',I12)
-    #print(np.concatenate((Vconv[2*k], Vconv[2*k+1])))
-    
-    '''Iterative Part'''
-    
-    while any(node >= tol for node in np.concatenate((Vconv[2*k], Vconv[2*k+1]))):  # break when all nodes less than tol
-        k += 1  # new iteration
-         # Fwd sweep
-        V1=np.append(V1,[V1[k-1]],axis=0)# same as prev iter ZERO?
-        V2=np.append(V2,Vs - np.dot(I12,z12),axis=0)
-        #print('V1=',V1)
-        #print('V2=',V2)
-
-        # LEFTOFF here
-#         # Check convergence:
-        a=np.array(np.divide(abs((abs(V1[k]) - abs(V1[k - 1]))),Vnom))
-        b=np.array(np.divide(abs((abs(V2[k]) - abs(V2[k - 1]))),Vnom))
-        c=np.concatenate((a, b), axis=0)
-        Vconv=np.append(Vconv,c,axis=0)
-
-        #print('Vconv=',Vconv) # uncomment when debugging
-    
-         # Backward sweep
-        I12 = np.conj(np.divide(np.transpose(S2),V2[k]))
-
-        if len(Vconv) > 30:
-            print('Didnt converge')
-        break  # break out of loop of iter too many times
-
-    '''Output Results'''
-    print('~~~~~~~ PF Results: ')
-    V1soln=V1[-1]
-    V2soln=V2[-1]
-    convergedIfZero = Vconv[-1]
-    print('convergedIfZero=',convergedIfZero)
-    numIter = len(Vconv) - 1  # -1 because Vconv initialized at zero
-    print('num iterations=',numIter)
-    print('~~~~~~~ Finished FBS Method for Solving PF')
-
-    '''Polar to rect conversion for testing/probing'''
-    mag = [[abs(ele) for ele in V2soln]]
-    ang = [[np.degrees(cmath.phase(ele)) for ele in V2soln]]
-    Vsoln_polarCoor = [mag, ang]  # Vpu, deg
-    #print('V2mag mag (Vpu):',Vsoln_polarCoor[0])
-    #print('V2ang ang (degrees):', Vsoln_polarCoor[1])
-
-    V2=np.transpose(mag)
-    del2=np.transpose(ang)
-    return V2, del2 # Vpu, degrees
-
 
 def makePVcurve(sweep_lb, sweep_ub, Sbase, Vbase, R12, X12, V1):
     numPts = 20
