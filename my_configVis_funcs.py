@@ -326,23 +326,22 @@ def phaseCouplingPerNode(feeder,depths):
     return coupling_ratios
 
 
-def createColorMap(feeder, values_dic):
+def createColorMap(feeder, coupling_ratios):
     graph = feeder.network
     
-    for node, val in values_dic.items():
-        if isinstance(val, complex):
-            color_num = (val.imag**2 + val.real**2)**(1/2)
-        else:
-            color_num = val
+    for node, ratio in coupling_ratios.items():
+        ratio_mag = (ratio.imag**2 + ratio.real**2)**(1/2)
         
-        if color_num == 0:
+        if ratio_mag == 0:
             graph.nodes[node]['style'] = 'filled'
-            graph.nodes[node]['fillcolor'] = '.6, .6, .8'    
-        elif color_num >= 1:
+            graph.nodes[node]['fillcolor'] = '.6, .6, .8'
+            
+        elif ratio_mag >= 1:
             graph.nodes[node]['style'] = 'filled'
-            graph.nodes[node]['fillcolor'] = 'white'    
+            graph.nodes[node]['fillcolor'] = 'white'
+            
         else:
             graph.nodes[node]['style'] = 'filled'
-            graph.nodes[node]['fillcolor'] = '.5, .6,' + str(color_num)
+            graph.nodes[node]['fillcolor'] = '.5, .6,' + str(ratio_mag)
         
     nx.nx_pydot.write_dot(graph, 'colorMap')
