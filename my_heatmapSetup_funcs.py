@@ -175,10 +175,13 @@ def updateStateSpace(n, act_locs, perf_nodes, node_index_map):
     #act_locs = list of actuators locations in network (list of strings)
     #perf_node = performance node as string
     #node_index_map = dictionary of node indices for indicMat and F matrix
-    indicMat = np.zeros((2*n,2*n))
-    perf_index = node_index_map[perf_nodes]
-    for act in act_locs: 
+    indicMat = np.zeros((6*n,6*n))
+    
+    for i in range(len(act_locs)): 
+        act = act_locs[i]
+        perf = perf_nodes[i]
         act_index = node_index_map[act]
+        perf_index = node_index_map[perf]
         indicMat[act_index][perf_index] = 1
         indicMat[act_index+n][perf_index+n] = 1
     return indicMat
