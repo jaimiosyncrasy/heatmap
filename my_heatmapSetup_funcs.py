@@ -142,7 +142,7 @@ def setupStateSpace(n, feeder, node_index_map,depths):
     #feeder = initiaized feeder object
     #node_index_map = dictionary of node indices with node names as keys
     A = np.identity(6*n)
-    R, X = createRXmatrices(feeder, node_index_map,depths)
+    R, X = createRXmatrices_3ph(feeder, node_index_map,depths)
     concat_XR = np.concatenate((X, R), axis = 1)
     concat_XR_halfs = np.concatenate(((-1/2) * R, (1/2) * X), axis = 1)
     B = np.concatenate((concat_XR, concat_XR_halfs))
@@ -223,7 +223,7 @@ def eval_config(feeder, all_act_locs, perf_nodes, node_index_map, depths):
     return feas, maxError
 
 
-def runHeatMapProcess(feeder, all_act_locs, perf_nodes, node_index_map,depths):
+def runHeatMapProcess(feeder, all_act_locs, perf_nodes, node_index_map,depths, file_name):
     #all_act_locs and perf_nodes = lists of node names as strings
     a = 0
     graph = feeder.network
@@ -244,8 +244,8 @@ def runHeatMapProcess(feeder, all_act_locs, perf_nodes, node_index_map,depths):
                 test_nodes.append(node)
     
         for test in test_nodes: #inner loop
-            indicMat = updateStateSpace(n, [test]+cur_act_locs, perf_nodes, node_index_map)
-            feas, maxError = computeFeas_v2(feeder, [test]+cur_act_locs, perf_nodes, A, B, indicMat)
+            indicMat = updateStateSpace(n, [test]+cur_act_locs, [test]+perf_nodes, node_index_map)
+            feas, maxError = computeFeas_v2(feeder, [test]+cur_act_locs, [test]+perf_nodes, A, B, indicMat)
             lzn_error_dic[test] = maxError
             markFeas(feas, test, graph)
             if feas:

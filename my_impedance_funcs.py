@@ -28,7 +28,7 @@ def get_total_impedance_from_substation(feeder, node_name, depths):
     node_name_full = node_name
 
     #Notice that since this is a tree, any node will only have at most one predecessor
-    total_impedance = np.zeros((3,3))
+    total_impedance = np.zeros((3,3), dtype = complex)
     
     current_node = node_name_full
     pred_list = None
@@ -49,7 +49,7 @@ def get_total_impedance_from_substation(feeder, node_name, depths):
             print("WARNING: No connection between nodes " + str(pred_list[0]) + " and " + str(current_node) + ".")
             return 0
         else:
-            imp_dict = impedance.Z if isinstance(impedance, setup_nx.line) else np.zeros((3,3))
+            imp_dict = impedance.Z if isinstance(impedance, setup_nx.line) else np.zeros((3,3), dtype = complex)
             
             total_impedance += imp_dict
             
@@ -68,7 +68,7 @@ def get_total_impedance_between_two_buses(feeder, node_name_1, node_name_2, dept
     bus_1 = node_name_1
     bus_2 = node_name_2
    
-    total_impedance = np.zeros((3,3))
+    total_impedance = np.zeros((3,3), dtype = complex)
     
     depth_1 = 0
     depth_2 = 0
@@ -95,7 +95,7 @@ def get_total_impedance_between_two_buses(feeder, node_name_1, node_name_2, dept
             print("WARNING: No connection between nodes " + str(pred_list_max[0]) + " and " + str(max_depth_bus) + ".")
             return 0
         else:
-            imp_dict = impedance.Z if isinstance(impedance, setup_nx.line) else np.zeros((3,3))
+            imp_dict = impedance.Z if isinstance(impedance, setup_nx.line) else np.zeros((3,3), dtype = complex)
             
             total_impedance += imp_dict
             
@@ -126,7 +126,7 @@ def get_total_impedance_between_two_buses(feeder, node_name_1, node_name_2, dept
             print("WARNING: No connection between nodes " + str(pred_list_min[0]) + " and " + str(min_depth_bus) + ".")
             return 0
         else:
-            imp_dict_min = impedance_bus_min.Z if isinstance(impedance_bus_min, setup_nx.line) else np.zeros((3,3))
+            imp_dict_min = impedance_bus_min.Z if isinstance(impedance_bus_min, setup_nx.line) else np.zeros((3,3), dtype = complex)
             
             total_impedance += imp_dict_min
         
@@ -138,7 +138,7 @@ def get_total_impedance_between_two_buses(feeder, node_name_1, node_name_2, dept
             print("WARNING: No connection between nodes " + str(pred_list_max[0]) + " and " + str(max_depth_bus) + ".")
             return 0
         else:
-            imp_dict_max = impedance_bus_max.Z if isinstance(impedance_bus_max, setup_nx.line) else np.zeros((3,3))
+            imp_dict_max = impedance_bus_max.Z if isinstance(impedance_bus_max, setup_nx.line) else np.zeros((3,3), dtype = complex)
             
             total_impedance += imp_dict_max
         
@@ -156,7 +156,7 @@ def get_total_impedance_between_two_buses(feeder, node_name_1, node_name_2, dept
         print("WARNING: No connection between nodes " + str(pred_list_min[0]) + " and " + str(min_depth_bus) + ".")
         return 0
     else:
-        imp_dict_min = impedance_bus_min.Z if isinstance(impedance_bus_min, setup_nx.line) else np.zeros((3,3))
+        imp_dict_min = impedance_bus_min.Z if isinstance(impedance_bus_min, setup_nx.line) else np.zeros((3,3), dtype = complex)
 
         total_impedance += imp_dict_min
     
@@ -165,7 +165,7 @@ def get_total_impedance_between_two_buses(feeder, node_name_1, node_name_2, dept
         print("WARNING: No connection between nodes " + str(pred_list_max[0]) + " and " + str(max_depth_bus) + ".")
         return 0
     else:
-        imp_dict_max = impedance_bus_max.Z if isinstance(impedance_bus_max, setup_nx.line) else np.zeros((3,3))
+        imp_dict_max = impedance_bus_max.Z if isinstance(impedance_bus_max, setup_nx.line) else np.zeros((3,3), dtype = complex)
 
         total_impedance += imp_dict_max
         
@@ -173,7 +173,7 @@ def get_total_impedance_between_two_buses(feeder, node_name_1, node_name_2, dept
     
 #Returns the X/R ratio from a node up to the substation       
 def get_XR_ratio(feeder, node_name, depths):
-    impedances_per_phase = get_total_impedance_from_substation(feeder, node_name)
+    impedances_per_phase = get_total_impedance_from_substation(feeder, node_name, depths)
     
     p1_z = impedances_per_phase[0][0]
     p2_z = impedances_per_phase[1][1]
