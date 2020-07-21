@@ -75,13 +75,36 @@ def computeFParamSpace_v2(feeder, act_locs, perf_nodes,R,X,depths,node_index_Map
         Zgood=R[act_idx:(act_idx+3),perf_idx:(perf_idx+3)]+X[act_idx:(act_idx+3),perf_idx:(perf_idx+3)]*1j # 3x3 matrix
         #Zgood=R[act_idx:(act_idx+3),perf_idx:(perf_idx+3)]
         print('Zgood=\n',Zgood)
-        D=imp.get_total_impedance_from_substation(feeder,act,depths)
-        print(D)
-        mylist=list(D.values())
-        print(mylist)
-        #Zbad1=imp.get_total_impedance_from_substation(feeder,act,depths) - Zgood
-        #Zbad2=imp.get_total_impedance_between_two_buses(feeder,act,perf,depths) - Zbad1
+        
+        Z_toSubst=imp.get_total_impedance_from_substation(feeder,act,depths)
+        Z_actperf=imp.get_total_impedance_between_two_buses(feeder,act,perf,depths)
+        
+        # until this func returns 3x3 array...
+#         Z_toSubst=np.zeros([3,3],dtype=complex)
+#         D=imp.get_total_impedance_from_substation(feeder,act,depths)
+#         mylist=list(D.values())
+#         print(mylist[0])
+#         print(Z_toSubst)
+#         Z_toSubst[0,0]=mylist[0]
+#         Z_toSubst[1,1]=mylist[1]
+#         Z_toSubst[2,2]=mylist[2]
+#         np.zeros((5,), dtype=int)
 
+#         Z_actperf=np.zeros([3,3],dtype=complex)
+#         D=imp.get_total_impedance_between_two_buses(feeder,act,perf,depths)
+#         mylist=list(D.values())
+#         Z_actperf[0,0]=mylist[0]
+#         Z_actperf[1,1]=mylist[1]
+#         Z_actperf[2,2]=mylist[2]
+        
+        #Zgood and Z_tosubts should have same value, but they dont...
+        
+        print('Z to subst=',Z_toSubst)
+        Zbad1=np.subtract(Z_toSubst,Zgood) # >=0
+        Zbad2=np.subtract(Z_actperf,Zbad1) # >=0
+        #Zbad2=imp.get_total_impedance_between_two_buses(feeder,act,perf,depths) - Zbad1
+        print('Zbad1=',Zbad1)
+        print('Zbad2=',Zbad2)
 #         der1=1-np.divide(c[1]*Zbad1,Zgood+Zbad1) # derating for actuator not colocated
 #         der2=1-np.divide(c[2]*Zbad2,Zgood+Zbad2) # derating for perf node not on samepath to substation as act
 #         print(der1)

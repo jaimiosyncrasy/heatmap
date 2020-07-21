@@ -171,21 +171,41 @@ def get_total_impedance_between_two_buses(feeder, node_name_1, node_name_2, dept
         
     return total_impedance
     
-#Returns the X/R ratio from a node up to the substation       
-def get_XR_ratio(feeder, node_name, depths):
-    impedances_per_phase = get_total_impedance_from_substation(feeder, node_name, depths)
+#Returns the R/X ratio from a node up to the substation       
+def get_RX_ratio_tosubst(feeder, node_name,depths):
+    impedances_per_phase = get_total_impedance_from_substation(feeder, node_name,depths)
     
+    #p1_z = impedances_per_phase['Phase 1']
+    #p2_z = impedances_per_phase['Phase 2']
+    #p3_z = impedances_per_phase['Phase 3']
     p1_z = impedances_per_phase[0][0]
     p2_z = impedances_per_phase[1][1]
     p3_z = impedances_per_phase[2][2]
-    p1_xr = np.imag(p1_z) / np.real(p1_z) 
-    p2_xr = np.imag(p1_z) / np.real(p2_z)
-    p3_xr = np.imag(p1_z) / np.real(p3_z)
     
-    return {'Phase 1' : p1_xr, 'Phase 2' : p2_xr, 'Phase 3' : p3_xr}
+    p1_rx = np.real(p1_z) / np.imag(p1_z) # R/X ratio
+    p2_rx = np.real(p2_z) / np.imag(p1_z) 
+    p3_rx = np.real(p3_z) / np.imag(p1_z) 
+    
+    return {'Phase 1' : np.around(p1_rx,2), 'Phase 2' : np.around(p2_rx,2), 'Phase 3' : np.around(p3_rx,2)}
 
+#Returns the R/X ratio between 2 nodes      
+def get_RX_ratio_between_two_buses(feeder, node_name_1, node_name_2,depths):
+    impedances_per_phase = get_total_impedance_between_two_buses(feeder, node_name_1, node_name_2,depths)
+    
+    #p1_z = impedances_per_phase['Phase 1']
+    #p2_z = impedances_per_phase['Phase 2']
+    #p3_z = impedances_per_phase['Phase 3']
+    p1_z = impedances_per_phase[0][0]
+    p2_z = impedances_per_phase[1][1]
+    p3_z = impedances_per_phase[2][2]
 
-def plot_histogram_XR_ratios(feeder, leaves,slack_bus,depths,leaves_only=False):
+    p1_rx = np.real(p1_z) / np.imag(p1_z) # R/X ratio
+    p2_rx = np.real(p2_z) / np.imag(p1_z) 
+    p3_rx = np.real(p3_z) / np.imag(p1_z) 
+    
+    return {'Phase 1' : np.around(p1_rx,2), 'Phase 2' : np.around(p2_rx,2), 'Phase 3' : np.around(p3_rx,2)}
+
+def plot_histogram_RX_ratios(feeder, leaves,slack_bus,depths,leaves_only=False):
     nodes_to_use = leaves if leaves_only else list(feeder.network.nodes)
     
     #PL0001 Case
@@ -203,31 +223,31 @@ def plot_histogram_XR_ratios(feeder, leaves,slack_bus,depths,leaves_only=False):
     
     nodes_to_use = [nd for nd in nodes_to_use if nd not in lst_remove]
     
-    XR_ratios_all = [get_XR_ratio(feeder, node_name,depths) for node_name in nodes_to_use]
+    RX_ratios_all = [get_RX_ratio_tosubst(feeder, node_name,depths) for node_name in nodes_to_use]
     
-    phase_1_XR_ratios = [phase_dct['Phase 1'] for phase_dct in XR_ratios_all]
-    phase_2_XR_ratios = [phase_dct['Phase 2'] for phase_dct in XR_ratios_all]
-    phase_3_XR_ratios = [phase_dct['Phase 3'] for phase_dct in XR_ratios_all]
+    phase_1_RX_ratios = [phase_dct['Phase 1'] for phase_dct in RX_ratios_all]
+    phase_2_RX_ratios = [phase_dct['Phase 2'] for phase_dct in RX_ratios_all]
+    phase_3_RX_ratios = [phase_dct['Phase 3'] for phase_dct in RX_ratios_all]
     
-    plt.title("Phase 1 X/R Ratio Histogram")
-    plt.xlabel("X/R Ratio")
+    plt.title("Phase 1 R/X Ratio Histogram")
+    plt.xlabel("R/X Ratio")
     plt.ylabel("Number of Nodes")
-    plt.hist(phase_1_XR_ratios, bins=20)
-    #plt.savefig('AL0001_XRhist_phA.png') # modify for each feeder
+    plt.hist(phase_1_RX_ratios, bins=20)
+    plt.savefig('AL0001_RXhist_phA.png') # modify for each feeder
     plt.show() # need to savefig before plt.show
 
-    plt.title("Phase 2 X/R Ratio Histogram")
-    plt.xlabel("X/R Ratio")
+    plt.title("Phase 2 R/X Ratio Histogram")
+    plt.xlabel("R/X Ratio")
     plt.ylabel("Number of Nodes")
-    plt.hist(phase_2_XR_ratios, bins=20)
-    #plt.savefig('AL0001_XRhist_phB.png') # modify for each feeder
+    plt.hist(phase_2_RX_ratios, bins=20)
+    plt.savefig('AL0001_RXhist_phB.png') # modify for each feeder
     plt.show()
     
-    plt.title("Phase 3 X/R Ratio Histogram")
-    plt.xlabel("X/R Ratio")
+    plt.title("Phase 3 R/X Ratio Histogram")
+    plt.xlabel("R/X Ratio")
     plt.ylabel("Number of Nodes")
-    plt.hist(phase_3_XR_ratios, bins=20)
-    #plt.savefig('AL0001_XRhist_phC.png') # modify for each feeder
+    plt.hist(phase_3_RX_ratios, bins=20)
+    plt.savefig('AL0001_RXhist_phC.png') # modify for each feeder
     plt.show()
     
     return None
