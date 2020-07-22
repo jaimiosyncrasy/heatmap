@@ -99,4 +99,13 @@ def make_graph(feeder, file_name):
     
     nx.nx_pydot.write_dot(graph, file_name)
     render('dot', 'png', file_name)  
+    nx.draw_planar(graph,with_labels = True, alpha=0.8) #NEW FUNCTION
+    #nx.draw_circular(graph,with_labels = True, alpha=0.8) #NEW FUNCTION
+    #nx.draw_shell(graph,with_labels = True, alpha=0.8) #NEW FUNCTION
+    #nx.draw_kamada_kawai(graph,with_labels = True, alpha=0.8) #NEW FUNCTION
+    #nx.draw_spectral(graph,with_labels = True, alpha=0.8) #NEW FUNCTION
+    #nx.draw_spring(graph,with_labels = True, alpha=0.8) #NEW FUNCTION
     return
+
+# see reference for layouts: https://networkx.github.io/documentation/stable/reference/drawing.html
+# see img: https://i.stack.imgur.com/3ZRVT.png
