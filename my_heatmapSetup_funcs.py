@@ -104,12 +104,11 @@ def createRXmatrices_3ph(feeder, node_index_map,depths):
                 impedance = feeder.network.get_edge_data(edge[1], edge[0], default=None)['connector']
                 tot_edge_impedance = impedance.Z if isinstance(impedance, setup_nx.line) else np.zeros((3,3)) 
                 imped_sum += tot_edge_impedance
-            
-            for i_row in range(3):
-                
+            #print('impedance.Z=',impedance.Z)
+            for i_row in range(3):    
                 for i_col in range(3):
-                    R[i_row * index_outer][i_col * index_inner] = 2 * imped_sum[i_row][i_col].real
-                    X[i_row * index_outer][i_col * index_inner] = 2 * imped_sum[i_row][i_col].imag
+                    R[(3 * index_outer) + i_row][(3 * index_inner) + i_col] = 2 * imped_sum[i_row][i_col].real
+                    X[(3 * index_outer) + i_row][(3 * index_inner) + i_col] = 2 * imped_sum[i_row][i_col].imag
             
     return R, X
 
@@ -224,6 +223,10 @@ def eval_config(feeder, all_act_locs, perf_nodes, node_index_map, depths):
 
 
 def runHeatMapProcess(feeder, all_act_locs, perf_nodes, node_index_map,depths, file_name):
+    # On empty network, compute heatmap (assess feas and lzn error on every node of the feeder, color each red/green on diagram)
+    # Then for each act-perf node pair, compute heatmap
+    # return list of all "green" configs and the associated lzn errors
+    
     #all_act_locs and perf_nodes = lists of node names as strings
     a = 0
     graph = feeder.network
@@ -233,7 +236,7 @@ def runHeatMapProcess(feeder, all_act_locs, perf_nodes, node_index_map,depths, f
     lzn_error_run_sum = 0
     lst_feas_configs = []
     
-    while a <= len(all_act_locs): #outer loop
+    while a <= len(all_act_locs): #outer loop, a=number of actuators
         for act in cur_act_locs: 
             markActLoc(graph, act)
             
