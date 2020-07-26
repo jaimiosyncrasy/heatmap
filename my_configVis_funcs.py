@@ -23,6 +23,7 @@ import my_heatmapSetup_funcs as hm
 
 
 def markActuatorConfig(lst_act_locs, feeder, file_name):
+    # creates diagram of actuator-configuration (though leaves out performance nodes)
     # lst_act_locs = list of node names where actuators are placed
     # feeder = initialized feeder object
     # file_name = string that will be used as the file name of the returned network graph
@@ -36,7 +37,7 @@ def markActuatorConfig(lst_act_locs, feeder, file_name):
     render('dot', 'png', file_name)
     return
 
-    
+
 def markCommonFeasNodes(lst_feas_configs, feeder):
     # input a list of feasible actuator configurations where each configuration is its own list (ie a list of lists)
     # for actuator locations that appear in every configuration, mark node blue

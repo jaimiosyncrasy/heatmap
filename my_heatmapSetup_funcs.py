@@ -142,6 +142,7 @@ def setupStateSpace(n, feeder, node_index_map,depths):
     #node_index_map = dictionary of node indices with node names as keys
     A = np.identity(6*n)
     R, X = createRXmatrices_3ph(feeder, node_index_map,depths)
+    print('R=',R)
     concat_XR = np.concatenate((X, R), axis = 1)
     concat_XR_halfs = np.concatenate(((-1/2) * R, (1/2) * X), axis = 1)
     B = np.concatenate((concat_XR, concat_XR_halfs))
@@ -155,7 +156,8 @@ def computeFeas_v1(feeder, perf_nodes, A, B, indicMat,substation_name,depths):
     MYfeas,MYfeasFs,MYnumfeas,MYnumTried,MYnumact = ctrl.detControlMatExistence(A, B, indicMat)
     #maxLznError = lzn.detLznRange(feeder, Vbase_ll, Sbase, z12, act_locs)
     #return matExist, maxLznError
-    return MYfeas
+    MYmaxerror=-1 # temporary
+    return MYfeas,MYmaxerror
 
 # workaround version
 def computeFeas_v2(feeder, act_locs, perf_nodes, A, B, indicMat):
@@ -183,8 +185,21 @@ def updateStateSpace(n, act_locs, perf_nodes, node_index_map):
         perf_index = node_index_map[perf]
         indicMat[act_index][perf_index] = 1
         indicMat[act_index+n][perf_index+n] = 1
+        
+        for i_row in range(3):    
+            for i_col in range(3):
+                indicMat[act_index*3+i_row][perf_index*3+i_col] = 1
+                indicMat[act_index*3+3*n+i_row][perf_index*3+3*n+i_col] = 1     
     return indicMat
     
+#     for i in range(len(act_locs)): 
+#         act = act_locs[i]
+#         perf = perf_nodes[i]
+#         act_index = node_index_map[act]
+#         perf_index = node_index_map[perf]
+#         indicMat[act_index][perf_index] = 1
+#         indicMat[act_index+n][perf_index+n] = 1
+#     return indicMat
     
 def markActLoc(graph, act_loc):
     #changes color of nodes with set actuators to turquoise
@@ -208,14 +223,15 @@ def markFeas(feas, test_act_loc, graph):
         graph.nodes[test_act_loc]['fillcolor'] = 'red'
     return
 
-def eval_config(feeder, all_act_locs, perf_nodes, node_index_map,substation_name,depths):
+def eval_config(feeder, all_act_locs, perf_nodes, node_index_map,substation_name,depths,file_name):
     #all_act_locs and perf_nodes = lists of node names as strings
     graph = feeder.network
     n = len(graph.nodes) #number of nodes in network
     A, B = setupStateSpace(n, feeder, node_index_map,depths)
+    print('B=',B)
     indicMat = updateStateSpace(n, all_act_locs, perf_nodes, node_index_map)
     feas, maxError = computeFeas_v1(feeder, perf_nodes, A, B, indicMat,substation_name,depths)
-    markFeas(feas, test, graph)
+    vis.markActuatorConfig(all_act_locs, feeder, file_name) # create diagram with actuator locs marked
     
     print('Actuator configuration is feasible') if feas else print('Actuator configuration is not feasible')
     return feas, maxError

@@ -70,7 +70,7 @@ def computeFParamSpace_v2(feeder, act_locs, perf_nodes,R,X,depths,node_index_Map
         # indexing  a[start:stop] --> items start through stop-1
         
         Zgood=np.empty((3,3))
-        Zgood=(R[act_idx:(act_idx+3),perf_idx:(perf_idx+3)])/2+(X[act_idx:(act_idx+3),perf_idx:(perf_idx+3)]/2)*1j # 3x3 matrix        
+        Zgood=(R[act_idx*3:(act_idx*3+3),perf_idx*3:(perf_idx*3+3)])/2+(X[act_idx*3:(act_idx*3+3),perf_idx*3:(perf_idx*3+3)])/2*1j # 3x3 matrix        
         Z_toSubst=imp.get_total_impedance_from_substation(feeder,act,depths)
         Z_actperf=imp.get_total_impedance_between_two_buses(feeder,act,perf,depths)
         
