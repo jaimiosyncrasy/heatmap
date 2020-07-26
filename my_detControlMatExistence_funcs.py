@@ -37,7 +37,7 @@ def assignF(Fp,Fq,indicMat):
     lower=np.concatenate((np.zeros((3*n,3*n)),Hblock2),axis=1)
     F=np.concatenate((upper,lower))
     
-    print(F)
+    #print(F)
     #print("Size of F=",F.shape)
     return F
 
@@ -132,14 +132,13 @@ def detControlMatExistence(A, B, indicMat):
 # Compute good (Fp,Fq) sample space
     # Fq_lb,Fp_lb=computeFParamSpace_v1(feeder, act_locs, perf_nodes)
     # NOTE: need modify detControlMatExistence input params to pass stuff into computeFparamSpace
-    
     #Fq_range=np.arange(-2, 4, 0.2).tolist()
     #Fp_range=np.arange(-0.1, 0.1, 0.015).tolist()
     numSamp=10
     #Fq_range=np.arange(-Fq_lb, Fq_lb, 2*Fq_lb/numSamp).tolist()
     #Fp_range=np.arange(-Fp_lb,Fp_lb, 2*Fp_lb/numSamp).tolist()
-    Fq_range=np.arange(-1, 1, 0.5).tolist()
-    Fp_range=np.arange(-2, 2, 0.5).tolist()
+    Fq_range=np.arange(0, 0.5, 0.1).tolist() # manually chosen
+    Fp_range=np.arange(0, 0.3, 0.05).tolist()
     
 # Initialize arrays, will be populated in loops
     feas=False # boolean
@@ -156,10 +155,24 @@ def detControlMatExistence(A, B, indicMat):
                 CLmat=A-np.dot(B,F) # CLmat=A-BF
                 eigs,evecs=LA.eig(CLmat) # closed loop eigenvalues
                 eigMags=np.absolute(eigs)
+
               #  if all(np.absolute(eigs)<=np.ones(6*n,1)):
                 if all(np.around(eigMags,decimals=6)<=1): 
-                    feas=True
-                    feasFs=np.append(feasFs,[[Fp, Fq]],axis=0)
+                    # require that all evals=1 have null space full of base
+                    # evecs (no generalized evecs)
+                    tol=0.0001
+                    eval=1
+                    num1evals=sum(np.absolute(np.absolute(eigs)-1)<tol) # numel(find(abs(abs(eigs)-1)<tol))   
+                    print('num1evals=',num1evals)
+                    Y = LA.null_space(CLmat-eval*np.eye(len(CLmat))) #null(CLmat-eval*eye(size(CLmat,1))); % Y is orthonorm basis matrix
+                    #print(Y)   
+                    dimNull=len(Y[0]) # number of cols
+                    print('dimNull=',dimNull)
+                    print(dimNull==num1evals)
+
+                    if dimNull==num1evals:                    
+                        feas=True
+                        feasFs=np.append(feasFs,[[Fp, Fq]],axis=0)
                 val=np.sum(eigMags[np.where(eigMags > 1)])
                 myCosts=np.append(myCosts,[[val]],axis=0) # temp
                 myFbases=np.append(myFbases,[[Fp, Fq]],axis=0)

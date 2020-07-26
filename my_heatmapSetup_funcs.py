@@ -208,14 +208,13 @@ def markFeas(feas, test_act_loc, graph):
         graph.nodes[test_act_loc]['fillcolor'] = 'red'
     return
 
-def eval_config(feeder, all_act_locs, perf_nodes, node_index_map, depths):
+def eval_config(feeder, all_act_locs, perf_nodes, node_index_map,substation_name,depths):
     #all_act_locs and perf_nodes = lists of node names as strings
     graph = feeder.network
     n = len(graph.nodes) #number of nodes in network
-    A, B = setupStateSpace(n, feeder, node_index_map)
-    
+    A, B = setupStateSpace(n, feeder, node_index_map,depths)
     indicMat = updateStateSpace(n, all_act_locs, perf_nodes, node_index_map)
-    feas, maxError = computeFeas(feeder, all_act_locs, perf_nodes, A, B, indicMat)
+    feas, maxError = computeFeas_v1(feeder, perf_nodes, A, B, indicMat,substation_name,depths)
     markFeas(feas, test, graph)
     
     print('Actuator configuration is feasible') if feas else print('Actuator configuration is not feasible')
