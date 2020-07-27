@@ -669,7 +669,7 @@ def makePVcurve_3ph(sweep_lb, sweep_ub, Sbase, Vbase, R12, X12, V1):
     plt.title('True P-Del and Linearization Curves: Phase C')
     plt.legend()
    
-    plt.savefig('True_PV/P-Del_Curve_and_Linearization_Curve.png')
+    plt.savefig('True_PV_P-Del_Curve_and_Linearization_Curve.png')
     
     solns['trueV2'] = trueV2
     solns['trueDel2'] = trueDel2 
@@ -751,7 +751,7 @@ def makeQVcurve_3ph(Sweep_lb, Sweep_ub, Sbase, Vbase, R12, X12, V1):
     plt.title('True Q-Del and Linearization Curves: Phase C')
     plt.legend()
     
-    plt.savefig('True_QV/Q-Del_Curve_and_Linearization_Curve.png')
+    plt.savefig('True_QV_Q-Del_Curve_and_Linearization_Curve.png')
     
     solns['trueV2'] = trueV2
     solns['trueDel2'] = trueDel2 
