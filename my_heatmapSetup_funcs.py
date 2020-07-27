@@ -142,7 +142,6 @@ def setupStateSpace(n, feeder, node_index_map,depths):
     #node_index_map = dictionary of node indices with node names as keys
     A = np.identity(6*n)
     R, X = createRXmatrices_3ph(feeder, node_index_map,depths)
-    print('R=',R)
     concat_XR = np.concatenate((X, R), axis = 1)
     concat_XR_halfs = np.concatenate(((-1/2) * R, (1/2) * X), axis = 1)
     B = np.concatenate((concat_XR, concat_XR_halfs))
@@ -150,10 +149,13 @@ def setupStateSpace(n, feeder, node_index_map,depths):
 
 
 # correct version
-def computeFeas_v1(feeder, perf_nodes, A, B, indicMat,substation_name,depths):
+def computeFeas_v1(feeder, act_locs, A, B, indicMat,substation_name,depths):
     node_1 = list(feeder.network.successors(substation_name))
     z12 = imp.get_total_impedance_from_substation(feeder, node_1[0],depths) # 3 phase
     MYfeas,MYfeasFs,MYnumfeas,MYnumTried,MYnumact = ctrl.detControlMatExistence(A, B, indicMat)
+    print('num feas=',MYnumfeas)
+    print('num tried=',MYnumTried)
+
     #maxLznError = lzn.detLznRange(feeder, Vbase_ll, Sbase, z12, act_locs)
     #return matExist, maxLznError
     MYmaxerror=-1 # temporary
@@ -183,13 +185,15 @@ def updateStateSpace(n, act_locs, perf_nodes, node_index_map):
         perf = perf_nodes[i]
         act_index = node_index_map[act]
         perf_index = node_index_map[perf]
-        indicMat[act_index][perf_index] = 1
-        indicMat[act_index+n][perf_index+n] = 1
         
-        for i_row in range(3):    
-            for i_col in range(3):
-                indicMat[act_index*3+i_row][perf_index*3+i_col] = 1
-                indicMat[act_index*3+3*n+i_row][perf_index*3+3*n+i_col] = 1     
+ #       for i_row in range(3):    
+ #           for i_col in range(3):
+ #               indicMat[act_index*3+i_row][perf_index*3+i_col] = 1
+ #               indicMat[act_index*3+3*n+i_row][perf_index*3+3*n+i_col] = 1                  
+        for k in range(3):
+            indicMat[act_index*3+k][perf_index*3+k] = 1
+            indicMat[act_index*3+3*n+k][perf_index*3+3*n+k] = 1   
+            
     return indicMat
     
 #     for i in range(len(act_locs)): 
@@ -228,7 +232,6 @@ def eval_config(feeder, all_act_locs, perf_nodes, node_index_map,substation_name
     graph = feeder.network
     n = len(graph.nodes) #number of nodes in network
     A, B = setupStateSpace(n, feeder, node_index_map,depths)
-    print('B=',B)
     indicMat = updateStateSpace(n, all_act_locs, perf_nodes, node_index_map)
     feas, maxError = computeFeas_v1(feeder, perf_nodes, A, B, indicMat,substation_name,depths)
     vis.markActuatorConfig(all_act_locs, feeder, file_name) # create diagram with actuator locs marked
@@ -237,21 +240,21 @@ def eval_config(feeder, all_act_locs, perf_nodes, node_index_map,substation_name
     return feas, maxError
 
 
-def runHeatMapProcess(feeder, all_act_locs, perf_nodes, node_index_map,depths, file_name):
+def runHeatMapProcess(feeder, all_act_locs, perf_nodes, node_index_map,substation_name,depths, file_name):
     # On empty network, compute heatmap (assess feas and lzn error on every node of the feeder, color each red/green on diagram)
     # Then for each act-perf node pair, compute heatmap
     # return list of all "green" configs and the associated lzn errors
-    # all_act_locs and perf_nodes = lists of node names as strings
+    
+    #all_act_locs and perf_nodes = lists of node names as strings
     a = 0
     graph = feeder.network
     cur_act_locs = []
-    cur_perf_nodes = []
     n = len(graph.nodes) #number of nodes in network
-    A, B = setupStateSpace(n, feeder, node_index_map, depths)
+    A, B = setupStateSpace(n, feeder, node_index_map,depths)
     lzn_error_run_sum = 0
-    feas_configs = []
+    lst_feas_configs = []
     
-    while a <= len(all_act_locs): #outer loop, a = number of actuators
+    while a <= len(all_act_locs): #outer loop, a=number of actuators
         for act in cur_act_locs: 
             markActLoc(graph, act)
             
@@ -262,24 +265,21 @@ def runHeatMapProcess(feeder, all_act_locs, perf_nodes, node_index_map,depths, f
                 test_nodes.append(node)
     
         for test in test_nodes: #inner loop
-            indicMat = updateStateSpace(n, [test] + cur_act_locs, [test] + cur_perf_nodes, node_index_map)
-            feas, maxError = computeFeas_v2(feeder, [test] + cur_act_locs, [test] + cur_perf_nodes, A, B, indicMat)
+            indicMat = updateStateSpace(n, [test]+cur_act_locs, [test]+perf_nodes, node_index_map)
+            print('evaluating act at ',[test]+cur_act_locs,', perf at ',[test]+perf_nodes)
+
+            feas, maxError = computeFeas_v1(feeder, [test]+cur_act_locs, A, B, indicMat,substation_name,depths)
             lzn_error_dic[test] = maxError
             markFeas(feas, test, graph)
             if feas:
-                feas_dic = {}
-                feas_dic['act'] = [test] + cur_act_locs
-                feas_dic['perf'] = [test] + cur_perf_nodes
-                feas_dic['lznErr'] = [lzn_error_dic[test]]
-                feas_configs += [feas_dic]
+                lst_feas_configs += [cur_act_locs + [test]]
         
-        nx.nx_pydot.write_dot(graph, 'act_test_' + str(a) + '_' + file_name)
+        nx.nx_pydot.write_dot(graph, 'heat_map_' + str(a) + '_' + file_name)
         render('dot', 'png', 'act_test_' + str(a) + '_' + file_name)
         a += 1
         
         if a <= len(all_act_locs):
             cur_act_locs = all_act_locs[0:a]
-            cur_perf_nodes = perf_nodes[0:a]
             lzn_error_run_sum += lzn_error_dic[cur_act_locs[-1]]
             print('The total max linearization error after '+ str(a) +' actuators have been placed = '+ str(lzn_error_run_sum))
-    return feas_configs, lzn_error_run_sum
+    return lst_feas_configs, lzn_error_run_sum

@@ -22,16 +22,19 @@ import my_detLznRange_funcs as lzn
 import my_heatmapSetup_funcs as hm
 
 
-def assignF(Fp,Fq,indicMat):
+def assignF(Fp,Fq,indicMat): # algo similar to updateStateSpace
     n=int(len(indicMat)/6) # indicMat is 6n x 6n
     
+    # Make indicMat and F have the same sparsity structure, but different nonzero values
     Hblock1=np.zeros((3*n,3*n))   
-    ridx,colidx=np.nonzero(indicMat[0:3*n,0:3*n]) # python indexing goes first to (last-1) 
-    Hblock1[ridx,colidx]=Fq
+    ridx,colidx=np.nonzero(indicMat[0:3*n,0:3*n]) # python indexing goes first to (last-1)          
+    for k in range(len(ridx)):
+            Hblock1[ridx[k]][colidx[k]] = Fq
 
     Hblock2=np.zeros((3*n,3*n))   
     ridx,colidx=np.nonzero(indicMat[0:3*n,0:3*n]) 
-    Hblock2[ridx,colidx]=Fp
+    for k in range(len(ridx)):
+            Hblock2[ridx[k]][colidx[k]] = Fp
   
     upper=np.concatenate((Hblock1, np.zeros((3*n,3*n))),axis=1)
     lower=np.concatenate((np.zeros((3*n,3*n)),Hblock2),axis=1)
@@ -137,8 +140,8 @@ def detControlMatExistence(A, B, indicMat):
     numSamp=10
     #Fq_range=np.arange(-Fq_lb, Fq_lb, 2*Fq_lb/numSamp).tolist()
     #Fp_range=np.arange(-Fp_lb,Fp_lb, 2*Fp_lb/numSamp).tolist()
-    Fq_range=np.arange(0, 0.5, 0.1).tolist() # manually chosen
-    Fp_range=np.arange(0, 0.3, 0.05).tolist()
+    Fq_range=np.arange(0, 3.001, 0.1).tolist() # manually chosen
+    Fp_range=np.arange(0, 0.3001, 0.02).tolist()
     
 # Initialize arrays, will be populated in loops
     feas=False # boolean
@@ -150,28 +153,32 @@ def detControlMatExistence(A, B, indicMat):
     for Fq in Fq_range:
         for Fp in Fp_range:
             if not(Fq==0 or Fp==0): # skip iteration if either zero
-                #print("(Fq,Fp)=",Fq,",",Fp,")")
+                #print("(Fp,Fq)=",Fp,",",Fq,")")
                 F=assignF(Fp,Fq,indicMat)
                 CLmat=A-np.dot(B,F) # CLmat=A-BF
                 eigs,evecs=LA.eig(CLmat) # closed loop eigenvalues
                 eigMags=np.absolute(eigs)
+                
+#                # For debugging
+#                 if (Fp==0.06 and Fq==0.1):
+#                     np.savetxt('F.csv', F, delimiter=',')
 
-              #  if all(np.absolute(eigs)<=np.ones(6*n,1)):
                 if all(np.around(eigMags,decimals=6)<=1): 
                     # require that all evals=1 have null space full of base
                     # evecs (no generalized evecs)
                     tol=0.0001
                     eval=1
-                    num1evals=sum(np.absolute(np.absolute(eigs)-1)<tol) # numel(find(abs(abs(eigs)-1)<tol))   
-                    print('num1evals=',num1evals)
+                    #num1evals=sum(np.absolute(np.absolute(eigs)-1)<tol) # numel(find(abs(abs(eigs)-1)<tol))   
+                    num1evals=sum(np.absolute(eigs)==1) # numel(find(abs(abs(eigs)-1)<tol))   
                     Y = LA.null_space(CLmat-eval*np.eye(len(CLmat))) #null(CLmat-eval*eye(size(CLmat,1))); % Y is orthonorm basis matrix
-                    #print(Y)   
                     dimNull=len(Y[0]) # number of cols
-                    print('dimNull=',dimNull)
-                    print(dimNull==num1evals)
-
+                    
+                    #print('eigs in/on unit circle')
+                    #print('num1evals=',num1evals)
+                    #print('dimNull=',dimNull)
                     if dimNull==num1evals:                    
                         feas=True
+                        #print('Found feas F')
                         feasFs=np.append(feasFs,[[Fp, Fq]],axis=0)
                 val=np.sum(eigMags[np.where(eigMags > 1)])
                 myCosts=np.append(myCosts,[[val]],axis=0) # temp
