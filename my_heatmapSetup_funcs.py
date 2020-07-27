@@ -278,8 +278,9 @@ def runHeatMapProcess(feeder, all_act_locs, perf_nodes, node_index_map,substatio
                 feas_dic['perf'] = [test] + cur_perf_nodes
                 feas_dic['lznErr'] = [lzn_error_dic[test]]
                 feas_configs += [feas_dic]        
+        
         nx.nx_pydot.write_dot(graph, 'heat_map_' + str(a) + '_' + file_name)
-        render('dot', 'png', 'act_test_' + str(a) + '_' + file_name)
+        render('dot', 'png', 'heat_map_' + str(a) + '_' + file_name)
         a += 1
         
         if a <= len(all_act_locs):
