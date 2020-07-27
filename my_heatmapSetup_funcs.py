@@ -249,10 +249,11 @@ def runHeatMapProcess(feeder, all_act_locs, perf_nodes, node_index_map,substatio
     a = 0
     graph = feeder.network
     cur_act_locs = []
+    cur_perf_nodes=[]
     n = len(graph.nodes) #number of nodes in network
     A, B = setupStateSpace(n, feeder, node_index_map,depths)
     lzn_error_run_sum = 0
-    lst_feas_configs = []
+    feas_configs=[]
     
     while a <= len(all_act_locs): #outer loop, a=number of actuators
         for act in cur_act_locs: 
@@ -265,15 +266,18 @@ def runHeatMapProcess(feeder, all_act_locs, perf_nodes, node_index_map,substatio
                 test_nodes.append(node)
     
         for test in test_nodes: #inner loop
-            indicMat = updateStateSpace(n, [test]+cur_act_locs, [test]+perf_nodes, node_index_map)
-            print('evaluating act at ',[test]+cur_act_locs,', perf at ',[test]+perf_nodes)
+            indicMat = updateStateSpace(n, [test] + cur_act_locs, [test] + cur_perf_nodes, node_index_map)
+            print('evaluating act at ',[test]+cur_act_locs,', perf at ',[test]+cur_perf_nodes)
 
             feas, maxError = computeFeas_v1(feeder, [test]+cur_act_locs, A, B, indicMat,substation_name,depths)
             lzn_error_dic[test] = maxError
             markFeas(feas, test, graph)
             if feas:
-                lst_feas_configs += [cur_act_locs + [test]]
-        
+                feas_dic = {}
+                feas_dic['act'] = [test] + cur_act_locs
+                feas_dic['perf'] = [test] + cur_perf_nodes
+                feas_dic['lznErr'] = [lzn_error_dic[test]]
+                feas_configs += [feas_dic]        
         nx.nx_pydot.write_dot(graph, 'heat_map_' + str(a) + '_' + file_name)
         render('dot', 'png', 'act_test_' + str(a) + '_' + file_name)
         a += 1
@@ -282,4 +286,4 @@ def runHeatMapProcess(feeder, all_act_locs, perf_nodes, node_index_map,substatio
             cur_act_locs = all_act_locs[0:a]
             lzn_error_run_sum += lzn_error_dic[cur_act_locs[-1]]
             print('The total max linearization error after '+ str(a) +' actuators have been placed = '+ str(lzn_error_run_sum))
-    return lst_feas_configs, lzn_error_run_sum
+    return feas_configs, lzn_error_run_sum
