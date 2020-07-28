@@ -420,7 +420,7 @@ def solveFwdBwdSweep_2bus(R12, X12, V1, P2, Q2):
 # Solve fwd-bwd sweep 3-phase
 def solveFwdBwdSweep_2bus_3ph(R12, X12, Vs, P2, Q2):
     # Initialization
-    print('~~~~~~~ Starting FBS Method for Solving PF')
+    #print('~~~~~~~ Starting FBS Method for Solving PF')
 
     # Givens: z12, V1, P2, Q2
     S2=P2+Q2*1j # per unit
@@ -482,14 +482,14 @@ def solveFwdBwdSweep_2bus_3ph(R12, X12, Vs, P2, Q2):
         break  # break out of loop of iter too many times
 
     '''Output Results'''
-    print('~~~~~~~ PF Results: ')
+    #print('~~~~~~~ PF Results: ')
     V1soln=V1[-1]
     V2soln=V2[-1]
     convergedIfZero = Vconv[-1]
-    print('convergedIfZero=',convergedIfZero)
+   # print('convergedIfZero=',convergedIfZero)
     numIter = len(Vconv) - 1  # -1 because Vconv initialized at zero
-    print('num iterations=',numIter)
-    print('~~~~~~~ Finished FBS Method for Solving PF')
+    #print('num iterations=',numIter)
+    #print('~~~~~~~ Finished FBS Method for Solving PF')
 
     '''Polar to rect conversion for testing/probing'''
     mag = [[abs(ele) for ele in V2soln]]
@@ -600,12 +600,13 @@ def makeQVcurve(Sweep_lb, Sweep_ub, Sbase, Vbase, R12, X12, V1):
 
 def makePVcurve_3ph(sweep_lb, sweep_ub, Sbase, Vbase, R12, X12, V1):
     numPts = 20
-    P12 = np.linspace(sweep_lb, sweep_ub, numPts)
+    P12 = Sbase * np.linspace(sweep_lb, sweep_ub, numPts)
     Q12pu = m.tan(m.acos(.9))
     Q12 = Q12pu * Sbase
-    R12_diag = np.array([[(R12[0][0]), (R12[1][1]), (R12[2][2])]])
-    X12_diag = np.array([[(X12[0][0]), (X12[1][1]), (X12[2][2])]])
-    V1_trans = np.transpose(V1)
+    Zbase = (Vbase**2)/Sbase
+    R12_diag = Zbase * np.array([[(R12[0][0]), (R12[1][1]), (R12[2][2])]])
+    X12_diag = Zbase * np.array([[(X12[0][0]), (X12[1][1]), (X12[2][2])]])
+    V1_trans = Vbase * np.transpose(V1)
     trueV2 = np.zeros((3, numPts))
     trueDel2 = np.zeros((3, numPts))
     lznV2 = np.zeros((3, numPts))
@@ -613,18 +614,18 @@ def makePVcurve_3ph(sweep_lb, sweep_ub, Sbase, Vbase, R12, X12, V1):
     solns = {}
     
     for i in range(len(P12)):
-        a, b = solveFwdBwdSweep_2bus_3ph(R12, X12, V1, P12[i], Q12)
-        trueV2[0][i], trueV2[1][i], trueV2[2][i] = a[0], a[1], a[2]
-        trueDel2[0][i], trueDel2[1][i], trueDel2[2][i] = b[0], b[1], b[2]
+        a, b = solveFwdBwdSweep_2bus_3ph(R12, X12, V1, P12[i]/Sbase, Q12/Sbase)
+        a = a*Vbase
+        trueV2[0][i], trueV2[1][i], trueV2[2][i] = a[0][0], a[1][0], a[2][0]
+        trueDel2[0][i], trueDel2[1][i], trueDel2[2][i] = b[0][0], b[1][0], b[2][0]
         V2sq = (V1_trans**2) - (2*P12[i]*R12_diag) - (2*Q12*X12_diag)
-        print(V2sq)
         V2 = V2sq**(1/2)
         delta2 = -1 * (((P12[i]*X12_diag)-(Q12*R12_diag))/(V1_trans*V2))
         lznV2[0][i], lznV2[1][i], lznV2[2][i] = V2[0][0], V2[0][1], V2[0][2]
         delta_deg = (180/m.pi)*delta2
         lznDel2[0][i], lznDel2[1][i], lznDel2[2][i] = delta_deg[0][0], delta_deg[0][1], delta_deg[0][2]
     
-    plt.figure(figsize = (20,30))
+    plt.figure(figsize = (30,30))
     plt.subplot(431)
     plt.plot(P12/Sbase, lznV2[0]/Vbase,'r', label = 'linearization')
     plt.plot(P12/Sbase, trueV2[0]/Vbase,'b', label = 'true')
@@ -681,12 +682,13 @@ def makePVcurve_3ph(sweep_lb, sweep_ub, Sbase, Vbase, R12, X12, V1):
     
 def makeQVcurve_3ph(Sweep_lb, Sweep_ub, Sbase, Vbase, R12, X12, V1):
     numPts = 20
-    Q12 = np.linspace(Sweep_lb, Sweep_ub, numPts)
+    Q12 = Sbase * np.linspace(Sweep_lb, Sweep_ub, numPts)
     P12pu = m.tan(m.acos(0.9))  
     P12 = P12pu * Sbase
-    R12_diag = np.array([[R12[0][0], R12[1][1], R12[2][2]]])
-    X12_diag = np.array([[X12[0][0], X12[1][1], X12[2][2]]])
-    V1_trans = np.transpose(V1)
+    Zbase = (Vbase**2)/Sbase
+    R12_diag = Zbase * np.array([[(R12[0][0]), (R12[1][1]), (R12[2][2])]])
+    X12_diag = Zbase * np.array([[(X12[0][0]), (X12[1][1]), (X12[2][2])]])
+    V1_trans = Vbase * np.transpose(V1)
     trueV2 = np.zeros((3, numPts))
     trueDel2 = np.zeros((3, numPts))
     lznV2 = np.zeros((3, numPts))
@@ -694,19 +696,20 @@ def makeQVcurve_3ph(Sweep_lb, Sweep_ub, Sbase, Vbase, R12, X12, V1):
     solns = {}
     
     for i in range(len(Q12)):
-        a, b = solveFwdBwdSweep_2bus_3ph(R12, X12, V1, P12, Q12[i])
-        trueV2[0][i], trueV2[1][i], trueV2[2][i] = a[0], a[1], a[2]
-        trueDel2[0][i], trueDel2[1][i], trueDel2[2][i] = b[0], b[1], b[2]
+        a, b = solveFwdBwdSweep_2bus_3ph(R12, X12, V1, P12/Sbase, Q12[i]/Sbase)
+        a = a*Vbase
+        trueV2[0][i], trueV2[1][i], trueV2[2][i] = a[0][0], a[1][0], a[2][0]
+        trueDel2[0][i], trueDel2[1][i], trueDel2[2][i] = b[0][0], b[1][0], b[2][0]
         V2sq = (V1_trans**2) - (2*P12*R12_diag) - (2*Q12[i]*X12_diag)
-        print(V2sq)
         V2 = V2sq**(1/2)
         delta2 = -1 * (((P12*X12_diag)-(Q12[i]*R12_diag))/(V1_trans*V2))
         lznV2[0][i], lznV2[1][i], lznV2[2][i] = V2[0][0], V2[0][1], V2[0][2]
+        print(delta2)
         delta_deg = (180/m.pi)*delta2
         lznDel2[0][i], lznDel2[1][i], lznDel2[2][i] = delta_deg[0][0], delta_deg[0][1], delta_deg[0][2]
     
         
-    plt.figure(figsize = (20,30))
+    plt.figure(figsize = (30,30))
     plt.subplot(437)
     plt.plot(Q12/Sbase, lznV2[0]/Vbase,'r', label = 'linearization')
     plt.plot(Q12/Sbase, trueV2[0]/Vbase,'b', label = 'true')
@@ -729,21 +732,21 @@ def makeQVcurve_3ph(Sweep_lb, Sweep_ub, Sbase, Vbase, R12, X12, V1):
     plt.title('True Q-V and Linearization Curves: Phase C')
     plt.legend()
     
-    plt.subplot(4310)
+    plt.subplot(4,3,10)
     plt.plot(Q12/Sbase, lznDel2[0],'r', label = 'linearization')
     plt.plot(Q12/Sbase, trueDel2[0],'b', label = 'true')
     plt.xlabel('Q12, kVAR')
     plt.ylabel('Delta2, degrees')
     plt.title('True Q-Del and Linearization Curves: Phase A')
     plt.legend()
-    plt.subplot(4311)
+    plt.subplot(4,3,11)
     plt.plot(Q12/Sbase, lznDel2[1],'r', label = 'linearization')
     plt.plot(Q12/Sbase, trueDel2[1],'b', label = 'true')
     plt.xlabel('Q12, kVAR')
     plt.ylabel('Delta2, degrees')
     plt.title('True Q-Del and Linearization Curves: Phase B')
     plt.legend()
-    plt.subplot(4312)
+    plt.subplot(4,3,12)
     plt.plot(Q12/Sbase, lznDel2[2],'r', label = 'linearization')
     plt.plot(Q12/Sbase, trueDel2[2],'b', label = 'true')
     plt.xlabel('Q12, kVAR')
@@ -781,7 +784,7 @@ def computeLznItvl(x, fx_lzn, fx_true):
 
 def detLznRange(feeder, Vbase_ll, Sbase, z12, act_locs):
     Vbase = Vbase_ll/(3**(1 / 2)) # not pu
-    V1 = Vbase # slack bus, not pu
+    V1 = Vbase * np.ones((3,1)) # slack bus, not pu
     R12 = z12.real
     X12 = z12.imag
     
