@@ -193,7 +193,7 @@ def detControlMatExistence(A, B, indicMat):
         numfeas=np.append(numfeas,[[0]],axis=0)
 
     dataFull=np.concatenate((myFbases,myCosts),axis=1) # [Fp Fq myCost]  
-    print("[Fp,Fq,myCost]=\n",dataFull)
+    #print("[Fp,Fq,myCost]=\n",dataFull) # print useful data
     numTried=len(dataFull) # number of rows
     num_act=np.count_nonzero(indicMat)/2
        

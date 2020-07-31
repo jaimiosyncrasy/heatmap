@@ -239,23 +239,63 @@ def eval_config(feeder, all_act_locs, perf_nodes, node_index_map,substation_name
     print('Actuator configuration is feasible') if feas else print('Actuator configuration is not feasible')
     return feas, maxError
 
+def find_good_colocated(feeder, node_index_map,substation_name,depths, file_name):
+    # almost the same as runheatmap process, but only runs once and shows one heatmap indicating which nodes are good to place a co-located act/perf node
+    # return list of all "green" configs and the associated lzn errors
+    
+    #all_act_locs and perf_nodes = lists of node names as strings
+    a = 0
+    graph = feeder.network
+    heatMapNames=[] # collect heat map names as list of strings
+    n = len(graph.nodes) #number of nodes in network
+    A, B = setupStateSpace(n, feeder, node_index_map,depths)
+    lzn_error_run_sum = 0
+    feas_configs=[] 
+    lzn_error_dic = {} #contains maxLznError for each choice of actuator location with node name as key  
+    test_nodes = []
+    
+    for node in graph.nodes: # try placing act/perf at all nodes of the network
+        test_nodes.append(node)
+
+    for test in test_nodes:
+        indicMat = updateStateSpace(n, [test], [test], node_index_map) # (n,act,perf,dictionary)
+        print('evaluating act at ',[test],', perf at ',[test])
+
+        feas, maxError = computeFeas_v1(feeder, [test], A, B, indicMat,substation_name,depths) # pass in potential actual loc
+        lzn_error_dic[test] = maxError
+        markFeas(feas, test, graph)
+        if feas:
+            feas_dic = {}
+            feas_dic['act'] = [test]
+            feas_dic['perf'] = [test]
+            feas_dic['lznErr'] = [lzn_error_dic[test]]
+            feas_configs += [feas_dic]        
+
+    heatMapName='heat_map_colocated' + '_' + file_name
+    heatMapNames.append(heatMapName)
+    nx.nx_pydot.write_dot(graph, heatMapName)
+    render('dot', 'png', heatMapName)
+
+    return feas_configs, heatMapNames
 
 def runHeatMapProcess(feeder, all_act_locs, perf_nodes, node_index_map,substation_name,depths, file_name):
     # On empty network, compute heatmap (assess feas and lzn error on every node of the feeder, color each red/green on diagram)
     # Then for each act-perf node pair, compute heatmap
     # return list of all "green" configs and the associated lzn errors
+    # heatmap shows good places to placed act wrt given perf node, NOT good places to place colocated act-perf node
     
     #all_act_locs and perf_nodes = lists of node names as strings
     a = 0
     graph = feeder.network
     cur_act_locs = []
     cur_perf_nodes=[]
+    heatMapNames=[] # collect heat map names as list of strings
     n = len(graph.nodes) #number of nodes in network
     A, B = setupStateSpace(n, feeder, node_index_map,depths)
     lzn_error_run_sum = 0
     feas_configs=[]
     
-    while a <= len(all_act_locs): #outer loop, a=number of actuators
+    while a < len(all_act_locs): #outer loop, a=number of actuators
         for act in cur_act_locs: 
             markActLoc(graph, act)
             
@@ -266,8 +306,9 @@ def runHeatMapProcess(feeder, all_act_locs, perf_nodes, node_index_map,substatio
                 test_nodes.append(node)
     
         for test in test_nodes: #inner loop
-            indicMat = updateStateSpace(n, [test] + cur_act_locs, [test] + cur_perf_nodes, node_index_map)
-            print('evaluating act at ',[test]+cur_act_locs,', perf at ',[test]+cur_perf_nodes)
+            # heatmap color indicates indicates good places to place actuator given chosen loc of perf node (not necessarily colocated)
+            indicMat = updateStateSpace(n, [test] + cur_act_locs, [perf_nodes[a]] + cur_perf_nodes, node_index_map)
+            print('evaluating act at ',[test]+cur_act_locs,', perf at ',[perf_nodes[a]] + cur_perf_nodes)
 
             feas, maxError = computeFeas_v1(feeder, [test]+cur_act_locs, A, B, indicMat,substation_name,depths)
             lzn_error_dic[test] = maxError
@@ -279,12 +320,18 @@ def runHeatMapProcess(feeder, all_act_locs, perf_nodes, node_index_map,substatio
                 feas_dic['lznErr'] = [lzn_error_dic[test]]
                 feas_configs += [feas_dic]        
         
-        nx.nx_pydot.write_dot(graph, 'heat_map_' + str(a) + '_' + file_name)
-        render('dot', 'png', 'heat_map_' + str(a) + '_' + file_name)
+        heatMapName='heat_map_' + str(a) + '_' + file_name
+        heatMapNames.append(heatMapName)
+        nx.nx_pydot.write_dot(graph, heatMapName)
+        render('dot', 'png', heatMapName)
         a += 1
         
-        if a <= len(all_act_locs):
-            cur_act_locs = all_act_locs[0:a]
+        if a <= len(all_act_locs): # choose actuator and finalize assoc perf node
+            cur_act_locs = all_act_locs[0:a] # populate cur_act_locs with subset of all_act_locs
+            cur_perf_nodes = perf_nodes[0:a] 
             lzn_error_run_sum += lzn_error_dic[cur_act_locs[-1]]
             print('The total max linearization error after '+ str(a) +' actuators have been placed = '+ str(lzn_error_run_sum))
-    return feas_configs, lzn_error_run_sum
+            
+        # end of while loop
+    return feas_configs, lzn_error_run_sum, heatMapNames
+
