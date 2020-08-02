@@ -483,7 +483,7 @@ def solveFwdBwdSweep_2bus_3ph(R12, X12, Vs, P2, Q2):
 
     '''Output Results'''
     #print('~~~~~~~ PF Results: ')
-    V1soln=V1[-1]
+    V1soln=V1[-1] #end
     V2soln=V2[-1]
     convergedIfZero = Vconv[-1]
    # print('convergedIfZero=',convergedIfZero)
@@ -515,9 +515,12 @@ def makePVcurve(sweep_lb, sweep_ub, Sbase, Vbase, R12, X12, V1):
     solns = {}
     
     for i in range(len(P12)):
+        # create true curve
         a, b = solveFwdBwdSweep_2bus(R12, X12, V1, P12[i], Q12)
         trueV2[i] = a
         trueDel2[i] = b
+        
+        # create lzn curve
         V2sq = (V1**2) - (2*R12*P12[i]) - (2*X12*Q12)
         V2 = V2sq**(1/2)
         delta2 = 0 - (((X12*P12[i])-(R12*Q12))/(V1*V2))
@@ -599,6 +602,7 @@ def makeQVcurve(Sweep_lb, Sweep_ub, Sbase, Vbase, R12, X12, V1):
 
 
 def makePVcurve_3ph(sweep_lb, sweep_ub, Sbase, Vbase, R12, X12, V1):
+    # sweep_lb/ub is in pu, R and X are in ohms (not pu), V1 is in pu
     numPts = 20
     P12 = Sbase * np.linspace(sweep_lb, sweep_ub, numPts)
     Q12pu = m.tan(m.acos(.9))
@@ -681,6 +685,7 @@ def makePVcurve_3ph(sweep_lb, sweep_ub, Sbase, Vbase, R12, X12, V1):
     
     
 def makeQVcurve_3ph(Sweep_lb, Sweep_ub, Sbase, Vbase, R12, X12, V1):
+    # sweep_lb/ub is in pu, R and X are in ohms (not pu), V1 is in pu
     numPts = 20
     Q12 = Sbase * np.linspace(Sweep_lb, Sweep_ub, numPts)
     P12pu = m.tan(m.acos(0.9))  

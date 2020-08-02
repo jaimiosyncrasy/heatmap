@@ -60,9 +60,9 @@ def computeFParamSpace_v1(feeder, act_locs, perf_nodes):
 #version 2
 def computeFParamSpace_v2(feeder, act_locs, perf_nodes,R,X,depths,node_index_Map):
     # Compute (Fp,Fq) ranges as a func of impedance paths between act nodes, perf nodes, and substation
-    gamma=[0.08, 0.35] # scaling, according to units of Q-V and P-delta loops
-    c=[1, 1]
-    sensEst_dvdq,sensEst_deldp= (np.empty((0,1)) for i in range(2))
+    gamma=np.array([0.08, 0.35]) # scaling, according to units of Q-V and P-delta loops
+    c=np.array([1, 1])
+    avgSens_dvdq,avgSens_ddeldp= (np.empty((0,1)) for i in range(2))
     
     for act in act_locs: # for each (perf,act) pair
         print(node_index_Map)
@@ -71,12 +71,14 @@ def computeFParamSpace_v2(feeder, act_locs, perf_nodes,R,X,depths,node_index_Map
         perf_idx=act_idx #index of act node
         perf=perf_nodes[0] # temp
         # indexing  a[start:stop] --> items start through stop-1
-        
+        print('evaluating act at ',act,', perf at ',perf)
+
         Zgood=np.empty((3,3))
         Zgood=(R[act_idx*3:(act_idx*3+3),perf_idx*3:(perf_idx*3+3)])/2+(X[act_idx*3:(act_idx*3+3),perf_idx*3:(perf_idx*3+3)])/2*1j # 3x3 matrix        
         Z_toSubst=imp.get_total_impedance_from_substation(feeder,act,depths)
         Z_actperf=imp.get_total_impedance_between_two_buses(feeder,act,perf,depths)
-        
+        print('Z act perf=',Z_actperf)
+
         #Zgood and Z_tosubts should have same value, but they dont...
         print('Zgood=\n',Zgood) # divide by 2 because R and X construction doubles the impedance paths
         print('Z to subst=',Z_toSubst)
@@ -84,24 +86,28 @@ def computeFParamSpace_v2(feeder, act_locs, perf_nodes,R,X,depths,node_index_Map
         Zbad1=np.subtract(Z_toSubst,Zgood) # >=0
         Zbad2=np.subtract(Z_actperf,Zbad1) # >=0
         #Zbad2=imp.get_total_impedance_between_two_buses(feeder,act,perf,depths) - Zbad1
-        #print('Zbad1=',Zbad1)
-        #print('Zbad2=',Zbad2)
-#         der1=1-np.divide(c[1]*Zbad1,Zgood+Zbad1) # derating for actuator not colocated
-#         der2=1-np.divide(c[2]*Zbad2,Zgood+Zbad2) # derating for perf node not on samepath to substation as act
-#         print(der1)
-#         print(der2)
-#         print(mainPath)
-#         sensEst_dvdq[i]=der1*der2*gamma[1]*mainPath # each element is 3x3 matrix
-#         sensEst_deldp[i]=der1*der2*gamma[2]*mainPath
+        print('Zbad1=',np.around(Zbad1,2))
+        print('Zbad2=',np.around(Zbad2,2))
+        der1=np.ones(3)-np.divide(c[0]*Zbad1,Zgood+Zbad1) # derating for actuator not colocated
+        der2=np.ones(3)-np.divide(c[1]*Zbad2,Zgood+Zbad2) # derating for perf node not on samepath to substation as act
+        print('der1=',der1)
+        print('der2=',der2)
+        mainPath=Zgood
+        sensEst_dvdq=gamma[0]*np.multiply(np.multiply(der1,der2),mainPath)
+        sensEst_ddeldp=gamma[1]*np.multiply(np.multiply(der1,der2),mainPath)
 
-#for my_buses,list1, list2,list3 in zip(my_buses,list1,list2,list3):
- #   print(my_buses,list1, list2,list3)
-
-    #Fq_lb=np.min(sensEst_dvdq)
-    #Fp_lb=np.min(sensEst_deldp)
-    Fq_lb=1
-    Fp_lb=2
-    return Fq_lb,Fp_lb
+        avg_dvdq=sensEst_dvdq.mean() # converts 3x3 to scalar
+        avg_ddeldp=sensEst_ddeldp.mean()
+        np.append(avgSens_dvdq,avg_dvdq)
+        np.append(avgSens_ddeldp,avg_ddeldp)
+        print('avgdvdq=',avgSens_dvdq)
+        print('avgddeldp=',avgSens_ddeldp)
+        
+    Fq_lb=np.amin(avgSens_dvdq)
+    Fp_lb=np.amin(avgSens_ddeldp)
+   # Fq_lb=1
+   # Fp_lb=2
+    return Fq_ub,Fp_ub
 
 #   Compute (Fp,Fq) ranges as a func 
 # Zmag=sqrt(X.^2+R.^2);
@@ -168,12 +174,12 @@ def detControlMatExistence(A, B, indicMat):
                     # evecs (no generalized evecs)
                     tol=0.0001
                     eval=1
-                    #num1evals=sum(np.absolute(np.absolute(eigs)-1)<tol) # numel(find(abs(abs(eigs)-1)<tol))   
-                    num1evals=sum(np.absolute(eigs)==1) # numel(find(abs(abs(eigs)-1)<tol))   
+                    num1evals=sum(np.absolute(np.absolute(eigs)-1)<tol) # numel(find(abs(abs(eigs)-1)<tol))   
+                    #num1evals=sum(np.absolute(eigs)==1) # numel(find(abs(abs(eigs)-1)<tol))   
                     Y = LA.null_space(CLmat-eval*np.eye(len(CLmat))) #null(CLmat-eval*eye(size(CLmat,1))); % Y is orthonorm basis matrix
                     dimNull=len(Y[0]) # number of cols
                     
-                    #print('eigs in/on unit circle')
+                    #print('eigs are in/on unit circle..')
                     #print('num1evals=',num1evals)
                     #print('dimNull=',dimNull)
                     if dimNull==num1evals:                    
