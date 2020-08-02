@@ -6,6 +6,7 @@ import statistics as st
 import cmath
 import matplotlib.pyplot as plt 
 import itertools
+import xlrd
 from operator import add
 importlib.reload(setup_nx)
 from setup_nx import *
@@ -21,87 +22,345 @@ import my_heatmapSetup_funcs as hm
 
 
 
-def compute_line_losses_multiphase(feeder, P_vals, Q_vals, act_locs, lb_mode = True):
-    graph = feeder.network
-    n = len(graph.nodes) 
-    percent_V_drop = .05
-    P = P_vals
-    Q = Q_vals
-    load_data_table = pd.read_csv(loadpath, header = None) # file used to extract table headers (node names) ==> not used to calculate actual loads
-    num_cols = len(load_data_table.columns)
-    branch_list = segment_network(feeder, substation_name)
-    status = 'unsolved'
+def segment_network(feeder, substation_name):
+    # feeder = initialized feeder
+    # substation_name = name of substation node as string
+    cur_child_nodes = list(feeder.network.successors(substation_name))
+    branches = []
+    branch_builder = [substation_name]
     
-    node_index_map = createNodeIndexMap(feeder)
+    while len(cur_child_nodes) == 1:
+        branch_builder += cur_child_nodes
+        cur_child_nodes = list(feeder.network.successors(cur_child_nodes[0]))
+            
+    if len(cur_child_nodes) > 1:
+        branches += [branch_builder]
+        for child in cur_child_nodes:
+            branches += vis.assign_network_branches1(feeder, child)
+            
+    else:
+        branches += [branch_builder]
+        return branches
+    
+    return branches 
+
+
+def node_index_map_without_substation(graph):
+    # make 'special' node index map
+    node_index_map = {} 
+    t = 0 #initializing first index for node_index_map
+    nodes = list(graph.nodes)
+    nodes.remove(substation_name)
+    
+    for node in nodes: #populating node_idex_map
+        node_index_map[node] = t
+        t += 1
+    
+    return node_index_map
+
+
+def trace_error_to_edge(node_name, branch_lst, graph):
+    edges_to_update = []
+    child_nodes = list(graph.successors(node_name))
+    if child_nodes == []:
+        edges_to_update += [node_name]
+        return edges_to_update
+    
+    for child in child_nodes:
+        cur_branch = find_branch_in_branch_list(child, branch_lst)
+        
+        if len(cur_branch) >= 2:
+            edge = cur_branch[len(cur_branch) - 1: len(cur_branch) - 2: -1][0]
+                
+        else:
+            edge = cur_branch[0]
+        
+        edges_to_update += trace_error_to_edge(edge, branch_lst, graph)
+    
+    return edges_to_update
+
+def retrieve_headers(headerpath):
+    # retrieve headers from load data file
+    load_data_table = pd.read_csv(headerpath, header = None, low_memory = False) # file used to extract table headers (node names) ==> not used to calculate actual loads
+    num_cols = len(load_data_table.columns)
     headers = []  
     
-    # retrieve headers from load data file
     for col_index in range(num_cols)[1:]:
         col = load_data_table[load_data_table.columns[col_index]].tolist()
         my_val = col[0]
         headers += [my_val]
-    
+    return headers
+
+
+def parse_headers(feeder, n, P_vals, Q_vals, headers, node_index_map, modelpath):
+    # parse through load data headers to find node names then compute S
     S = np.zeros((3, n))
     S = S.astype('complex128')
     
-    # parse through load data headers to find node names
-    for i in range(len(P)):
+    workbook_loc = (modelpath) 
+    wb = xlrd.open_workbook(workbook_loc) 
+    sheet = wb.sheet_by_name('Bus')
+    all_phases = []
+        
+    for r in list(range(sheet.nrows))[1:]:
+        all_phases += [sheet.cell_value(r, 0)]
+    
+    for i in range(len(P_vals)):
         label = headers[i]
-        phase = int(label[len(label):len(label)-2:-1]) - 1
         node_name = label[3:]
         node_name = node_name[len(node_name)-4::-1]
         node_name = node_name[len(node_name)::-1]
         node_name = 'bus_' + node_name
-        index = node_index_map[node_name]
-        S[phase][index] = complex(P[i], Q[i])
+        
+        find_phase = int(label[-1]) - 1
+        phases_per_node = []
+        for p in all_phases:
+            cur_node = p[len(p)-3::-1]
+            cur_node = cur_node[len(cur_node)::-1]
+            if node_name[4:] == cur_node:
+                phases_per_node += p[len(p)-1:len(p)-2:-1]
+        
+        phase = phases_per_node[find_phase]
+        
+        if phase == 'a':
+            phase_index = 0
+        elif phase =='b':
+            phase_index = 1
+        elif phase == 'c':
+            phase_index = 2
+                
+        node_index = node_index_map[node_name]
+        S[phase_index][node_index] = complex(P_vals[i], Q_vals[i])/(5000/3)
+    return S
+
+
+def find_edge_nodes(feeder):
+    # Find edge nodes
+    graph = feeder.network
+    edge_nodes = []
     
+    for node in graph.nodes:
+        if list(graph.successors(node)) == []:
+            edge_nodes += [node]
+    return edge_nodes
+
+#def calc_losses_for_transformer():
+    
+    
+    
+def calc_losses_for_line(node_index_map, feeder, edge_node, Iforks, S, Sloss, Sact, V):
+    cur_index = node_index_map[cur_node]
+    pred_index = node_index_map[pred_node[0]]
+            
+    V_drop = np.dot(z_3by3, np.array([ia_prev, ib_prev, ic_prev]))
+    V[0][cur_index] = V[0][child_index] + V_drop[0]
+    V[1][cur_index] = V[1][child_index] + V_drop[1]
+    V[2][cur_index] = V[2][child_index] + V_drop[2]
+
+    ia_conj = (S[0][cur_index] + Sact[cur_index]) / (V[0][cur_index])
+    ib_conj = (S[1][cur_index] + Sact[cur_index]) / (V[1][cur_index])
+    ic_conj = (S[2][cur_index] + Sact[cur_index]) / (V[2][cur_index])
+    # take complex conjugate:
+    ia_load = complex(ia_conj.real, (-1) * ia_conj.imag)
+    ib_load = complex(ib_conj.real, (-1) * ib_conj.imag)
+    ic_load = complex(ic_conj.real, (-1) * ic_conj.imag)
+
+    ia, ib, ic = ia_load + ia_prev, ib_load + ib_prev, ic_load + ic_prev 
+    impedance = feeder.network.get_edge_data(pred_node[0], cur_node, default=None)['connector']
+    z_3by3 = impedance.Z if isinstance(impedance, line) else np.zeros((3,3))
+    V_drop = np.dot(z_3by3, np.array([ia, ib, ic]))
+    conj_ia = complex(ia.real, (-1) * ia.imag)
+    conj_ib = complex(ib.real, (-1) * ib.imag)
+    conj_ic = complex(ic.real, (-1) * ic.imag)
+    I_3phase_conj = np.array([conj_ia, conj_ib, conj_ic])
+    Sloss_3phase = np.dot(I_3phase_conj, V_drop)
+    Sloss[pred_index][cur_index] = Sloss_3phase
+                
+    cur_node = pred_node[0]
+    cur_node_children = list(graph.successors(cur_node))
+    pred_node = list(graph.predecessors(cur_node))
+    child_index = cur_index
+    ia_prev, ib_prev, ic_prev = ia, ib, ic
+
+
+def calc_line_losses_to_fork(node_index_map, feeder, edge_node, Iforks, S, Sloss, Sact, V):
+    graph = feeder.network
+    pred_node = list(graph.predecessors(edge_node))
+    cur_index = node_index_map[edge_node]
+    pred_index = node_index_map[pred_node[0]]
+    
+    ia_conj = (S[0][cur_index] + Sact[cur_index]) / V[0][cur_index]
+    ib_conj = (S[1][cur_index] + Sact[cur_index]) / V[1][cur_index]
+    ic_conj = (S[2][cur_index] + Sact[cur_index]) / V[2][cur_index]
+    # take complex conjugate:
+    ia_load = complex(ia_conj.real, (-1) * ia_conj.imag)
+    ib_load = complex(ib_conj.real, (-1) * ib_conj.imag)
+    ic_load = complex(ic_conj.real, (-1) * ic_conj.imag)
+            
+    ia = ia_load + sum([i[0] for i in Iforks[edge_node]])
+    ib = ib_load + sum([i[1] for i in Iforks[edge_node]])
+    ic = ic_load + sum([i[2] for i in Iforks[edge_node]])
+    
+    impedance = feeder.network.get_edge_data(pred_node[0], edge_node, default=None)['connector']
+    #if isinstance(impedance, transformer):
+    
+        
+        
+    #if isinstance(impedance, line):
+        #calc_losses_for_line()
+    z_3by3 = impedance.Z if isinstance(impedance, line) else np.zeros((3,3))
+            
+    V_drop = np.dot(z_3by3, np.array([ia, ib, ic]))
+    conj_ia = complex(ia.real, (-1) * ia.imag)
+    conj_ib = complex(ib.real, (-1) * ib.imag)
+    conj_ic = complex(ic.real, (-1) * ic.imag)
+    I_3phase_conj = np.array([conj_ia, conj_ib, conj_ic])
+    Sloss_3phase = np.dot(I_3phase_conj, V_drop)
+    Sloss[pred_index][cur_index] = Sloss_3phase
+        
+    cur_node = pred_node[0]
+    cur_node_children = list(graph.successors(cur_node))
+    pred_node = list(graph.predecessors(cur_node))
+    child_index = node_index_map[cur_node_children[0]]
+    ia_prev, ib_prev, ic_prev = ia, ib, ic
+
+    while len(cur_node_children) == 1 and pred_node != []: 
+        cur_index = node_index_map[cur_node]
+        pred_index = node_index_map[pred_node[0]]
+            
+        V_drop = np.dot(z_3by3, np.array([ia_prev, ib_prev, ic_prev]))   
+        V[0][cur_index] = V[0][child_index] + V_drop[0]
+        V[1][cur_index] = V[1][child_index] + V_drop[1]
+        V[2][cur_index] = V[2][child_index] + V_drop[2]
+
+        ia_conj = (S[0][cur_index] + Sact[cur_index]) / (V[0][cur_index])
+        ib_conj = (S[1][cur_index] + Sact[cur_index]) / (V[1][cur_index])
+        ic_conj = (S[2][cur_index] + Sact[cur_index]) / (V[2][cur_index])
+        # take complex conjugate:
+        ia_load = complex(ia_conj.real, (-1) * ia_conj.imag)
+        ib_load = complex(ib_conj.real, (-1) * ib_conj.imag)
+        ic_load = complex(ic_conj.real, (-1) * ic_conj.imag)
+
+        ia, ib, ic = ia_load + ia_prev, ib_load + ib_prev, ic_load + ic_prev 
+        impedance = feeder.network.get_edge_data(pred_node[0], cur_node, default=None)['connector']
+        z_3by3 = impedance.Z if isinstance(impedance, line) else np.zeros((3,3))
+        V_drop = np.dot(z_3by3, np.array([ia, ib, ic]))
+        conj_ia = complex(ia.real, (-1) * ia.imag)
+        conj_ib = complex(ib.real, (-1) * ib.imag)
+        conj_ic = complex(ic.real, (-1) * ic.imag)
+        I_3phase_conj = np.array([conj_ia, conj_ib, conj_ic])
+        Sloss_3phase = np.dot(I_3phase_conj, V_drop)
+        Sloss[pred_index][cur_index] = Sloss_3phase
+                
+        cur_node = pred_node[0]
+        cur_node_children = list(graph.successors(cur_node))
+        pred_node = list(graph.predecessors(cur_node))
+        child_index = cur_index
+        ia_prev, ib_prev, ic_prev = ia, ib, ic
+    
+    return S, V, ia_prev, ib_prev, ic_prev, cur_node, z_3by3, child_index
+
+
+def compute_line_losses_multiphase(feeder, P_vals, Q_vals, act_locs, Sbase, headerpath, substation_name, modelpath, lb_mode = True):
+    graph = feeder.network
+    n = len(graph.nodes) 
+    percent_V_drop = .05
+    P = [p/Sbase for p in P_vals]
+    Q = [q/Sbase for q in Q_vals]
+    branch_list = segment_network(feeder, substation_name)
+    
+    #for i in range(len(branch_list)):
+        #if 'bus_634' in branch_list[i]:
+            #branch = branch_list[i]
+            #branch_list.remove(branch_list[i])
+            #branch.remove('bus_634')
+            #branch += ['bus_633']
+            #branch_list += [branch]
+            
+    status = 'unsolved'
+    run_counter = 0
+    node_index_map = hm.createNodeIndexMap(feeder)
+    
+    # retrieve headers from load data file
+    headers = retrieve_headers(headerpath)
+    
+    # parse through load data headers to find node names
+    S = parse_headers(feeder, n, P, Q, headers, node_index_map, modelpath)
     Sact = np.zeros(n)
     
     # set actuators to extreme values for lower or upper bound
     if lb_mode:
-        act_cap = -.3
+        act_cap = -(50/Sbase) #per phase
     
     else:
-        act_cap = .3
+        act_cap = (50/Sbase) #per phase
     
     for act in act_locs:
         index = node_index_map[act]
         Sact[index] = act_cap
         
     # Find edge nodes:
-    edge_nodes = []
-    for node in graph.nodes:
-        if list(graph.successors(node)) == []:
-            edge_nodes += [node]
+    edge_nodes = find_edge_nodes(feeder)
+    
+    edge_nodes.remove('bus_634')
+    edge_nodes += ['bus_633']
     
     # Find impedances from edge nodes to substation
     z_edges_to_sub = np.zeros((3, len(edge_nodes)))
+    z_edges_to_sub = z_edges_to_sub.astype('complex128')
     i = 0
     
-    for edge in edge_nodes:
-        cur_z = imp.get_total_impedance_from_substation(feeder, edge)
-        z_edges_to_sub[0][i] = cur_z['Phase 1'] 
-        z_edges_to_sub[1][i] = cur_z['Phase 2'] 
-        z_edges_to_sub[2][i] = cur_z['Phase 3']
-        i += 1
+    #for edge in edge_nodes:
+        #cur_z = get_total_impedance_from_substation(feeder, edge)
+        #z_edges_to_sub[0][i] = cur_z[0][0] 
+        #z_edges_to_sub[1][i] = cur_z[1][1] 
+        #z_edges_to_sub[2][i] = cur_z[2][2]
+        #i += 1
     
-    zmax = max([max(z_edges_to_sub[0]), max(z_edges_to_sub[1]), max(z_edges_to_sub[2])])
-    Vest = np.zeros((3, n)) # Vest is proportional to distance from substaion.
+    #zmax = max([max(z_edges_to_sub[0]), max(z_edges_to_sub[1]), max(z_edges_to_sub[2])])
+    Vest = np.empty((3, n), dtype = complex)
+    #Vest = np.zeros((3, n)) # Vest is proportional to distance from substaion.
+    #Vest = Vest.astype('complex128')
+    percent_V_drops = percent_V_drop * np.ones((3, n))
     
-    while percent_V_drop >= -.05 and status == 'unsolved':
+    while status == 'unsolved' and run_counter < 1:
         loop_status = 'unbroken'
-        
+        run_counter += 1
+    
         # estimate voltages at edge nodes
-        for i in range(len(edge_nodes)):
-            cur_edge = edge_nodes[i]
-            cur_index = node_index_map[cur_edge]
-            cur_za, cur_zb , cur_zc = z_edges_to_sub[0][i], z_edges_to_sub[1][i], z_edges_to_sub[2][i]
-            va = 1 - (percent_V_drop * (cur_za / zmax)) # per unit
-            vb = 1 - (percent_V_drop * (cur_zb / zmax))
-            vc = 1 - (percent_V_drop * (cur_zc / zmax))
-            Vest[0][cur_index] = va 
-            Vest[1][cur_index] = vb
-            Vest[2][cur_index] = vc 
+        #for i in range(len(edge_nodes)):
+            #cur_edge = edge_nodes[i]
+            #cur_index = node_index_map[cur_edge]
+            #cur_za, cur_zb , cur_zc = z_edges_to_sub[0][i], z_edges_to_sub[1][i], z_edges_to_sub[2][i]
+            #va = 1 - (percent_V_drops[0][cur_index] * (cur_za / zmax)) # per unit
+            #vb = 1 - (percent_V_drops[1][cur_index] * (cur_zb / zmax))
+            #vc = 1 - (percent_V_drops[2][cur_index] * (cur_zc / zmax))
+            #da = -(percent_V_drops[0][cur_index] * (cur_za / zmax)) # per unit
+            #db = -(percent_V_drops[1][cur_index] * (cur_zb / zmax))
+            #dc = -(percent_V_drops[2][cur_index] * (cur_zc / zmax))
+            #Vest[0][cur_index] = complex(va * m.cos(da), va * m.sin(da))
+            #Vest[1][cur_index] = complex(vb * m.cos(db), vb * m.sin(db))
+            #Vest[2][cur_index] = complex(vc * m.cos(dc), vc * m.sin(dc))
+            
+        Vest[0][3] = complex(.9859 * m.cos((m.pi/180)*(-121.2784)), .9859 * m.sin(-121.278*(m.pi/180)))
+        Vest[1][3] = complex( .9682* m.cos(118.0922*(m.pi/180)), .9682 * m.sin(118.0922*(m.pi/180)))
+        Vest[2][3] = complex( .1113* m.cos(-2.004*(m.pi/180)), .1113 * m.sin(-2.004*(m.pi/180)))
+        Vest[0][5] = complex( .9871* m.cos(-121.247*(m.pi/180)), .9871* m.sin(-121.247*(m.pi/180)))
+        Vest[1][5] = complex(.973 * m.cos(118.008*(m.pi/180)), .973 * m.sin(118.008*(m.pi/180)))
+        Vest[2][5] = complex( 1* m.cos(-.0006*(m.pi/180)), 1 * m.sin(-.0006*(m.pi/180)))
+        Vest[0][11] = complex(.9964 * m.cos(-121.4939*(m.pi/180)),  .9964* m.sin(-121.4939*(m.pi/180)))
+        Vest[1][11] = complex( .9401* m.cos(116.636*(m.pi/180)), .9401 * m.sin(116.636*(m.pi/180)))
+        Vest[2][11] = complex( .9689* m.cos(-3.69*(m.pi/180)), .9689 * m.sin(-3.69*(m.pi/180)))
+        Vest[0][0] = complex( .9393* m.cos(116.54),.9393  * m.sin(116.54))
+        Vest[1][0] = complex( .9401* m.cos(116.6367*(m.pi/180)),  .9401* m.sin(116.6367*(m.pi/180)))
+        Vest[2][0] = complex(.9819 * m.cos(-1.59*(m.pi/180)), .9819 * m.sin(-1.59*(m.pi/180)))
+        Vest[0][8] = complex( .9701* m.cos(-3.69*(m.pi/180)), .9701 * m.sin(-3.69*(m.pi/180)))
+        Vest[1][8] = complex( .9401* m.cos(116.6367*(m.pi/180)),  .9401* m.sin(116.6367*(m.pi/180)))
+        Vest[2][8] = complex(.9701 * m.cos(-3.69*(m.pi/180)),  .9701* m.sin(-3.69*(m.pi/180)))
+        Vest[0][10] = complex(.9984* m.cos(-121.63*(m.pi/180)),.9984  * m.sin(-121.63*(m.pi/180)))
+        Vest[1][10] = complex( .9392* m.cos(116.6192*(m.pi/180)), .9392 * m.sin(116.6192*(m.pi/180)))
+        Vest[2][10] = complex( .9701* m.cos(-3.69*(m.pi/180)), .9701 * m.sin(-3.69*(m.pi/180)))
+        
 
         V = Vest
         Sloss = np.zeros((n,n)) # will populate 
@@ -126,13 +385,12 @@ def compute_line_losses_multiphase(feeder, P_vals, Q_vals, act_locs, lb_mode = T
                 
             Iforks[edge[0]] = []
             Vforks[edge[0]] = []
-
+        
         for _ in range(len(branch_list)):
             if loop_status == 'broken':
                 break
                 
             cur_branch = active_branches[0]
-            print(cur_branch)
             
             if len(cur_branch) >= 2:
                 edge = cur_branch[len(cur_branch) - 1: len(cur_branch) - 2: -1][0]
@@ -140,86 +398,24 @@ def compute_line_losses_multiphase(feeder, P_vals, Q_vals, act_locs, lb_mode = T
             else:
                 edge = cur_branch[0]
                 
-            pred_node = list(graph.predecessors(edge))
-            cur_index = node_index_map[edge]
-            pred_index = node_index_map[pred_node[0]]
-            impedance = feeder.network.get_edge_data(pred_node[0], edge, default=None)['connector']
-            z_3by3 = impedance.Z if isinstance(impedance, setup_nx.line) else np.zeros((3,3))
-
-            ia_conj = (S[0][cur_index] + Sact[cur_index]) / V[0][cur_index]
-            ib_conj = (S[1][cur_index] + Sact[cur_index]) / V[1][cur_index]
-            ic_conj = (S[2][cur_index] + Sact[cur_index]) / V[2][cur_index]
-            # take complex conjugate:
-            ia_load = complex(ia_conj.real, (-1) * ia_conj.imag)
-            ib_load = complex(ib_conj.real, (-1) * ib_conj.imag)
-            ic_load = complex(ic_conj.real, (-1) * ic_conj.imag)
+            S, V, ia_prev, ib_prev, ic_prev, cur_node, z_3by3, child_index = calc_line_losses_to_fork(node_index_map, feeder, edge, Iforks, S, Sloss, Sact, V)
             
-            ia = ia_load + sum([i[0] for i in Iforks[edge]])
-            ib = ib_load + sum([i[1] for i in Iforks[edge]])
-            ic = ic_load + sum([i[2] for i in Iforks[edge]])
-            
-            V_drop = np.dot(z_3by3, np.array([ia, ib, ic]))
-            conj_ia = complex(ia.real, (-1) * ia.imag)
-            conj_ib = complex(ib.real, (-1) * ib.imag)
-            conj_ic = complex(ic.real, (-1) * ic.imag)
-            I_3phase_conj = np.array([conj_ia, conj_ib, conj_ic])
-            Sloss_3phase = np.dot(I_3phase_conj, V_drop)
-            Sloss[pred_index][cur_index] = Sloss_3phase
-
-            cur_node = pred_node[0]
-            cur_node_children = list(graph.successors(cur_node))
-            pred_node = list(graph.predecessors(cur_node))
-            child_index = node_index_map[cur_node_children[0]]
-            ia_prev, ib_prev, ic_prev = ia, ib, ic
-
-            while len(cur_node_children) == 1 and cur_node != substation_name:
-                cur_index = node_index_map[cur_node]
-                pred_index = node_index_map[pred_node[0]]
-                
-                V_drop = np.dot(z_3by3, np.array([ia_prev, ib_prev, ic_prev]))
-                V[0][cur_index] = V[0][child_index] + V_drop[0]
-                V[1][cur_index] = V[1][child_index] + V_drop[1]
-                V[2][cur_index] = V[2][child_index] + V_drop[2]
-
-                ia_conj = (S[0][cur_index] + Sact[cur_index]) / (V[0][cur_index])
-                ib_conj = (S[1][cur_index] + Sact[cur_index]) / (V[1][cur_index])
-                ic_conj = (S[2][cur_index] + Sact[cur_index]) / (V[2][cur_index])
-                # take complex conjugate:
-                ia_load = complex(ia_conj.real, (-1) * ia_conj.imag)
-                ib_load = complex(ib_conj.real, (-1) * ib_conj.imag)
-                ic_load = complex(ic_conj.real, (-1) * ic_conj.imag)
-
-                ia, ib, ic = ia_load + ia_prev, ib_load + ib_prev, ic_load + ic_prev 
-                impedance = feeder.network.get_edge_data(pred_node[0], cur_node, default=None)['connector']
-                z_3by3 = impedance.Z if isinstance(impedance, setup_nx.line) else np.zeros((3,3))
-                V_drop = np.dot(z_3by3, np.array([ia, ib, ic]))
-                conj_ia = complex(ia.real, (-1) * ia.imag)
-                conj_ib = complex(ib.real, (-1) * ib.imag)
-                conj_ic = complex(ic.real, (-1) * ic.imag)
-                I_3phase_conj = np.array([conj_ia, conj_ib, conj_ic])
-                Sloss_3phase = np.dot(I_3phase_conj, V_drop)
-                Sloss[pred_index][cur_index] = Sloss_3phase
-                
-                cur_node = pred_node[0]
-                cur_node_children = list(graph.successors(cur_node))
-                pred_node = list(graph.predecessors(cur_node))
-                child_index = cur_index
-                ia_prev, ib_prev, ic_prev = ia, ib, ic
-
             if cur_node == substation_name:
+                #end of function run
                 Seq = sum(sum(Sloss)) + sum(sum(S)) + sum(Sact)
+                #Seq = sum(sum(S)) + sum(Sact)
                 Peq = Seq.real
                 Qeq = Seq.imag
+                print('Number of iterations performed: ' + str(run_counter))
                 return Peq, Qeq
             
-            if len(cur_node_children) > 1:
-                V_drop = np.dot(z_3by3, np.array([ia_prev, ib_prev, ic_prev]))
-                Vfork = [V[0][child_index] + V_drop[0]]
-                Vfork += [V[1][child_index] + V_drop[1]]
-                Vfork += [V[2][child_index] + V_drop[2]]
-                Vforks[cur_node] += [Vfork]
-                Iforks[cur_node] += [[ia_prev, ib_prev, ic_prev]]
-                active_branches.remove(cur_branch)
+            V_drop = np.dot(z_3by3, np.array([ia_prev, ib_prev, ic_prev]))
+            Vfork = [edge, V[0][child_index] + V_drop[0]]
+            Vfork += [V[1][child_index] + V_drop[1]]
+            Vfork += [V[2][child_index] + V_drop[2]]
+            Vforks[cur_node] += [Vfork]
+            Iforks[cur_node] += [[ia_prev, ib_prev, ic_prev]]
+            active_branches.remove(cur_branch)
             
             if len(active_branches) == 0:
 
@@ -232,36 +428,95 @@ def compute_line_losses_multiphase(feeder, P_vals, Q_vals, act_locs, lb_mode = T
                     if len(val) > 0 and len(list(graph.successors(key))) == len(val):
 
                         for v_outer in val:
+                            if key == 'bus_632':
+                                break
+                
+                                        
                             
                             if loop_status == 'broken':
                                 break
                                 
                             for v_inner in val:
-                                checkVclose = [((v_outer[0] - v_inner[0]) / v_outer[0]) < 1] # check not more than 10% different
-                                checkVclose += [((v_outer[1] - v_inner[1]) / v_outer[1]) < 1]
-                                checkVclose += [((v_outer[2] - v_inner[2]) / v_outer[2]) < 1]
-
-                                if False in checkVclose:
-                                    percent_V_drop -= .001
+                                check_a_real = (v_outer[1].real - v_inner[1].real) / v_outer[1].real
+                                check_a_imag = (v_outer[1].imag - v_inner[1].imag) / v_outer[1].imag
+                                check_b_real = (v_outer[2].real - v_inner[2].real) / v_outer[2].real
+                                check_b_imag = (v_outer[2].imag - v_inner[2].imag) / v_outer[2].imag
+                                check_c_real = (v_outer[3].real - v_inner[3].real) / v_outer[3].real
+                                check_c_imag = (v_outer[3].imag - v_inner[3].imag) / v_outer[3].imag
+                                
+                                all_checks = [check_a_real, check_a_imag, check_b_real, check_b_imag, check_c_real, check_c_imag]
+                                
+                                #checkVclose = [abs(check_a.real) < .1 and abs(check_a.imag) < .1] # check not more than 10% different
+                                #checkVclose += [abs(check_b.real) < .1 and abs(check_b.imag) < .1]
+                                #checkVclose += [abs(check_c.real) < .1 and abs(check_c.imag) < .1]
+                                
+                                # check not more than 10% different
+                                large_error_indxs = [i for i in [0, 0, 1, 1, 2, 2] if abs(all_checks[i]) > .1]   
+                    
+                                for i in large_error_indxs:
+            
+                                    if all_checks[i] < 0:
+                                        high_v = v_inner
+                                    
+                                    else:
+                                        high_v = v_outer
+                                    
+                                    lower_edge_v = trace_error_to_edge(high_v[0], branch_list, graph)
+                                    
+                                    for edge in lower_edge_v:
+                                        cur_index = node_index_map[edge]
+                                        #print('w')
+                                        percent_V_drops[i][cur_index] -= .5
+                                    
+                                if len(large_error_indxs) > 0:
+                                    #print(Vforks['bus_632'])
+                                    
+                                    #for n in graph.nodes:
+                                        #i = node_index_map[n]
+                                        #v = [V[0][i]]
+                                        #v += [V[1][i]]
+                                        #v += [V[2][i]]
+                                    print(key)
+                                        #print(v)
+                        
                                     loop_status = 'broken'
                                     break
-
-                        if loop_status == 'unbroken':
+                            
+                            
+                            #for v_inner in val:
+                                #checkVclose = [(v_outer[0] - v_inner[0]) / v_outer[0]] # check not more than 10% different
+                                #checkVclose += [(v_outer[1] - v_inner[1]) / v_outer[1]]
+                                #checkVclose += [(v_outer[2] - v_inner[2]) / v_outer[2]]
+                                #print(key + ": " + str(checkVclose))
+                        if key == 'bus_632':
                             key_index = node_index_map[key]
-                            V[0][key_index] = sum([v[0] for v in val]) / len(val)
-                            V[1][key_index] = sum([v[1] for v in val]) / len(val)
-                            V[2][key_index] = sum([v[2] for v in val]) / len(val)
+                            v = [v for v in val if v[0] == 'bus_671'][0]
+                            V[0][key_index] = v[1]
+                            V[1][key_index] = v[2]
+                            V[2][key_index] = v[3]
                             
                             for branch in branch_list:
 
                                 if key in branch:
                                     active_branches += [branch]
                                     Vforks[key] = []
-                                    print(key)
                                     break
 
-    if percent_V_drop < -.05:
-        print('Voltages did not converge at forks')
+
+                        if loop_status == 'unbroken' and key != 'bus_632':
+                            key_index = node_index_map[key]
+                            V[0][key_index] = np.mean([v[1] for v in val])
+                            V[1][key_index] = np.mean([v[2] for v in val])
+                            V[2][key_index] = np.mean([v[3] for v in val])
+                            
+                            for branch in branch_list:
+
+                                if key in branch:
+                                    active_branches += [branch]
+                                    Vforks[key] = []
+                                    break
+
+
 #--------------------------------------------------------------------------------------
         
 def find_timestep(PQ_extreme, run_sum, Qstart_index, data_table):
@@ -279,7 +534,7 @@ def find_timestep(PQ_extreme, run_sum, Qstart_index, data_table):
                 my_val = col[i]
                 extreme_row += [my_val]
             break
-            
+    
     extreme_row_P = extreme_row[0:Qstart_index - 1]
     extreme_row_Q = extreme_row[Qstart_index - 1:]
     return time, extreme_row_P, extreme_row_Q
@@ -287,7 +542,7 @@ def find_timestep(PQ_extreme, run_sum, Qstart_index, data_table):
 
 def computePQsweep_timesteps(feeder, load_data):
     # load_data = name as string of csv file with time varying load data for a network 
-    data_table = pd.read_csv(load_data, header = None)
+    data_table = pd.read_csv(load_data)
     num_cols = len(data_table.columns)
     time_col = data_table[data_table.columns[0]].tolist()
     Qstart_index = round(((num_cols - 1) / 2) + 1)
@@ -302,10 +557,16 @@ def computePQsweep_timesteps(feeder, load_data):
         col = data_table[data_table.columns[i]].tolist()
         rum_sum_Q = list(map(add, col, run_sum_Q))
     
+    #max/min over timesteps
     Psweep_lb = min(run_sum_P)
     Psweep_ub = max(run_sum_P)
     Qsweep_lb = min(run_sum_Q)
     Qsweep_ub = max(run_sum_Q)
+    
+    print('P_lb(kW) = '+str(Psweep_lb))
+    print('P_ub(kW) = '+str(Psweep_ub))
+    print('Q_lb(kVAR) = '+str(Qsweep_lb))
+    print('Q_ub(kVAR) = '+str(Qsweep_ub))
     
     time_P_lb, P_lb_rowP, P_lb_rowQ = find_timestep(Psweep_lb, run_sum_P, Qstart_index, data_table) 
     time_P_ub, P_ub_rowP, P_ub_rowQ = find_timestep(Psweep_ub, run_sum_P, Qstart_index, data_table)
@@ -318,28 +579,29 @@ def computePQsweep_timesteps(feeder, load_data):
     Q_ub_results = [time_Q_ub, Q_ub_rowP, Q_ub_rowQ]
     
     print('Timesteps for Extreme Load Values:')
-    print('P_lb = ',time_P_lb)
-    print('P_ub = ',time_P_ub)
-    print('Q_lb = ',time_Q_lb)
-    print('Q_ub = ',time_Q_ub)
+    print('P_lb = ' + str(time_P_lb))
+    print('P_ub = ' + str(time_P_ub))
+    print('Q_lb = ' + str(time_Q_lb))
+    print('Q_ub = ' + str(time_Q_ub))
     
-    return P_lb_results, P_ub_results, Q_lb_results, Q_ub_results # end of computing line losses
+    return P_lb_results, P_ub_results, Q_lb_results, Q_ub_results
 
 
-def computePQsweep_losses(feeder, act_locs, P_lb_results, P_ub_results, Q_lb_results, Q_ub_results):
+def computePQsweep_losses(feeder, act_locs, Sbase, P_lb_results, P_ub_results, Q_lb_results, Q_ub_results, headerpath, substation_name, modelpath):
     time_P_lb, P_lb_rowP, P_lb_rowQ = P_lb_results[0], P_lb_results[1], P_lb_results[2]
     time_P_ub, P_ub_rowP, P_ub_rowQ = P_ub_results[0], P_ub_results[1], P_ub_results[2]
     time_Q_lb, Q_lb_rowP, Q_lb_rowQ = Q_lb_results[0], Q_lb_results[1], Q_lb_results[2]
     time_Q_ub, Q_ub_rowP, Q_ub_rowQ = Q_ub_results[0], Q_ub_results[1], Q_ub_results[2]
     
     # accounting for line losses:
-    Psweep_lb, _ = compute_line_losses_multiphase(feeder, P_lb_rowP, P_lb_rowQ, act_locs, lb_mode = True)
-    Psweep_ub, _ = compute_line_losses_multiphase(feeder, P_ub_rowP, P_ub_rowQ, act_locs, lb_mode = False)
-    _, Qsweep_lb = compute_line_losses_multiphase(feeder, Q_lb_rowP, Q_lb_rowQ, act_locs, lb_mode = True)
-    _, Qsweep_ub = compute_line_losses_multiphase(feeder, Q_ub_rowP, Q_ub_rowQ, act_locs, lb_mode = False)
+    Psweep_lb, _ = compute_line_losses_multiphase(feeder, P_lb_rowP, P_lb_rowQ, act_locs, Sbase, headerpath, substation_name, modelpath, lb_mode = True)
+    Psweep_ub, _ = compute_line_losses_multiphase(feeder, P_ub_rowP, P_ub_rowQ, act_locs, Sbase, headerpath, substation_name, modelpath, lb_mode = False)
+    _, Qsweep_lb = compute_line_losses_multiphase(feeder, Q_lb_rowP, Q_lb_rowQ, act_locs, Sbase, headerpath, substation_name, modelpath, lb_mode = True)
+    _, Qsweep_ub = compute_line_losses_multiphase(feeder, Q_ub_rowP, Q_ub_rowQ, act_locs, Sbase, headerpath, substation_name, modelpath, lb_mode = False)
     
     PQ_bounds = [Psweep_lb, Psweep_ub, Qsweep_lb, Qsweep_ub]
     return PQ_bounds
+
 
 # Solve fwd-bwd sweep single phase
 def solveFwdBwdSweep_2bus(R12, X12, V1, P2, Q2):
@@ -787,13 +1049,15 @@ def computeLznItvl(x, fx_lzn, fx_true):
     return err_max, slopeInfo
 
 
-def detLznRange(feeder, Vbase_ll, Sbase, z12, act_locs):
+def detLznRange(feeder, Vbase_ll, Sbase, z12, act_locs, load_data, headerpath, substation_name, modelpath):
     Vbase = Vbase_ll/(3**(1 / 2)) # not pu
-    V1 = Vbase * np.ones((3,1)) # slack bus, not pu
+    V1 = np.ones((3,1)) # slack bus, pu
     R12 = z12.real
     X12 = z12.imag
     
-    PQ_bounds, PQ_extremes_time_steps = computePQsweep(feeder, load_data, act_locs)
+    P_lb_results, P_ub_results, Q_lb_results, Q_ub_results = computePQsweep_timesteps(feeder, load_data)
+    PQ_bounds = computePQsweep_losses(feeder, act_locs, Sbase, P_lb_results, P_ub_results, Q_lb_results, Q_ub_results, headerpath, substation_name, modelpath)
+    
     Psweep_lb = PQ_bounds[0]
     Psweep_ub = PQ_bounds[1]
     Qsweep_lb = PQ_bounds[2]
@@ -802,11 +1066,11 @@ def detLznRange(feeder, Vbase_ll, Sbase, z12, act_locs):
     pvals, solns1 = makePVcurve_3ph(Psweep_lb, Psweep_ub, Sbase, Vbase, R12, X12, V1)
     qvals, solns2 = makeQVcurve_3ph(Qsweep_lb, Qsweep_ub, Sbase, Vbase, R12, X12, V1)
     
-    errVmax1, slope_vp = computeLznItvl(pvals / Sbase, solns1['lznV2'] / Vbase, solns1['trueV2'] / Vbase)
-    errDelmax1,slope_delp = computeLznItvl(pvals / Sbase, solns1['lznDel2'], solns1['trueDel2'])
+    errVmax1, slope_vp = computeLznItvl(pvals / Sbase, solns1['lznV2'][0] / Vbase, solns1['trueV2'][0] / Vbase)
+    errDelmax1,slope_delp = computeLznItvl(pvals / Sbase, solns1['lznDel2'][0], solns1['trueDel2'][0])
     
-    errVmax2, slope_vq = computeLznItvl(qvals / Sbase, solns2['lznV2'] / Vbase, solns2['trueV2'] / Vbase)
-    errDelmax2, slope_delq = computeLznItvl(qvals / Sbase, solns2['lznDel2'], solns2['trueDel2'])
+    errVmax2, slope_vq = computeLznItvl(qvals / Sbase, solns2['lznV2'][0] / Vbase, solns2['trueV2'][0] / Vbase)
+    errDelmax2, slope_delq = computeLznItvl(qvals / Sbase, solns2['lznDel2'][0], solns2['trueDel2'][0])
     
     true_lzn_error_max = [errVmax1, errVmax2, errDelmax1, errDelmax2]
     slope_across_PQ_sweep = [slope_vp, slope_delp, slope_vq, slope_delq]

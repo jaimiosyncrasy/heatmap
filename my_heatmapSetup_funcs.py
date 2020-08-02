@@ -156,7 +156,7 @@ def computeFeas_v1(feeder, act_locs, A, B, indicMat,substation_name,depths):
     print('num feas=',MYnumfeas)
     print('num tried=',MYnumTried)
 
-    #maxLznError = lzn.detLznRange(feeder, Vbase_ll, Sbase, z12, act_locs)
+    #maxLznError = lzn.detLznRange(feeder, Vbase_ll, Sbase, z12, act_locs, load_data, headerpath, substation_name)
     #return matExist, maxLznError
     MYmaxerror=-1 # temporary
     return MYfeas,MYmaxerror
