@@ -149,10 +149,10 @@ def setupStateSpace(n, feeder, node_index_map,depths):
 
 
 # correct version
-def computeFeas_v1(feeder, act_locs, A, B, indicMat,substation_name,depths):
+def computeFeas_v1(feeder, act_locs, A, B, indicMat,substation_name,perf_nodes,depths,node_index_map):
     node_1 = list(feeder.network.successors(substation_name))
     z12 = imp.get_total_impedance_from_substation(feeder, node_1[0],depths) # 3 phase
-    MYfeas,MYfeasFs,MYnumfeas,MYnumTried,MYnumact = ctrl.detControlMatExistence(A, B, indicMat)
+    MYfeas,MYfeasFs,MYnumfeas,MYnumTried,MYnumact = ctrl.detControlMatExistence(feeder, act_locs, A, B, indicMat,substation_name,perf_nodes,depths,node_index_map)
     print('num feas=',MYnumfeas)
     print('num tried=',MYnumTried)
 
@@ -233,7 +233,7 @@ def eval_config(feeder, all_act_locs, perf_nodes, node_index_map,substation_name
     n = len(graph.nodes) #number of nodes in network
     A, B = setupStateSpace(n, feeder, node_index_map,depths)
     indicMat = updateStateSpace(n, all_act_locs, perf_nodes, node_index_map)
-    feas, maxError = computeFeas_v1(feeder, perf_nodes, A, B, indicMat,substation_name,depths)
+    feas, maxError = computeFeas_v1(feeder, all_act_locs, A, B, indicMat,substation_name,perf_nodes,depths,node_index_map)
     vis.markActuatorConfig(all_act_locs, feeder, file_name) # create diagram with actuator locs marked
     
     print('Actuator configuration is feasible') if feas else print('Actuator configuration is not feasible')
@@ -253,15 +253,16 @@ def find_good_colocated(feeder, node_index_map,substation_name,depths, file_name
     feas_configs=[] 
     lzn_error_dic = {} #contains maxLznError for each choice of actuator location with node name as key  
     test_nodes = []
+    graphNodes_nosub=np.delete(graph.nodes,[6, 7]) # dont consider co-located at substation nodes, node 650 and 651
+    # Note: ^idx 6 & 7 are MANUALLY PICKED OUT FOR 13NF
     
-    for node in graph.nodes: # try placing act/perf at all nodes of the network
+    for node in graphNodes_nosub: # try placing act/perf at all nodes of the network
         test_nodes.append(node)
 
     for test in test_nodes:
         indicMat = updateStateSpace(n, [test], [test], node_index_map) # (n,act,perf,dictionary)
         print('evaluating act at ',[test],', perf at ',[test])
-
-        feas, maxError = computeFeas_v1(feeder, [test], A, B, indicMat,substation_name,depths) # pass in potential actual loc
+        feas, maxError = computeFeas_v1(feeder, [test], A, B, indicMat,substation_name,[test],depths,node_index_map) # pass in potential actual loc
         lzn_error_dic[test] = maxError
         markFeas(feas, test, graph)
         if feas:
@@ -301,7 +302,8 @@ def runHeatMapProcess(feeder, all_act_locs, perf_nodes, node_index_map,substatio
             
         lzn_error_dic = {} #contains maxLznError for each choice of actuator location with node name as key  
         test_nodes = []
-        for node in graph.nodes:
+        graphNodes_nosub=np.delete(graph.nodes,[6, 7]) # dont consider co-located at substation nodes, node 650 and 651 
+        for node in graphNodes_nosub:
             if node not in cur_act_locs:
                 test_nodes.append(node)
     
@@ -310,7 +312,7 @@ def runHeatMapProcess(feeder, all_act_locs, perf_nodes, node_index_map,substatio
             indicMat = updateStateSpace(n, [test] + cur_act_locs, [perf_nodes[a]] + cur_perf_nodes, node_index_map)
             print('evaluating act at ',[test]+cur_act_locs,', perf at ',[perf_nodes[a]] + cur_perf_nodes)
 
-            feas, maxError = computeFeas_v1(feeder, [test]+cur_act_locs, A, B, indicMat,substation_name,depths)
+            feas, maxError = computeFeas_v1(feeder, [test]+cur_act_locs, A, B, indicMat,substation_name,perf_nodes,depths,node_index_map)
             lzn_error_dic[test] = maxError
             markFeas(feas, test, graph)
             if feas:

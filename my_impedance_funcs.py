@@ -147,8 +147,8 @@ def get_total_impedance_between_two_buses(feeder, node_name_1, node_name_2, dept
             
         common_parent = pred_list_max[0] == pred_list_min[0]
     
-    print("Total iterations to get to common parent is " + str(count_get_to_common))
-    print("Common parent is " + str(pred_list_max[0]))
+    #print("Total iterations to get to common parent is " + str(count_get_to_common))
+    #print("Common parent is " + str(pred_list_max[0]))
     
     #Need to iterate one more time to account for "joining" node
     impedance_bus_min = feeder.network.get_edge_data(pred_list_min[0], min_depth_bus, default=None)['connector']

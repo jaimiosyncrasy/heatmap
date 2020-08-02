@@ -44,7 +44,7 @@ def assignF(Fp,Fq,indicMat): # algo similar to updateStateSpace
     #print("Size of F=",F.shape)
     return F
 
-# version 1
+# version 1, workaround
 def computeFParamSpace_v1(feeder, act_locs, perf_nodes):
     # Compute (Fp,Fq) ranges as a func of impedance paths between act nodes, perf nodes, and substation
     gamma=[0.08, 0.35]
@@ -57,56 +57,58 @@ def computeFParamSpace_v1(feeder, act_locs, perf_nodes):
     Fp_lb=np.min(Fplist)
     return Fq_lb,Fp_lb
 
-#version 2
+#version 2, correct
 def computeFParamSpace_v2(feeder, act_locs, perf_nodes,R,X,depths,node_index_Map):
     # Compute (Fp,Fq) ranges as a func of impedance paths between act nodes, perf nodes, and substation
     gamma=np.array([0.08, 0.35]) # scaling, according to units of Q-V and P-delta loops
-    c=np.array([1, 1])
+    c=np.array([3.3/100,30/100]) # tuned for 13NF based on data from feas configs
     avgSens_dvdq,avgSens_ddeldp= (np.empty((0,1)) for i in range(2))
-    
+    i=0
     for act in act_locs: # for each (perf,act) pair
-        print(node_index_Map)
-        act_idx=node_index_Map[act] # index of act node
-        print('act idx=',act_idx)
-        perf_idx=act_idx #index of act node
-        perf=perf_nodes[0] # temp
+        #print(node_index_Map)
+        perf=perf_nodes[i] #index of act node
+        i=i+1 # increment to update perf node
         # indexing  a[start:stop] --> items start through stop-1
-        print('evaluating act at ',act,', perf at ',perf)
+        act_idx=node_index_Map[act] # index of act node
+        perf_idx=node_index_Map[perf] 
+
+        #print('evaluating act at ',act,', perf at ',perf)
 
         Zgood=np.empty((3,3))
         Zgood=(R[act_idx*3:(act_idx*3+3),perf_idx*3:(perf_idx*3+3)])/2+(X[act_idx*3:(act_idx*3+3),perf_idx*3:(perf_idx*3+3)])/2*1j # 3x3 matrix        
         Z_toSubst=imp.get_total_impedance_from_substation(feeder,act,depths)
         Z_actperf=imp.get_total_impedance_between_two_buses(feeder,act,perf,depths)
-        print('Z act perf=',Z_actperf)
-
-        #Zgood and Z_tosubts should have same value, but they dont...
-        print('Zgood=\n',Zgood) # divide by 2 because R and X construction doubles the impedance paths
-        print('Z to subst=',Z_toSubst)
 
         Zbad1=np.subtract(Z_toSubst,Zgood) # >=0
         Zbad2=np.subtract(Z_actperf,Zbad1) # >=0
-        #Zbad2=imp.get_total_impedance_between_two_buses(feeder,act,perf,depths) - Zbad1
-        print('Zbad1=',np.around(Zbad1,2))
-        print('Zbad2=',np.around(Zbad2,2))
-        der1=np.ones(3)-np.divide(c[0]*Zbad1,Zgood+Zbad1) # derating for actuator not colocated
-        der2=np.ones(3)-np.divide(c[1]*Zbad2,Zgood+Zbad2) # derating for perf node not on samepath to substation as act
-        print('der1=',der1)
-        print('der2=',der2)
+        #print('Zbad1=',np.around(Zbad1,2))
+        #print('Zbad2=',np.around(Zbad2,2))
+        
+        # deratings should range 0 to 1 for each 3x3 elements
+        der1=np.ones(3)-np.divide(Zbad1,Zgood+Zbad1) # derating for actuator not colocated
+        der2=np.ones(3)-np.divide(Zbad2,Zgood+Zbad2) # derating for perf node not on samepath to substation as act
+        #print('der1=',der1)
+        #print('der2=',der2)
         mainPath=Zgood
         sensEst_dvdq=gamma[0]*np.multiply(np.multiply(der1,der2),mainPath)
         sensEst_ddeldp=gamma[1]*np.multiply(np.multiply(der1,der2),mainPath)
 
-        avg_dvdq=sensEst_dvdq.mean() # converts 3x3 to scalar
+        avg_dvdq=sensEst_dvdq.mean() # converts 3x3 to scalar complex for each act-perf pair
         avg_ddeldp=sensEst_ddeldp.mean()
-        np.append(avgSens_dvdq,avg_dvdq)
-        np.append(avgSens_ddeldp,avg_ddeldp)
-        print('avgdvdq=',avgSens_dvdq)
-        print('avgddeldp=',avgSens_ddeldp)
         
-    Fq_lb=np.amin(avgSens_dvdq)
-    Fp_lb=np.amin(avgSens_ddeldp)
-   # Fq_lb=1
-   # Fp_lb=2
+        avgSens_dvdq=np.append(avgSens_dvdq,avg_dvdq)
+        avgSens_ddeldp=np.append(avgSens_ddeldp,avg_ddeldp)
+        #print('avgdvdq=',avgSens_dvdq)
+        #print('avgddeldp=',avgSens_ddeldp)
+        
+    # avgSens_dvdq is list of scalar complex vals
+    q=np.amax(np.absolute(avgSens_dvdq)) # take max abs value of perf-act pair sensitivities
+    p=np.amax(np.absolute(avgSens_ddeldp))
+    #print('q=',q)
+    #print('p=',p)
+    Fq_ub=(1/q)*c[0]
+    Fp_ub=(1/p)*c[1]
+
     return Fq_ub,Fp_ub
 
 #   Compute (Fp,Fq) ranges as a func 
@@ -134,21 +136,19 @@ def computeFParamSpace_v2(feeder, act_locs, perf_nodes,R,X,depths,node_index_Map
 #  % Fq=0.6, Fp=0.1
 
 
-def detControlMatExistence(A, B, indicMat):
+def detControlMatExistence(feeder, act_locs, A, B, indicMat,substation_name,perf_nodes,depths,node_index_map):
 #def detControlMatExistence(feeder, act_locs, perf_nodes,A,B,R,X,indicMat):
     n=int(len(indicMat)/6) # indicMat is 6n x 6n
 
 # Compute good (Fp,Fq) sample space
-    # Fq_lb,Fp_lb=computeFParamSpace_v1(feeder, act_locs, perf_nodes)
-    # NOTE: need modify detControlMatExistence input params to pass stuff into computeFparamSpace
-    #Fq_range=np.arange(-2, 4, 0.2).tolist()
-    #Fp_range=np.arange(-0.1, 0.1, 0.015).tolist()
-    numSamp=10
-    #Fq_range=np.arange(-Fq_lb, Fq_lb, 2*Fq_lb/numSamp).tolist()
-    #Fp_range=np.arange(-Fp_lb,Fp_lb, 2*Fp_lb/numSamp).tolist()
-    Fq_range=np.arange(0, 3.001, 0.1).tolist() # manually chosen
-    Fp_range=np.arange(0, 0.3001, 0.02).tolist()
-    
+    R,X=hm.createRXmatrices_3ph(feeder, node_index_map,depths)
+    Fq_ub,Fp_ub=computeFParamSpace_v2(feeder, act_locs, perf_nodes,R,X,depths,node_index_map)
+
+    Fq_range=np.linspace(0.0001, Fq_ub, num=15)
+    Fp_range=np.linspace(0.0001, Fp_ub, num=15)
+    #print('Fq_range=',Fq_ub)
+    #print('Fq_range=',Fq_range)
+
 # Initialize arrays, will be populated in loops
     feas=False # boolean
     numfeas,myCosts= (np.empty((0,1)) for i in range(2))
@@ -160,6 +160,9 @@ def detControlMatExistence(A, B, indicMat):
         for Fp in Fp_range:
             if not(Fq==0 or Fp==0): # skip iteration if either zero
                 #print("(Fp,Fq)=",Fp,",",Fq,")")
+                if np.isnan(Fp) or np.isnan(Fq):
+                    sys.exit('Error: Fq or Fp are NaN')
+
                 F=assignF(Fp,Fq,indicMat)
                 CLmat=A-np.dot(B,F) # CLmat=A-BF
                 eigs,evecs=LA.eig(CLmat) # closed loop eigenvalues
