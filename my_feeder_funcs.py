@@ -88,6 +88,8 @@ def make_graph(feeder, file_name):
     nodes = graph.nodes
     edges = graph.edges
     graph.size = .1
+    #graph['pack'] = True
+    #graph['packmode'] = 'node'
     for n in nodes:
         graph.nodes[n]['fontsize'] = 8
         graph.nodes[n]['shape'] = 'point'
@@ -99,7 +101,7 @@ def make_graph(feeder, file_name):
     
     nx.nx_pydot.write_dot(graph, file_name)
     render('dot', 'png', file_name)  
-    nx.draw_planar(graph,with_labels = True, alpha=0.8) #NEW FUNCTION
+    #nx.draw_planar(graph,with_labels = True, alpha=0.8) #NEW FUNCTION
     #nx.draw_circular(graph,with_labels = True, alpha=0.8) #NEW FUNCTION
     #nx.draw_shell(graph,with_labels = True, alpha=0.8) #NEW FUNCTION
     #nx.draw_kamada_kawai(graph,with_labels = True, alpha=0.8) #NEW FUNCTION

@@ -319,7 +319,7 @@ def phaseCouplingPerNode(feeder,depths):
             
         for edge in edge_path:
             impedance_test = graph.get_edge_data(edge[1], edge[0], default=None)['connector']
-            impedance = impedance_test.Z if isinstance(impedance_test, line) else np.zeros((3,3))
+            impedance = impedance_test.Z if isinstance(impedance_test, setup_nx.line) else np.zeros((3,3))
             self_imped += impedance[0][0] + impedance[1][1] + impedance[2][2]
             mutual_imped += impedance[0][1] + impedance[0][2] + impedance[1][0] + impedance[1][2] + impedance[2][0] + impedance[2][1]
         
