@@ -680,7 +680,7 @@ def solveFwdBwdSweep_2bus(R12, X12, V1, P2, Q2):
     return V2, del2 # end of solve PF on 2-bus
 
 # Solve fwd-bwd sweep 3-phase
-def solveFwdBwdSweep_2bus_3ph(R12, X12, Vs, P2, Q2):
+def solveFwdBwdSweep_2bus_3ph(R12, X12, B12,Vs, P2, Q2):
     # Initialization
     #print('~~~~~~~ Starting FBS Method for Solving PF')
 
@@ -713,7 +713,7 @@ def solveFwdBwdSweep_2bus_3ph(R12, X12, Vs, P2, Q2):
     Vconv=np.append(Vconv,c,axis=0)
                    
      # Backward sweep
-    I12 = np.conj(np.divide(np.transpose(S2),V2[k]))
+    I12 = np.conj(np.divide(np.transpose(S2),V2[k]))-np.dot(np.conj(B12*1j),V2[k])
     #print('I12=',I12)
     #print(np.concatenate((Vconv[2*k], Vconv[2*k+1])))
     
@@ -723,7 +723,7 @@ def solveFwdBwdSweep_2bus_3ph(R12, X12, Vs, P2, Q2):
         k += 1  # new iteration
          # Fwd sweep
         V1=np.append(V1,[V1[k-1]],axis=0)# same as prev iter ZERO?
-        V2=np.append(V2,Vs - np.dot(I12,z12),axis=0)
+        V2=np.append(V2,Vs - np.dot(I12,z12),axis=0) # np.dot is matrix mult
         #print('V1=',V1)
         #print('V2=',V2)
 
@@ -737,7 +737,7 @@ def solveFwdBwdSweep_2bus_3ph(R12, X12, Vs, P2, Q2):
         #print('Vconv=',Vconv) # uncomment when debugging
     
          # Backward sweep
-        I12 = np.conj(np.divide(np.transpose(S2),V2[k]))
+        I12 = np.conj(np.divide(np.transpose(S2),V2[k]))-np.dot(np.conj(B12*1j),V2[k])
 
         if len(Vconv) > 30:
             print('Didnt converge')
@@ -778,13 +778,13 @@ def makePVcurve(sweep_lb, sweep_ub, Sbase, Vbase, R12, X12, V1):
     
     for i in range(len(P12)):
         # create true curve
-        a, b = solveFwdBwdSweep_2bus(R12, X12, V1, P12[i], Q12)
+        a, b = solveFwdBwdSweep_2bus(R12, X12, V1, P12[i], Q12) # inputs are 3x3 matrices
         trueV2[i] = a
         trueDel2[i] = b
         
         # create lzn curve
         V2sq = (V1**2) - (2*R12*P12[i]) - (2*X12*Q12)
-        V2 = V2sq**(1/2)
+        V2 = V2sq**(1/2) # take sqrt
         delta2 = 0 - (((X12*P12[i])-(R12*Q12))/(V1*V2))
         lznV2[i] = V2
         lznDel2[i] = (180/m.pi)*delta2
@@ -863,31 +863,37 @@ def makeQVcurve(Sweep_lb, Sweep_ub, Sbase, Vbase, R12, X12, V1):
     return Q12, solns # end of make QV curve
 
 
-def makePVcurve_3ph(sweep_lb, sweep_ub, Sbase, Vbase, R12, X12, V1):
-    # sweep_lb/ub is in pu, R and X are in ohms (not pu), V1 is in pu
+def makePVcurve_3ph(sweep_lb, sweep_ub, Sbase, Vbase, R12, X12, B12, V1):
+    # all inputs are NOT in per unit, sweeps are scalars
     numPts = 20
-    P12 = Sbase * np.linspace(sweep_lb, sweep_ub, numPts)
-    Q12pu = m.tan(m.acos(.9))
-    Q12 = Q12pu * Sbase
-    Zbase = (Vbase**2)/Sbase
-    R12_diag = Zbase * np.array([[(R12[0][0]), (R12[1][1]), (R12[2][2])]])
-    X12_diag = Zbase * np.array([[(X12[0][0]), (X12[1][1]), (X12[2][2])]])
-    V1_trans = Vbase * np.transpose(V1)
+    P12 = np.linspace(sweep_lb, sweep_ub, numPts)
+    Q12 = P12*m.tan(m.acos(.9)) # Q=P*tan(acos(0.9)), note P12 and Q12 are vectors of pow vals over time
+    Zbase = (Vbase**2)/Sbase # un-needed?
+    R12_diag = np.array([[(R12[0][0]), (R12[1][1]), (R12[2][2])]])
+    X12_diag = np.array([[(X12[0][0]), (X12[1][1]), (X12[2][2])]])
+    V1_trans = np.transpose(V1)
     trueV2 = np.zeros((3, numPts))
     trueDel2 = np.zeros((3, numPts))
     lznV2 = np.zeros((3, numPts))
     lznDel2 = np.zeros((3, numPts))
     solns = {}
     
-    for i in range(len(P12)):
-        a, b = solveFwdBwdSweep_2bus_3ph(R12, X12, V1, P12[i]/Sbase, Q12/Sbase)
-        a = a*Vbase
+    print('HI, R12=',R12)
+    print('HI, X12=',X12)
+    print('HI, V1=',V1) 
+    print('HI, P12/Sbase=',P12[3]/Sbase)
+    print('HI, Q12/Sbase-',Q12[3]/Sbase) 
+
+    for i in range(len(P12)): 
+        a, b = solveFwdBwdSweep_2bus_3ph(R12, X12, B12, V1, P12[i], Q12[i]) # all in not-pu
+        # a is V2, b is del2, V2 is NOT in pu
         trueV2[0][i], trueV2[1][i], trueV2[2][i] = a[0][0], a[1][0], a[2][0]
         trueDel2[0][i], trueDel2[1][i], trueDel2[2][i] = b[0][0], b[1][0], b[2][0]
-        V2sq = (V1_trans**2) - (2*P12[i]*R12_diag) - (2*Q12*X12_diag)
+        
+        V2sq = (V1_trans**2) - (2*P12[i]*R12_diag) - (2*Q12[i]*X12_diag)
         V2 = V2sq**(1/2)
-        delta2 = -1 * (((P12[i]*X12_diag)-(Q12*R12_diag))/(V1_trans*V2))
         lznV2[0][i], lznV2[1][i], lznV2[2][i] = V2[0][0], V2[0][1], V2[0][2]
+        delta2 = -1 * (((P12[i]*X12_diag)-(Q12[i]*R12_diag))/(V1_trans*V2))
         delta_deg = (180/m.pi)*delta2
         lznDel2[0][i], lznDel2[1][i], lznDel2[2][i] = delta_deg[0][0], delta_deg[0][1], delta_deg[0][2]
     
@@ -946,16 +952,15 @@ def makePVcurve_3ph(sweep_lb, sweep_ub, Sbase, Vbase, R12, X12, V1):
     return P12, solns # end of makePVcurve
     
     
-def makeQVcurve_3ph(Sweep_lb, Sweep_ub, Sbase, Vbase, R12, X12, V1):
-    # sweep_lb/ub is in pu, R and X are in ohms (not pu), V1 is in pu
+def makeQVcurve_3ph(Sweep_lb, Sweep_ub, Sbase, Vbase, R12, X12, B12, V1):
+    # All units not in pu, sweep_lb/ub are scalars, R and X are 3x3 matrices
     numPts = 20
-    Q12 = Sbase * np.linspace(Sweep_lb, Sweep_ub, numPts)
-    P12pu = m.tan(m.acos(0.9))  
-    P12 = P12pu * Sbase
-    Zbase = (Vbase**2)/Sbase
-    R12_diag = Zbase * np.array([[(R12[0][0]), (R12[1][1]), (R12[2][2])]])
-    X12_diag = Zbase * np.array([[(X12[0][0]), (X12[1][1]), (X12[2][2])]])
-    V1_trans = Vbase * np.transpose(V1)
+    Q12 = np.linspace(Sweep_lb, Sweep_ub, numPts)
+    P12 = Q12/m.tan(m.acos(.9)) # P=Q/tan(acos(0.9)), P12 is a vector the size of Q12
+    Zbase = (Vbase**2)/Sbase # un-needed?
+    R12_diag = np.array([[(R12[0][0]), (R12[1][1]), (R12[2][2])]])
+    X12_diag = np.array([[(X12[0][0]), (X12[1][1]), (X12[2][2])]])
+    V1_trans = np.transpose(V1)
     trueV2 = np.zeros((3, numPts))
     trueDel2 = np.zeros((3, numPts))
     lznV2 = np.zeros((3, numPts))
@@ -963,13 +968,13 @@ def makeQVcurve_3ph(Sweep_lb, Sweep_ub, Sbase, Vbase, R12, X12, V1):
     solns = {}
     
     for i in range(len(Q12)):
-        a, b = solveFwdBwdSweep_2bus_3ph(R12, X12, V1, P12/Sbase, Q12[i]/Sbase)
-        a = a*Vbase
+        a, b = solveFwdBwdSweep_2bus_3ph(R12, X12, B12, V1, P12[i], Q12[i])  # all in not-pu
+        # a is V2, b is del2, V2 is NOT in pu
         trueV2[0][i], trueV2[1][i], trueV2[2][i] = a[0][0], a[1][0], a[2][0]
         trueDel2[0][i], trueDel2[1][i], trueDel2[2][i] = b[0][0], b[1][0], b[2][0]
-        V2sq = (V1_trans**2) - (2*P12*R12_diag) - (2*Q12[i]*X12_diag)
+        V2sq = (V1_trans**2) - (2*P12[i]*R12_diag) - (2*Q12[i]*X12_diag)
         V2 = V2sq**(1/2)
-        delta2 = -1 * (((P12*X12_diag)-(Q12[i]*R12_diag))/(V1_trans*V2))
+        delta2 = -1 * (((P12[i]*X12_diag)-(Q12[i]*R12_diag))/(V1_trans*V2))
         lznV2[0][i], lznV2[1][i], lznV2[2][i] = V2[0][0], V2[0][1], V2[0][2]
         print(delta2)
         delta_deg = (180/m.pi)*delta2
@@ -1049,22 +1054,24 @@ def computeLznItvl(x, fx_lzn, fx_true):
     return err_max, slopeInfo
 
 
-def detLznRange(feeder, Vbase_ll, Sbase, z12, act_locs, load_data, headerpath, substation_name, modelpath):
-    Vbase = Vbase_ll/(3**(1 / 2)) # not pu
-    V1 = np.ones((3,1)) # slack bus, pu
-    R12 = z12.real
+def detLznRange(feeder, Vbase_ll, Sbase, z12,B12, act_locs, load_data, headerpath, substation_name, modelpath):
+    Vbase = Vbase_ll/(3**(1 / 2)) 
+    V1a=Vbase*np.cos(0*np.pi/180)+1j*Vbase*np.sin(0*np.pi/180); # angle=0 deg
+    V1b=Vbase*np.cos(-120*np.pi/180)+1j*Vbase*np.sin(-120*np.pi/180); # angle=-120 deg
+    V1c=Vbase*np.cos(+120*np.pi/180)+1j*Vbase*np.sin(+120*np.pi/180); # angle=+120 deg
+    V1=np.transpose([[V1a, V1b, V1c]]); # not pu
+    R12 = z12.real # not pu
     X12 = z12.imag
     
     P_lb_results, P_ub_results, Q_lb_results, Q_ub_results = computePQsweep_timesteps(feeder, load_data)
     PQ_bounds = computePQsweep_losses(feeder, act_locs, Sbase, P_lb_results, P_ub_results, Q_lb_results, Q_ub_results, headerpath, substation_name, modelpath)
     
-    Psweep_lb = PQ_bounds[0]
-    Psweep_ub = PQ_bounds[1]
+    Psweep_lb = PQ_bounds[0] # Jaimie assumes these are in per unit, unsure
+    Psweep_ub = PQ_bounds[1] # each is scalar
     Qsweep_lb = PQ_bounds[2]
     Qsweep_ub = PQ_bounds[3]
-    
-    pvals, solns1 = makePVcurve_3ph(Psweep_lb, Psweep_ub, Sbase, Vbase, R12, X12, V1)
-    qvals, solns2 = makeQVcurve_3ph(Qsweep_lb, Qsweep_ub, Sbase, Vbase, R12, X12, V1)
+    pvals, solns1 = makePVcurve_3ph(Psweep_lb*Sbase, Psweep_ub*Sbase, Sbase, Vbase, R12, X12,B12, V1) # all in not-pu
+    qvals, solns2 = makeQVcurve_3ph(Qsweep_lb*Sbase, Qsweep_ub*Sbase, Sbase, Vbase, R12, X12,B12, V1)
     
     errVmax1, slope_vp = computeLznItvl(pvals / Sbase, solns1['lznV2'][0] / Vbase, solns1['trueV2'][0] / Vbase)
     errDelmax1,slope_delp = computeLznItvl(pvals / Sbase, solns1['lznDel2'][0], solns1['trueDel2'][0])
