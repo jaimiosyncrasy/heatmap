@@ -183,13 +183,13 @@ def calc_losses_for_line(node_index_map, feeder, edge_node, Iforks, S, Sloss, Sa
     ia_prev, ib_prev, ic_prev = ia, ib, ic
 
 
-def calc_line_losses_to_fork(node_index_map, feeder, edge_node, Iforks, S, Sloss, Sact, V):
+def calc_line_losses_to_fork(node_index_map, feeder, edge_node, Iforks, S, Sloss, Sact, V, Zbase):
     graph = feeder.network
     pred_node = list(graph.predecessors(edge_node))
     cur_index = node_index_map[edge_node]
     pred_index = node_index_map[pred_node[0]]
     
-    ia_conj = (S[0][cur_index] + Sact[cur_index]) / V[0][cur_index]
+    ia_conj = (S[0][cur_index] + Sact[cur_index]) / V[0][cur_index] # all in pu
     ib_conj = (S[1][cur_index] + Sact[cur_index]) / V[1][cur_index]
     ic_conj = (S[2][cur_index] + Sact[cur_index]) / V[2][cur_index]
     # take complex conjugate:
@@ -202,14 +202,9 @@ def calc_line_losses_to_fork(node_index_map, feeder, edge_node, Iforks, S, Sloss
     ic = ic_load + sum([i[2] for i in Iforks[edge_node]])
     
     impedance = feeder.network.get_edge_data(pred_node[0], edge_node, default=None)['connector']
-    #if isinstance(impedance, transformer):
+    z_3by3 = impedance.Z if isinstance(impedance, setup_nx.line) else np.zeros((3,3)) # not pu
+    z_3by3 = z_3by3/Zbase # convert to pu 
     
-        
-        
-    #if isinstance(impedance, line):
-        #calc_losses_for_line()
-    z_3by3 = impedance.Z if isinstance(impedance, line) else np.zeros((3,3))
-            
     V_drop = np.dot(z_3by3, np.array([ia, ib, ic]))
     conj_ia = complex(ia.real, (-1) * ia.imag)
     conj_ib = complex(ib.real, (-1) * ib.imag)
@@ -243,7 +238,8 @@ def calc_line_losses_to_fork(node_index_map, feeder, edge_node, Iforks, S, Sloss
 
         ia, ib, ic = ia_load + ia_prev, ib_load + ib_prev, ic_load + ic_prev 
         impedance = feeder.network.get_edge_data(pred_node[0], cur_node, default=None)['connector']
-        z_3by3 = impedance.Z if isinstance(impedance, line) else np.zeros((3,3))
+        z_3by3 = impedance.Z if isinstance(impedance, setup_nx.line) else np.zeros((3,3)) # not pu
+        z_3by3 = z_3by3/Zbase # convert to pu 
         V_drop = np.dot(z_3by3, np.array([ia, ib, ic]))
         conj_ia = complex(ia.real, (-1) * ia.imag)
         conj_ib = complex(ib.real, (-1) * ib.imag)
@@ -261,22 +257,14 @@ def calc_line_losses_to_fork(node_index_map, feeder, edge_node, Iforks, S, Sloss
     return S, V, ia_prev, ib_prev, ic_prev, cur_node, z_3by3, child_index
 
 
-def compute_line_losses_multiphase(feeder, P_vals, Q_vals, act_locs, Sbase, headerpath, substation_name, modelpath, lb_mode = True):
+def compute_line_losses_multiphase(feeder, P_vals, Q_vals, act_locs, Sbase, Zbase, headerpath, substation_name, modelpath, depths, lb_mode = True):
+    # P_vals and Q_vals not pu
     graph = feeder.network
     n = len(graph.nodes) 
     percent_V_drop = .05
-    P = [p/Sbase for p in P_vals]
-    Q = [q/Sbase for q in Q_vals]
-    branch_list = segment_network(feeder, substation_name)
-    
-    #for i in range(len(branch_list)):
-        #if 'bus_634' in branch_list[i]:
-            #branch = branch_list[i]
-            #branch_list.remove(branch_list[i])
-            #branch.remove('bus_634')
-            #branch += ['bus_633']
-            #branch_list += [branch]
-            
+    P = [p/Sbase for p in P_vals] # converting to pu
+    Q = [q/Sbase for q in Q_vals] # converting to pu
+    branch_list = segment_network(feeder, substation_name)       
     status = 'unsolved'
     run_counter = 0
     node_index_map = hm.createNodeIndexMap(feeder)
@@ -291,10 +279,8 @@ def compute_line_losses_multiphase(feeder, P_vals, Q_vals, act_locs, Sbase, head
     # set actuators to extreme values for lower or upper bound
     if lb_mode:
         act_cap = -(50/Sbase) #per phase
-    
     else:
         act_cap = (50/Sbase) #per phase
-    
     for act in act_locs:
         index = node_index_map[act]
         Sact[index] = act_cap
@@ -306,21 +292,19 @@ def compute_line_losses_multiphase(feeder, P_vals, Q_vals, act_locs, Sbase, head
     edge_nodes += ['bus_633']
     
     # Find impedances from edge nodes to substation
-    z_edges_to_sub = np.zeros((3, len(edge_nodes)))
-    z_edges_to_sub = z_edges_to_sub.astype('complex128')
+    z_edges_to_sub = np.zeros((3, len(edge_nodes)), dtype = complex)
     i = 0
     
-    #for edge in edge_nodes:
-        #cur_z = get_total_impedance_from_substation(feeder, edge)
-        #z_edges_to_sub[0][i] = cur_z[0][0] 
-        #z_edges_to_sub[1][i] = cur_z[1][1] 
-        #z_edges_to_sub[2][i] = cur_z[2][2]
-        #i += 1
+    for edge in edge_nodes:
+        cur_z = imp.get_total_impedance_from_substation(feeder, edge, depths)
+        z_edges_to_sub[0][i] = cur_z[0][0] 
+        z_edges_to_sub[1][i] = cur_z[1][1] 
+        z_edges_to_sub[2][i] = cur_z[2][2]
+        i += 1
     
     #zmax = max([max(z_edges_to_sub[0]), max(z_edges_to_sub[1]), max(z_edges_to_sub[2])])
-    Vest = np.empty((3, n), dtype = complex)
-    #Vest = np.zeros((3, n)) # Vest is proportional to distance from substaion.
-    #Vest = Vest.astype('complex128')
+    #Vest = np.empty((3, n), dtype = complex)
+    Vest = np.zeros((3, n), dtype = complex) # Vest is proportional to distance from substaion.
     percent_V_drops = percent_V_drop * np.ones((3, n))
     
     while status == 'unsolved' and run_counter < 1:
@@ -363,42 +347,29 @@ def compute_line_losses_multiphase(feeder, P_vals, Q_vals, act_locs, Sbase, head
         
 
         V = Vest
-        Sloss = np.zeros((n,n)) # will populate 
-        Sloss = Sloss.astype('complex128')
+        Sloss = np.zeros((n,n), dtype = complex) # will populate 
         Vforks = {}
         Iforks = {}
         active_branches = []
         
         for branch in branch_list:
-            
             for edge in edge_nodes:
-                
                 if edge in branch:
                     active_branches += [branch]
                     break
-                    
-            if len(branch) >= 2:       
-                edge = branch[len(branch) - 1: len(branch) - 2: -1]
-            
-            else:
-                edge = [branch[0]]
-                
-            Iforks[edge[0]] = []
-            Vforks[edge[0]] = []
+                         
+            edge = branch[-1]
+            Iforks[edge] = []
+            Vforks[edge] = []
         
         for _ in range(len(branch_list)):
             if loop_status == 'broken':
                 break
                 
             cur_branch = active_branches[0]
-            
-            if len(cur_branch) >= 2:
-                edge = cur_branch[len(cur_branch) - 1: len(cur_branch) - 2: -1][0]
-                
-            else:
-                edge = cur_branch[0]
-                
-            S, V, ia_prev, ib_prev, ic_prev, cur_node, z_3by3, child_index = calc_line_losses_to_fork(node_index_map, feeder, edge, Iforks, S, Sloss, Sact, V)
+            edge = cur_branch[-1]
+            # all outputs in pu
+            S, V, ia_prev, ib_prev, ic_prev, cur_node, z_3by3, child_index = calc_line_losses_to_fork(node_index_map, feeder, edge, Iforks, S, Sloss, Sact, V, Zbase)
             
             if cur_node == substation_name:
                 #end of function run
@@ -418,21 +389,15 @@ def compute_line_losses_multiphase(feeder, P_vals, Q_vals, act_locs, Sbase, head
             active_branches.remove(cur_branch)
             
             if len(active_branches) == 0:
-
                 for key, val in Vforks.items():
-                    
                     if loop_status == 'broken':
                         break
                     
                     # check to see if all child branches of fork have been iterated through
                     if len(val) > 0 and len(list(graph.successors(key))) == len(val):
-
                         for v_outer in val:
                             if key == 'bus_632':
-                                break
-                
-                                        
-                            
+                                break                                                                                  
                             if loop_status == 'broken':
                                 break
                                 
@@ -443,26 +408,20 @@ def compute_line_losses_multiphase(feeder, P_vals, Q_vals, act_locs, Sbase, head
                                 check_b_imag = (v_outer[2].imag - v_inner[2].imag) / v_outer[2].imag
                                 check_c_real = (v_outer[3].real - v_inner[3].real) / v_outer[3].real
                                 check_c_imag = (v_outer[3].imag - v_inner[3].imag) / v_outer[3].imag
-                                
                                 all_checks = [check_a_real, check_a_imag, check_b_real, check_b_imag, check_c_real, check_c_imag]
                                 
-                                #checkVclose = [abs(check_a.real) < .1 and abs(check_a.imag) < .1] # check not more than 10% different
+                                #checkVclose = [abs(check_a.real) < .1 and abs(check_a.imag) < .1] # check < than 10% different
                                 #checkVclose += [abs(check_b.real) < .1 and abs(check_b.imag) < .1]
                                 #checkVclose += [abs(check_c.real) < .1 and abs(check_c.imag) < .1]
                                 
                                 # check not more than 10% different
                                 large_error_indxs = [i for i in [0, 0, 1, 1, 2, 2] if abs(all_checks[i]) > .1]   
-                    
                                 for i in large_error_indxs:
-            
                                     if all_checks[i] < 0:
                                         high_v = v_inner
-                                    
                                     else:
-                                        high_v = v_outer
-                                    
+                                        high_v = v_outer                                    
                                     lower_edge_v = trace_error_to_edge(high_v[0], branch_list, graph)
-                                    
                                     for edge in lower_edge_v:
                                         cur_index = node_index_map[edge]
                                         #print('w')
@@ -480,8 +439,7 @@ def compute_line_losses_multiphase(feeder, P_vals, Q_vals, act_locs, Sbase, head
                                         #print(v)
                         
                                     loop_status = 'broken'
-                                    break
-                            
+                                    break                            
                             
                             #for v_inner in val:
                                 #checkVclose = [(v_outer[0] - v_inner[0]) / v_outer[0]] # check not more than 10% different
@@ -493,24 +451,19 @@ def compute_line_losses_multiphase(feeder, P_vals, Q_vals, act_locs, Sbase, head
                             v = [v for v in val if v[0] == 'bus_671'][0]
                             V[0][key_index] = v[1]
                             V[1][key_index] = v[2]
-                            V[2][key_index] = v[3]
-                            
+                            V[2][key_index] = v[3]                            
                             for branch in branch_list:
-
                                 if key in branch:
                                     active_branches += [branch]
                                     Vforks[key] = []
                                     break
 
-
                         if loop_status == 'unbroken' and key != 'bus_632':
                             key_index = node_index_map[key]
                             V[0][key_index] = np.mean([v[1] for v in val])
                             V[1][key_index] = np.mean([v[2] for v in val])
-                            V[2][key_index] = np.mean([v[3] for v in val])
-                            
+                            V[2][key_index] = np.mean([v[3] for v in val])                           
                             for branch in branch_list:
-
                                 if key in branch:
                                     active_branches += [branch]
                                     Vforks[key] = []
@@ -587,17 +540,17 @@ def computePQsweep_timesteps(feeder, load_data):
     return P_lb_results, P_ub_results, Q_lb_results, Q_ub_results
 
 
-def computePQsweep_losses(feeder, act_locs, Sbase, P_lb_results, P_ub_results, Q_lb_results, Q_ub_results, headerpath, substation_name, modelpath):
+def computePQsweep_losses(feeder, act_locs, Sbase, Zbase, P_lb_results, P_ub_results, Q_lb_results, Q_ub_results, headerpath, substation_name, modelpath, depths):
     time_P_lb, P_lb_rowP, P_lb_rowQ = P_lb_results[0], P_lb_results[1], P_lb_results[2]
     time_P_ub, P_ub_rowP, P_ub_rowQ = P_ub_results[0], P_ub_results[1], P_ub_results[2]
     time_Q_lb, Q_lb_rowP, Q_lb_rowQ = Q_lb_results[0], Q_lb_results[1], Q_lb_results[2]
     time_Q_ub, Q_ub_rowP, Q_ub_rowQ = Q_ub_results[0], Q_ub_results[1], Q_ub_results[2]
     
     # accounting for line losses:
-    Psweep_lb, _ = compute_line_losses_multiphase(feeder, P_lb_rowP, P_lb_rowQ, act_locs, Sbase, headerpath, substation_name, modelpath, lb_mode = True)
-    Psweep_ub, _ = compute_line_losses_multiphase(feeder, P_ub_rowP, P_ub_rowQ, act_locs, Sbase, headerpath, substation_name, modelpath, lb_mode = False)
-    _, Qsweep_lb = compute_line_losses_multiphase(feeder, Q_lb_rowP, Q_lb_rowQ, act_locs, Sbase, headerpath, substation_name, modelpath, lb_mode = True)
-    _, Qsweep_ub = compute_line_losses_multiphase(feeder, Q_ub_rowP, Q_ub_rowQ, act_locs, Sbase, headerpath, substation_name, modelpath, lb_mode = False)
+    Psweep_lb, _ = compute_line_losses_multiphase(feeder, P_lb_rowP, P_lb_rowQ, act_locs, Sbase, Zbase, headerpath, substation_name, modelpath, depths, lb_mode = True)
+    Psweep_ub, _ = compute_line_losses_multiphase(feeder, P_ub_rowP, P_ub_rowQ, act_locs, Sbase, Zbase, headerpath, substation_name, modelpath, depths, lb_mode = False)
+    _, Qsweep_lb = compute_line_losses_multiphase(feeder, Q_lb_rowP, Q_lb_rowQ, act_locs, Sbase, Zbase, headerpath, substation_name, modelpath, depths, lb_mode = True)
+    _, Qsweep_ub = compute_line_losses_multiphase(feeder, Q_ub_rowP, Q_ub_rowQ, act_locs, Sbase, Zbase, headerpath, substation_name, modelpath, depths, lb_mode = False)
     
     PQ_bounds = [Psweep_lb, Psweep_ub, Qsweep_lb, Qsweep_ub]
     return PQ_bounds
@@ -868,10 +821,10 @@ def makePVcurve_3ph(sweep_lb, sweep_ub, Sbase, Vbase, R12, X12, B12, V1):
     numPts = 20
     P12 = np.linspace(sweep_lb, sweep_ub, numPts)
     Q12 = P12*m.tan(m.acos(.9)) # Q=P*tan(acos(0.9)), note P12 and Q12 are vectors of pow vals over time
-    Zbase = (Vbase**2)/Sbase # un-needed?
-    R12_diag = np.array([[(R12[0][0]), (R12[1][1]), (R12[2][2])]])
-    X12_diag = np.array([[(X12[0][0]), (X12[1][1]), (X12[2][2])]])
-    V1_trans = np.transpose(V1)
+    R12_diag = np.array([(R12[0][0]), (R12[1][1]), (R12[2][2])])
+    X12_diag = np.array([(X12[0][0]), (X12[1][1]), (X12[2][2])])
+    #V1_trans = np.transpose(V1)
+    V1_trans = (Vbase * np.ones((1,3)))[0]
     trueV2 = np.zeros((3, numPts))
     trueDel2 = np.zeros((3, numPts))
     lznV2 = np.zeros((3, numPts))
@@ -885,17 +838,19 @@ def makePVcurve_3ph(sweep_lb, sweep_ub, Sbase, Vbase, R12, X12, B12, V1):
     print('HI, Q12/Sbase-',Q12[3]/Sbase) 
 
     for i in range(len(P12)): 
+        # calculating true curve
         a, b = solveFwdBwdSweep_2bus_3ph(R12, X12, B12, V1, P12[i], Q12[i]) # all in not-pu
         # a is V2, b is del2, V2 is NOT in pu
         trueV2[0][i], trueV2[1][i], trueV2[2][i] = a[0][0], a[1][0], a[2][0]
         trueDel2[0][i], trueDel2[1][i], trueDel2[2][i] = b[0][0], b[1][0], b[2][0]
         
+        # calculating linearization curve
         V2sq = (V1_trans**2) - (2*P12[i]*R12_diag) - (2*Q12[i]*X12_diag)
         V2 = V2sq**(1/2)
-        lznV2[0][i], lznV2[1][i], lznV2[2][i] = V2[0][0], V2[0][1], V2[0][2]
-        delta2 = -1 * (((P12[i]*X12_diag)-(Q12[i]*R12_diag))/(V1_trans*V2))
+        lznV2[0][i], lznV2[1][i], lznV2[2][i] = V2[0], V2[1], V2[2]
+        delta2 = np.array([0,-120*(m.pi/180),120*(m.pi/180)]) - (((P12[i]*X12_diag)-(Q12[i]*R12_diag))/(V1_trans*V2))
         delta_deg = (180/m.pi)*delta2
-        lznDel2[0][i], lznDel2[1][i], lznDel2[2][i] = delta_deg[0][0], delta_deg[0][1], delta_deg[0][2]
+        lznDel2[0][i], lznDel2[1][i], lznDel2[2][i] = delta_deg[0], delta_deg[1], delta_deg[2]
     
     plt.figure(figsize = (30,30))
     plt.subplot(431)
@@ -957,10 +912,10 @@ def makeQVcurve_3ph(Sweep_lb, Sweep_ub, Sbase, Vbase, R12, X12, B12, V1):
     numPts = 20
     Q12 = np.linspace(Sweep_lb, Sweep_ub, numPts)
     P12 = Q12/m.tan(m.acos(.9)) # P=Q/tan(acos(0.9)), P12 is a vector the size of Q12
-    Zbase = (Vbase**2)/Sbase # un-needed?
-    R12_diag = np.array([[(R12[0][0]), (R12[1][1]), (R12[2][2])]])
-    X12_diag = np.array([[(X12[0][0]), (X12[1][1]), (X12[2][2])]])
-    V1_trans = np.transpose(V1)
+    R12_diag = np.array([(R12[0][0]), (R12[1][1]), (R12[2][2])])
+    X12_diag = np.array([(X12[0][0]), (X12[1][1]), (X12[2][2])])
+    #V1_trans = np.transpose(V1)
+    V1_trans = (Vbase * np.ones((1,3)))[0]
     trueV2 = np.zeros((3, numPts))
     trueDel2 = np.zeros((3, numPts))
     lznV2 = np.zeros((3, numPts))
@@ -968,17 +923,19 @@ def makeQVcurve_3ph(Sweep_lb, Sweep_ub, Sbase, Vbase, R12, X12, B12, V1):
     solns = {}
     
     for i in range(len(Q12)):
+        # calculating true curve
         a, b = solveFwdBwdSweep_2bus_3ph(R12, X12, B12, V1, P12[i], Q12[i])  # all in not-pu
         # a is V2, b is del2, V2 is NOT in pu
         trueV2[0][i], trueV2[1][i], trueV2[2][i] = a[0][0], a[1][0], a[2][0]
         trueDel2[0][i], trueDel2[1][i], trueDel2[2][i] = b[0][0], b[1][0], b[2][0]
+        
+        # calculating linearization curve
         V2sq = (V1_trans**2) - (2*P12[i]*R12_diag) - (2*Q12[i]*X12_diag)
         V2 = V2sq**(1/2)
-        delta2 = -1 * (((P12[i]*X12_diag)-(Q12[i]*R12_diag))/(V1_trans*V2))
-        lznV2[0][i], lznV2[1][i], lznV2[2][i] = V2[0][0], V2[0][1], V2[0][2]
-        print(delta2)
+        delta2 = np.array([0,-120*(m.pi/180),120*(m.pi/180)]) - (((P12[i]*X12_diag)-(Q12[i]*R12_diag))/(V1_trans*V2))
+        lznV2[0][i], lznV2[1][i], lznV2[2][i] = V2[0], V2[1], V2[2]
         delta_deg = (180/m.pi)*delta2
-        lznDel2[0][i], lznDel2[1][i], lznDel2[2][i] = delta_deg[0][0], delta_deg[0][1], delta_deg[0][2]
+        lznDel2[0][i], lznDel2[1][i], lznDel2[2][i] = delta_deg[0], delta_deg[1], delta_deg[2]
     
         
     plt.figure(figsize = (30,30))
@@ -1054,8 +1011,9 @@ def computeLznItvl(x, fx_lzn, fx_true):
     return err_max, slopeInfo
 
 
-def detLznRange(feeder, Vbase_ll, Sbase, z12,B12, act_locs, load_data, headerpath, substation_name, modelpath):
+def detLznRange(feeder, Vbase_ll, Sbase, z12, B12, act_locs, load_data, headerpath, substation_name, modelpath, depths):
     Vbase = Vbase_ll/(3**(1 / 2)) 
+    Zbase = (Vbase**2)/Sbase
     V1a=Vbase*np.cos(0*np.pi/180)+1j*Vbase*np.sin(0*np.pi/180); # angle=0 deg
     V1b=Vbase*np.cos(-120*np.pi/180)+1j*Vbase*np.sin(-120*np.pi/180); # angle=-120 deg
     V1c=Vbase*np.cos(+120*np.pi/180)+1j*Vbase*np.sin(+120*np.pi/180); # angle=+120 deg
@@ -1064,14 +1022,14 @@ def detLznRange(feeder, Vbase_ll, Sbase, z12,B12, act_locs, load_data, headerpat
     X12 = z12.imag
     
     P_lb_results, P_ub_results, Q_lb_results, Q_ub_results = computePQsweep_timesteps(feeder, load_data)
-    PQ_bounds = computePQsweep_losses(feeder, act_locs, Sbase, P_lb_results, P_ub_results, Q_lb_results, Q_ub_results, headerpath, substation_name, modelpath)
+    PQ_bounds = computePQsweep_losses(feeder, act_locs, Sbase, Zbase, P_lb_results, P_ub_results, Q_lb_results, Q_ub_results, headerpath, substation_name, modelpath, depths)
     
     Psweep_lb = PQ_bounds[0] # Jaimie assumes these are in per unit, unsure
     Psweep_ub = PQ_bounds[1] # each is scalar
     Qsweep_lb = PQ_bounds[2]
     Qsweep_ub = PQ_bounds[3]
-    pvals, solns1 = makePVcurve_3ph(Psweep_lb*Sbase, Psweep_ub*Sbase, Sbase, Vbase, R12, X12,B12, V1) # all in not-pu
-    qvals, solns2 = makeQVcurve_3ph(Qsweep_lb*Sbase, Qsweep_ub*Sbase, Sbase, Vbase, R12, X12,B12, V1)
+    pvals, solns1 = makePVcurve_3ph(Psweep_lb*Sbase, Psweep_ub*Sbase, Sbase, Vbase, R12, X12, B12, V1) # all in not-pu
+    qvals, solns2 = makeQVcurve_3ph(Qsweep_lb*Sbase, Qsweep_ub*Sbase, Sbase, Vbase, R12, X12, B12, V1)
     
     errVmax1, slope_vp = computeLznItvl(pvals / Sbase, solns1['lznV2'][0] / Vbase, solns1['trueV2'][0] / Vbase)
     errDelmax1,slope_delp = computeLznItvl(pvals / Sbase, solns1['lznDel2'][0], solns1['trueDel2'][0])
