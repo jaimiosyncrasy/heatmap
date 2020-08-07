@@ -327,23 +327,33 @@ def phaseCouplingPerNode(feeder,depths):
     return coupling_ratios
 
 
-def createColorMap(feeder, values_dic):
+def createColorMap(feeder, values_dic, file_name):
     graph = feeder.network
+    vals = values_dic.values()
+    if isinstance(list(vals)[0], complex):
+        vals = [(val.imag**2 + val.real**2)**(1/2) for val in vals]
+    maxVal = max(vals)
+    minVal = min(vals)
+    bin_size = (maxVal - minVal)/8
+    bin_edges = [[minVal + (i*bin_size), minVal + ((i + 1)*bin_size)] for i in range(8)]
+    colors = ['plum', 'turquoise', 'blue', 'green','lime', 'yellow', 'orange', 'red']
+    bins_with_clrs = [bin_edges[i] + [colors[i]] for i in range(8)]
+    print(bins_with_clrs)
     
     for node, val in values_dic.items():
         if isinstance(val, complex):
             color_num = (val.imag**2 + val.real**2)**(1/2)
         else:
             color_num = val
-        
-        if color_num == 0:
-            graph.nodes[node]['style'] = 'filled'
-            graph.nodes[node]['fillcolor'] = '.6, .6, .8'    
-        elif color_num >= 1:
-            graph.nodes[node]['style'] = 'filled'
-            graph.nodes[node]['fillcolor'] = 'white'    
-        else:
-            graph.nodes[node]['style'] = 'filled'
-            graph.nodes[node]['fillcolor'] = '.5, .6,' + str(color_num)
-        
-    nx.nx_pydot.write_dot(graph, 'colorMap')
+            
+        for b in bins_with_clrs:
+            if color_num == minVal and b[0] == minVal:
+                graph.nodes[node]['style'] = 'filled'
+                graph.nodes[node]['fillcolor'] = b[2]
+                break
+            elif color_num > b[0] and color_num <= b[1]:
+                graph.nodes[node]['style'] = 'filled'
+                graph.nodes[node]['fillcolor'] = b[2]
+                break
+     
+    nx.nx_pydot.write_dot(graph, file_name)
