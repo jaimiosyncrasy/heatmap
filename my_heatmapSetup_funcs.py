@@ -214,6 +214,7 @@ def markActLoc(graph, act_loc):
     #act_loc = node name as string where actuator is placed
     graph.nodes[act_loc]['style'] = 'filled'
     graph.nodes[act_loc]['fillcolor'] = 'turquoise'
+    graph.nodes[act_loc]['shape'] = 'circle'
     return
         
 
@@ -223,6 +224,7 @@ def markFeas(feas, test_act_loc, graph):
     #test_act_loc = node name as string
     #graph = networkx graph object (feeder.network)
     graph.nodes[test_act_loc]['style'] = 'filled'
+    graph.nodes[test_act_loc]['shape'] = 'circle'
    
     if feas:
         graph.nodes[test_act_loc]['fillcolor'] = 'green'
@@ -314,7 +316,7 @@ def runHeatMapProcess(feeder, all_act_locs, perf_nodes, node_index_map,substatio
             # heatmap color indicates indicates good places to place actuator given chosen loc of perf node (not necessarily colocated)
             indicMat = updateStateSpace(n, [test] + cur_act_locs, [perf_nodes[a]] + cur_perf_nodes, node_index_map)
             print('evaluating act at ',[test]+cur_act_locs,', perf at ',[perf_nodes[a]] + cur_perf_nodes)
-
+            graph.nodes[perf_nodes[a]]['shape'] = 'square'
             feas, maxError = computeFeas_v1(feeder, [test]+cur_act_locs, A, B, indicMat,substation_name,perf_nodes,depths,node_index_map)
             lzn_error_dic[test] = maxError
             markFeas(feas, test, graph)

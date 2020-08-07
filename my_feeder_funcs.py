@@ -83,16 +83,17 @@ def make_graph(feeder, file_name):
     #file_name = string specifying name of dot file created when make_graph() is called
     #feeder = initialized feeder object from feeder_init()
     #for node in feeder.network.nodes:
-        #feeder.network.nodes[node]['shape'] = 'point'
     graph = feeder.network
     nodes = graph.nodes
     edges = graph.edges
     graph.size = .1
-    #graph['pack'] = True
-    #graph['packmode'] = 'node'
+    graph.graph['size'] = 200
+    
     for n in nodes:
-        graph.nodes[n]['fontsize'] = 8
-        graph.nodes[n]['shape'] = 'point'
+        graph.nodes[n]['fontsize'] = 15
+        graph.nodes[n]['label'] = ''
+        graph.nodes[n]['shape'] = 'circle'
+        graph.nodes[n]['width'] = 1
         graph.nodes[n]['xlabel'] = n[4:]
         
     for e in edges:
@@ -107,6 +108,20 @@ def make_graph(feeder, file_name):
     #nx.draw_kamada_kawai(graph,with_labels = True, alpha=0.8) #NEW FUNCTION
     #nx.draw_spectral(graph,with_labels = True, alpha=0.8) #NEW FUNCTION
     #nx.draw_spring(graph,with_labels = True, alpha=0.8) #NEW FUNCTION
+    return
+
+def clear_graph(feeder):
+    # returns feeder graph to original state (removes any node colors/changes to shape or size)
+    graph = feeder.network
+    for n in graph.nodes:
+        graph.nodes[n]['style'] = 'filled'
+        graph.nodes[n]['fillcolor'] = 'white'
+        graph.nodes[n]['color'] = 'black'
+        graph.nodes[n]['fontcolor'] = 'black'
+        graph.nodes[n]['fontsize'] = 15
+        graph.nodes[n]['label'] = ''
+        graph.nodes[n]['shape'] = 'circle'
+        graph.nodes[n]['width'] = 1
     return
 
 # see reference for layouts: https://networkx.github.io/documentation/stable/reference/drawing.html
