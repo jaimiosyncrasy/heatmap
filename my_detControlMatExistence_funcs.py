@@ -61,11 +61,11 @@ def computeFParamSpace_v1(feeder, act_locs, perf_nodes):
 def computeFParamSpace_v2(feeder, act_locs, perf_nodes,R,X,depths,node_index_Map):
     # Compute (Fq,Fp) ranges as a func of impedance paths between act nodes, perf nodes, and substation
     
-    if file_path=='13NF_balanced/':
+    if feeder.loadfolder=='13NF_balanced/':
         c=np.array([0.412,0.857]) # (q,p) tuned for 13NF based on data from feas configs
-    elif file_path=='123NF/':
+    elif feeder.loadfolder=='123NF/':
         c=np.array([0.3,0.45]) 
-    elif file_path=='PL0001/':
+    elif feeder.loadfolder=='PL0001/':
         c=np.array([0.3,0.45])  # dunno yet
     
     avgSens_dvdq,avgSens_ddeldp= (np.empty((0,1)) for i in range(2))
