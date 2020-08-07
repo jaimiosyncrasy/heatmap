@@ -59,9 +59,15 @@ def computeFParamSpace_v1(feeder, act_locs, perf_nodes):
 
 #version 2, correct
 def computeFParamSpace_v2(feeder, act_locs, perf_nodes,R,X,depths,node_index_Map):
-    # Compute (Fp,Fq) ranges as a func of impedance paths between act nodes, perf nodes, and substation
-    gamma=np.array([0.08, 0.35]) # scaling, according to units of Q-V and P-delta loops
-    c=np.array([3.3/100,30/100]) # tuned for 13NF based on data from feas configs
+    # Compute (Fq,Fp) ranges as a func of impedance paths between act nodes, perf nodes, and substation
+    
+    if file_path=='13NF_balanced/':
+        c=np.array([0.412,0.857]) # (q,p) tuned for 13NF based on data from feas configs
+    elif file_path=='123NF/':
+        c=np.array([0.3,0.45]) 
+    elif file_path=='PL0001/':
+        c=np.array([0.3,0.45])  # dunno yet
+    
     avgSens_dvdq,avgSens_ddeldp= (np.empty((0,1)) for i in range(2))
     i=0
     for act in act_locs: # for each (perf,act) pair
@@ -90,8 +96,8 @@ def computeFParamSpace_v2(feeder, act_locs, perf_nodes,R,X,depths,node_index_Map
         #print('der1=',der1)
         #print('der2=',der2)
         mainPath=Zgood
-        sensEst_dvdq=gamma[0]*np.multiply(np.multiply(der1,der2),mainPath)
-        sensEst_ddeldp=gamma[1]*np.multiply(np.multiply(der1,der2),mainPath)
+        sensEst_dvdq=np.multiply(np.multiply(der1,der2),mainPath)
+        sensEst_ddeldp=np.multiply(np.multiply(der1,der2),mainPath)
 
         avg_dvdq=sensEst_dvdq.mean() # converts 3x3 to scalar complex for each act-perf pair
         avg_ddeldp=sensEst_ddeldp.mean()
@@ -104,7 +110,7 @@ def computeFParamSpace_v2(feeder, act_locs, perf_nodes,R,X,depths,node_index_Map
     # avgSens_dvdq is list of scalar complex vals
     q=np.amax(np.absolute(avgSens_dvdq)) # take max abs value of perf-act pair sensitivities
     p=np.amax(np.absolute(avgSens_ddeldp))
-    #print('q=',q)
+    #print('q=',q) # print when tuning c1 and c2
     #print('p=',p)
     Fq_ub=(1/q)*c[0]
     Fp_ub=(1/p)*c[1]
@@ -144,8 +150,9 @@ def detControlMatExistence(feeder, act_locs, A, B, indicMat,substation_name,perf
     R,X=hm.createRXmatrices_3ph(feeder, node_index_map,depths)
     Fq_ub,Fp_ub=computeFParamSpace_v2(feeder, act_locs, perf_nodes,R,X,depths,node_index_map)
 
-    Fq_range=np.linspace(0.0001, Fq_ub, num=15)
-    Fp_range=np.linspace(0.0001, Fp_ub, num=15)
+    numsamp=15 # temporary, should really do at least 15
+    Fq_range=np.linspace(0.0001, Fq_ub, numsamp)
+    Fp_range=np.linspace(0.0001, Fp_ub, numsamp)
     #print('Fq_range=',Fq_ub)
     #print('Fq_range=',Fq_range)
 

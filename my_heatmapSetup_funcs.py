@@ -225,7 +225,7 @@ def markFeas(feas, test_act_loc, graph):
     #graph = networkx graph object (feeder.network)
     graph.nodes[test_act_loc]['style'] = 'filled'
     graph.nodes[test_act_loc]['shape'] = 'circle'
-   
+
     if feas:
         graph.nodes[test_act_loc]['fillcolor'] = 'green'
     else:
@@ -258,7 +258,15 @@ def find_good_colocated(feeder, node_index_map,substation_name,depths, file_name
     feas_configs=[] 
     lzn_error_dic = {} #contains maxLznError for each choice of actuator location with node name as key  
     test_nodes = []
-    graphNodes_nosub=np.delete(graph.nodes,[6, 7]) # dont consider co-located at substation nodes, node 650 and 651
+    
+    if file_name=='13NF_test.dot':
+        substIdx=[6, 7] # substation index
+    elif file_name=='123NF_test.dot':
+        substIdx=[22, 24]
+    elif file_name=='PL0001_test.dot':
+        substIdx=[22, 24] # dunno yet
+    
+    graphNodes_nosub=np.delete(graph.nodes,substIdx) # dont consider co-located at substation nodes, node 650 and 651
     # Note: ^idx 6 & 7 are MANUALLY PICKED OUT FOR 13NF
     
     for node in graphNodes_nosub: # try placing act/perf at all nodes of the network
@@ -307,7 +315,15 @@ def runHeatMapProcess(feeder, all_act_locs, perf_nodes, node_index_map,substatio
             
         lzn_error_dic = {} #contains maxLznError for each choice of actuator location with node name as key  
         test_nodes = []
-        graphNodes_nosub=np.delete(graph.nodes,[6, 7]) # dont consider co-located at substation nodes, node 650 and 651 
+        
+        if file_name=='13NF_test.dot':
+            substIdx=[6, 7] # substation index
+        elif file_name=='123NF_test.dot':
+            substIdx=[22, 24]
+        elif file_name=='PL0001_test.dot':
+            substIdx=[22, 24] # dunno yet
+        graphNodes_nosub=np.delete(graph.nodes,substIdx) # dont consider co-located at substation nodes
+        
         for node in graphNodes_nosub:
             if node not in cur_act_locs:
                 test_nodes.append(node)
@@ -317,6 +333,7 @@ def runHeatMapProcess(feeder, all_act_locs, perf_nodes, node_index_map,substatio
             indicMat = updateStateSpace(n, [test] + cur_act_locs, [perf_nodes[a]] + cur_perf_nodes, node_index_map)
             print('evaluating act at ',[test]+cur_act_locs,', perf at ',[perf_nodes[a]] + cur_perf_nodes)
             graph.nodes[perf_nodes[a]]['shape'] = 'square'
+
             feas, maxError = computeFeas_v1(feeder, [test]+cur_act_locs, A, B, indicMat,substation_name,perf_nodes,depths,node_index_map)
             lzn_error_dic[test] = maxError
             markFeas(feas, test, graph)
@@ -331,7 +348,7 @@ def runHeatMapProcess(feeder, all_act_locs, perf_nodes, node_index_map,substatio
         heatMapNames.append(heatMapName)
         nx.nx_pydot.write_dot(graph, heatMapName)
         render('dot', 'png', heatMapName)
-        a += 1
+        a += 1 # place actuator
         
         if a <= len(all_act_locs): # choose actuator and finalize assoc perf node
             cur_act_locs = all_act_locs[0:a] # populate cur_act_locs with subset of all_act_locs
