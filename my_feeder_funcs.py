@@ -86,14 +86,12 @@ def make_graph(feeder, file_name):
     graph = feeder.network
     nodes = graph.nodes
     edges = graph.edges
-    graph.size = .1
-    graph.graph['size'] = 200
     
     for n in nodes:
         graph.nodes[n]['fontsize'] = 15
         graph.nodes[n]['label'] = ''
         graph.nodes[n]['shape'] = 'circle'
-        graph.nodes[n]['width'] = 1
+        graph.nodes[n]['width'] = .25
         graph.nodes[n]['xlabel'] = n[4:]
         
     for e in edges:
@@ -121,7 +119,7 @@ def clear_graph(feeder):
         graph.nodes[n]['fontsize'] = 15
         graph.nodes[n]['label'] = ''
         graph.nodes[n]['shape'] = 'circle'
-        graph.nodes[n]['width'] = 1
+        graph.nodes[n]['width'] = .25
     return
 
 # see reference for layouts: https://networkx.github.io/documentation/stable/reference/drawing.html
