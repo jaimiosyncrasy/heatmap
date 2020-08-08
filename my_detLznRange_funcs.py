@@ -1013,7 +1013,7 @@ def computeLznItvl(x, fx_lzn, fx_true):
 
 def detLznRange(feeder, Vbase_ll, Sbase, z12, B12, act_locs, load_data, headerpath, substation_name, modelpath, depths):
     Vbase = Vbase_ll/(3**(1 / 2)) 
-    Zbase = (Vbase**2)/Sbase
+    Zbase = (Vbase**2)/(Sbase*1000)
     V1a=Vbase*np.cos(0*np.pi/180)+1j*Vbase*np.sin(0*np.pi/180); # angle=0 deg
     V1b=Vbase*np.cos(-120*np.pi/180)+1j*Vbase*np.sin(-120*np.pi/180); # angle=-120 deg
     V1c=Vbase*np.cos(+120*np.pi/180)+1j*Vbase*np.sin(+120*np.pi/180); # angle=+120 deg
@@ -1024,7 +1024,7 @@ def detLznRange(feeder, Vbase_ll, Sbase, z12, B12, act_locs, load_data, headerpa
     P_lb_results, P_ub_results, Q_lb_results, Q_ub_results = computePQsweep_timesteps(feeder, load_data)
     PQ_bounds = computePQsweep_losses(feeder, act_locs, Sbase, Zbase, P_lb_results, P_ub_results, Q_lb_results, Q_ub_results, headerpath, substation_name, modelpath, depths)
     
-    Psweep_lb = PQ_bounds[0] # Jaimie assumes these are in per unit, unsure
+    Psweep_lb = PQ_bounds[0] # in pu
     Psweep_ub = PQ_bounds[1] # each is scalar
     Qsweep_lb = PQ_bounds[2]
     Qsweep_ub = PQ_bounds[3]
