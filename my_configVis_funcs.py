@@ -31,7 +31,7 @@ def markActuatorConfig(lst_act_locs, feeder, file_name):
     
     for loc in lst_act_locs:
         graph.nodes[loc]['style'] = 'filled'
-        graph.nodes[loc]['fillcolor'] = 'turquoise'
+        graph.nodes[loc]['fillcolor'] = 'orange'
     
     nx.nx_pydot.write_dot(graph, file_name)
     render('dot', 'png', file_name)
@@ -55,7 +55,7 @@ def markCommonFeasNodes(lst_feas_configs, feeder):
     
     for act_loc in shared_locs:
         graph.nodes[act_loc]['style'] = 'filled'
-        graph.nodes[act_loc]['fillcolor'] = 'turquoise'
+        graph.nodes[act_loc]['fillcolor'] = 'orange'
         
     nx.nx_pydot.write_dot(graph, 'shared_act_locs_' + file_name)
     render('dot', 'png', 'shared_act_locs_' + file_name)
@@ -72,27 +72,6 @@ def find_ActLoc_in_FeasConfigs(act_loc, feas_configs):
             configs_with_actLoc += [config]
     return configs_with_actLoc
     
-        
-def find_ActLoc_in_Fset(F_set, node_index_map, actuator_loc, performance_loc = 0):
-    # pass in an actuator location, optional performance location, and set of F matrices to see if there is an F matrix in the set of F matrices that contains those parameters
-    F_with_act = []
-    act_index = node_index_map[actuator_loc]
-    if performance_loc == 0:
-        perf_index = False
-    else:
-        perf_index = node_index_map[performace_loc]
-        
-    for F in F_set:
-        if perf_index:
-            if F[0][0][act_index][perf_index] != 0:
-                F_with_act += F
-        else:
-            for perf in F[0][0][act_index]:
-                if perf != 0:
-                    F_with_act += F
-                    break                
-    return F_with_act
-
 
 def plot_actuator_num_histogram(lst_feas_configs):
     # input list of lists of feasible actuator configurations
@@ -112,6 +91,7 @@ def plot_actuator_num_histogram(lst_feas_configs):
     return
 
 
+#used in multiphase line loss func
 def assign_network_branches1(feeder, substation_name):
     # feeder = initialized feeder
     # substation_name = name of substation node as string
@@ -135,32 +115,8 @@ def assign_network_branches1(feeder, substation_name):
     return branches  
 
 
-def assign_network_branches2(feeder, substation_name):
-    # feeder = initialized feeder
-    # substation_name = name of substation node as string
-    cur_child_node = substation_name
-    branches = []
-    branch_builder = []
-    
-    while cur_child_node:
-        branch_builder += [cur_child_node]
-        all_children = list(feeder.network.successors(cur_child_node))
-        
-        if all_children:
-            new_branch_heads = all_children[1:]
-            cur_child_node = all_children[0]
-            
-            for head in new_branch_heads:
-                branches += assign_network_branches2(feeder, head)
-            
-        else:
-            break
-    
-    branches += [branch_builder]
-    return branches
-
-
-def assign_network_branches3(feeder, substation_name):
+# used for general visualization
+def assign_network_branches(feeder, substation_name):
     # feeder = initialized feeder
     # substation_name = name of substation node as string
     cur_child_node = substation_name
@@ -308,6 +264,7 @@ def find_branch_in_branch_list(node_in_branch, branch_lst):
             
     
 def phaseCouplingPerNode(feeder,depths):
+    # phase coupling = mutual impedance/ self impedance
     graph = feeder.network
     nodes = graph.nodes
     coupling_ratios = {}
@@ -355,5 +312,34 @@ def createColorMap(feeder, values_dic, file_name):
                 graph.nodes[node]['style'] = 'filled'
                 graph.nodes[node]['fillcolor'] = b[2]
                 break
-     
+  
+    nx.nx_pydot.write_dot(graph, file_name)
+
+    
+def createColorMap_BandW(feeder, values_dic, file_name):
+    graph = feeder.network
+    vals = values_dic.values()
+    if isinstance(list(vals)[0], complex):
+        vals = [(val.imag**2 + val.real**2)**(1/2) for val in vals]
+    maxVal = max(vals)
+    minVal = min(vals)
+    bin_size = (maxVal - minVal)/8
+    bin_edges = [[minVal + (i*bin_size), minVal + ((i + 1)*bin_size)] for i in range(8)]
+    sizes = [.1, .2, .3, .4, .5, .6, .7, .8]
+    bins_with_sizes = [bin_edges[i] + [sizes[i]] for i in range(8)]
+    
+    for node, val in values_dic.items():
+        if isinstance(val, complex):
+            size_num = (val.imag**2 + val.real**2)**(1/2)
+        else:
+            size_num = val
+            
+        for b in bins_with_sizes:
+            if size_num == minVal and b[0] == minVal:
+                graph.nodes[node]['width'] = b[2]
+                break
+            elif size_num > b[0] and size_num <= b[1]:
+                graph.nodes[node]['width'] = b[2]
+                break
+                
     nx.nx_pydot.write_dot(graph, file_name)
