@@ -162,7 +162,7 @@ def computeFeas_v1(feeder, act_locs, A, B, indicMat,substation_name,perf_nodes,d
     # not get given by computeFeas: Vbase_ll, Sbase, load_data, headerpath, modelpath
 
     MYmaxerror=-1 # temporary
-    return MYfeas,MYmaxerror
+    return MYfeas,MYmaxerror,MYnumfeas
 
 # workaround version
 def computeFeas_v2(feeder, act_locs, perf_nodes, A, B, indicMat):
@@ -213,7 +213,7 @@ def markActLoc(graph, act_loc):
     #graph = networkx graph object (feeder.network)
     #act_loc = node name as string where actuator is placed
     graph.nodes[act_loc]['style'] = 'filled'
-    graph.nodes[act_loc]['fillcolor'] = 'turquoise'
+    graph.nodes[act_loc]['fillcolor'] = 'gray'
     graph.nodes[act_loc]['shape'] = 'circle'
     return
         
@@ -238,11 +238,11 @@ def eval_config(feeder, all_act_locs, perf_nodes, node_index_map,substation_name
     n = len(graph.nodes) #number of nodes in network
     A, B = setupStateSpace(n, feeder, node_index_map,depths)
     indicMat = updateStateSpace(n, all_act_locs, perf_nodes, node_index_map)
-    feas, maxError = computeFeas_v1(feeder, all_act_locs, A, B, indicMat,substation_name,perf_nodes,depths,node_index_map)
+    feas, maxError,numfeas = computeFeas_v1(feeder, all_act_locs, A, B, indicMat,substation_name,perf_nodes,depths,node_index_map)
     vis.markActuatorConfig(all_act_locs, feeder, file_name) # create diagram with actuator locs marked
     
     print('Actuator configuration is feasible') if feas else print('Actuator configuration is not feasible')
-    return feas, maxError
+    return feas, maxError,numfeas
 
 def find_good_colocated(feeder, node_index_map,substation_name,depths, file_name):
     # almost the same as runheatmap process, but only runs once and shows one heatmap indicating which nodes are good to place a co-located act/perf node
@@ -275,7 +275,7 @@ def find_good_colocated(feeder, node_index_map,substation_name,depths, file_name
     for test in test_nodes:
         indicMat = updateStateSpace(n, [test], [test], node_index_map) # (n,act,perf,dictionary)
         print('evaluating act at ',[test],', perf at ',[test])
-        feas, maxError = computeFeas_v1(feeder, [test], A, B, indicMat,substation_name,[test],depths,node_index_map) # pass in potential actual loc
+        feas, maxError,numfeas = computeFeas_v1(feeder, [test], A, B, indicMat,substation_name,[test],depths,node_index_map) # pass in potential actual loc
         lzn_error_dic[test] = maxError
         markFeas(feas, test, graph)
         if feas:
@@ -283,6 +283,7 @@ def find_good_colocated(feeder, node_index_map,substation_name,depths, file_name
             feas_dic['act'] = [test]
             feas_dic['perf'] = [test]
             feas_dic['lznErr'] = [lzn_error_dic[test]]
+            feas_dic['numfeas']=[numfeas]
             feas_configs += [feas_dic]        
 
     heatMapName='heat_map_colocated' + '_' + file_name
@@ -334,7 +335,7 @@ def runHeatMapProcess(feeder, all_act_locs, perf_nodes, node_index_map,substatio
             print('evaluating act at ',[test]+cur_act_locs,', perf at ',[perf_nodes[a]] + cur_perf_nodes)
             graph.nodes[perf_nodes[a]]['shape'] = 'square'
 
-            feas, maxError = computeFeas_v1(feeder, [test]+cur_act_locs, A, B, indicMat,substation_name,perf_nodes,depths,node_index_map)
+            feas, maxError,numfeas = computeFeas_v1(feeder, [test]+cur_act_locs, A, B, indicMat,substation_name,perf_nodes,depths,node_index_map)
             lzn_error_dic[test] = maxError
             markFeas(feas, test, graph)
             if feas:
@@ -342,6 +343,7 @@ def runHeatMapProcess(feeder, all_act_locs, perf_nodes, node_index_map,substatio
                 feas_dic['act'] = [test] + cur_act_locs
                 feas_dic['perf'] = [test] + cur_perf_nodes
                 feas_dic['lznErr'] = [lzn_error_dic[test]]
+                feas_dic['numfeas']=[numfeas]
                 feas_configs += [feas_dic]        
         
         heatMapName='heat_map_' + str(a) + '_' + file_name

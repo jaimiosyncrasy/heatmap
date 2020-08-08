@@ -31,7 +31,7 @@ def markActuatorConfig(lst_act_locs, feeder, file_name):
     
     for loc in lst_act_locs:
         graph.nodes[loc]['style'] = 'filled'
-        graph.nodes[loc]['fillcolor'] = 'orange'
+        graph.nodes[loc]['fillcolor'] = 'gray'
     
     nx.nx_pydot.write_dot(graph, file_name)
     render('dot', 'png', file_name)
@@ -55,7 +55,7 @@ def markCommonFeasNodes(lst_feas_configs, feeder):
     
     for act_loc in shared_locs:
         graph.nodes[act_loc]['style'] = 'filled'
-        graph.nodes[act_loc]['fillcolor'] = 'orange'
+        graph.nodes[act_loc]['fillcolor'] = 'gray'
         
     nx.nx_pydot.write_dot(graph, 'shared_act_locs_' + file_name)
     render('dot', 'png', 'shared_act_locs_' + file_name)

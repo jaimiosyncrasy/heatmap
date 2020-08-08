@@ -816,11 +816,18 @@ def makeQVcurve(Sweep_lb, Sweep_ub, Sbase, Vbase, R12, X12, V1):
     return Q12, solns # end of make QV curve
 
 
-def makePVcurve_3ph(sweep_lb, sweep_ub, Sbase, Vbase, R12, X12, B12, V1):
+def makePVcurve_3ph(PQbounds_pu, Sbase, Vbase, R12, X12, B12, V1):
     # all inputs are NOT in per unit, sweeps are scalars
     numPts = 20
-    P12 = np.linspace(sweep_lb, sweep_ub, numPts)
-    Q12 = P12*m.tan(m.acos(.9)) # Q=P*tan(acos(0.9)), note P12 and Q12 are vectors of pow vals over time
+    Psweep_lb = PQbounds_pu[0]*Sbase # in pu
+    Psweep_ub = PQbounds_pu[1]*Sbase # each is scalar
+    Qsweep_lb = PQbounds_pu[2]*Sbase
+    Qsweep_ub = PQbounds_pu[3]*Sbase
+    
+    P12 = np.linspace(Psweep_lb, Psweep_ub, numPts) # linear interpolation
+    Q12 = np.linspace(Qsweep_lb, Qsweep_ub, numPts)
+    # note P12 and Q12 are vectors of pow vals over time
+    
     R12_diag = np.array([(R12[0][0]), (R12[1][1]), (R12[2][2])])
     X12_diag = np.array([(X12[0][0]), (X12[1][1]), (X12[2][2])])
     #V1_trans = np.transpose(V1)
@@ -907,11 +914,18 @@ def makePVcurve_3ph(sweep_lb, sweep_ub, Sbase, Vbase, R12, X12, B12, V1):
     return P12, solns # end of makePVcurve
     
     
-def makeQVcurve_3ph(Sweep_lb, Sweep_ub, Sbase, Vbase, R12, X12, B12, V1):
+def makeQVcurve_3ph(PQbounds_pu, Sbase, Vbase, R12, X12, B12, V1):
     # All units not in pu, sweep_lb/ub are scalars, R and X are 3x3 matrices
     numPts = 20
-    Q12 = np.linspace(Sweep_lb, Sweep_ub, numPts)
-    P12 = Q12/m.tan(m.acos(.9)) # P=Q/tan(acos(0.9)), P12 is a vector the size of Q12
+    Psweep_lb = PQbounds_pu[0]*Sbase # in pu
+    Psweep_ub = PQbounds_pu[1]*Sbase # each is scalar
+    Qsweep_lb = PQbounds_pu[2]*Sbase
+    Qsweep_ub = PQbounds_pu[3]*Sbase
+    
+    P12 = np.linspace(Psweep_lb, Psweep_ub, numPts) # linear interpolation
+    Q12 = np.linspace(Qsweep_lb, Qsweep_ub, numPts)
+    # note P12 and Q12 are vectors of pow vals over time
+    
     R12_diag = np.array([(R12[0][0]), (R12[1][1]), (R12[2][2])])
     X12_diag = np.array([(X12[0][0]), (X12[1][1]), (X12[2][2])])
     #V1_trans = np.transpose(V1)
@@ -1024,12 +1038,9 @@ def detLznRange(feeder, Vbase_ll, Sbase, z12, B12, act_locs, load_data, headerpa
     P_lb_results, P_ub_results, Q_lb_results, Q_ub_results = computePQsweep_timesteps(feeder, load_data)
     PQ_bounds = computePQsweep_losses(feeder, act_locs, Sbase, Zbase, P_lb_results, P_ub_results, Q_lb_results, Q_ub_results, headerpath, substation_name, modelpath, depths)
     
-    Psweep_lb = PQ_bounds[0] # in pu
-    Psweep_ub = PQ_bounds[1] # each is scalar
-    Qsweep_lb = PQ_bounds[2]
-    Qsweep_ub = PQ_bounds[3]
-    pvals, solns1 = makePVcurve_3ph(Psweep_lb*Sbase, Psweep_ub*Sbase, Sbase, Vbase, R12, X12, B12, V1) # all in not-pu
-    qvals, solns2 = makeQVcurve_3ph(Qsweep_lb*Sbase, Qsweep_ub*Sbase, Sbase, Vbase, R12, X12, B12, V1)
+# PQbounds is array of 4 scalars, each in per unit power 
+    pvals, solns1 = makePVcurve_3ph(PQ_bounds, Sbase,Vbase, R12, X12, B12, V1) # all in not-pu
+    qvals, solns2 = makeQVcurve_3ph(PQ_bounds, Sbase,Vbase, R12, X12, B12, V1)
     
     errVmax1, slope_vp = computeLznItvl(pvals / Sbase, solns1['lznV2'][0] / Vbase, solns1['trueV2'][0] / Vbase)
     errDelmax1,slope_delp = computeLznItvl(pvals / Sbase, solns1['lznDel2'][0], solns1['trueDel2'][0])
