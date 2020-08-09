@@ -293,7 +293,8 @@ def createColorMap(feeder, values_dic, file_name):
     minVal = min(vals)
     bin_size = (maxVal - minVal)/8
     bin_edges = [[minVal + (i*bin_size), minVal + ((i + 1)*bin_size)] for i in range(8)]
-    colors = ['plum', 'turquoise', 'blue', 'green','lime', 'yellow', 'orange', 'red']
+    # color reference: https://stackoverflow.com/questions/22408237/named-colors-in-matplotlib
+    colors = ['gray','green', 'limegreen', 'yellowgreen', 'yellow','gold', 'orange', 'red']
     bins_with_clrs = [bin_edges[i] + [colors[i]] for i in range(8)]
     print(bins_with_clrs)
     
@@ -314,6 +315,7 @@ def createColorMap(feeder, values_dic, file_name):
                 break
   
     nx.nx_pydot.write_dot(graph, file_name)
+    render('dot', 'png', file_name)
 
     
 def createColorMap_BandW(feeder, values_dic, file_name):

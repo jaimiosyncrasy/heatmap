@@ -96,7 +96,7 @@ def make_graph(feeder, file_name):
         
     for e in edges:
         graph.edges[e]['arrowhead'] = 'none'
-        graph.edges[e]['color'] = 'grey'
+        graph.edges[e]['color'] = 'gray'
     
     nx.nx_pydot.write_dot(graph, file_name)
     render('dot', 'png', file_name)  
