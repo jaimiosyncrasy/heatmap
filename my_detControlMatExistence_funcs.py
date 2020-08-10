@@ -70,7 +70,7 @@ def computeFParamSpace_v2(feeder, act_locs, perf_nodes,R,X,depths,node_index_Map
     
     avgSens_dvdq,avgSens_ddeldp= (np.empty((0,1)) for i in range(2))
     i=0
-    for act in act_locs: # for each (perf,act) pair
+    for act in act_locs: # for each (perf,act) pair in current config you're evaluating
         #print(node_index_Map)
         perf=perf_nodes[i] #index of act node
         i=i+1 # increment to update perf node
@@ -107,9 +107,10 @@ def computeFParamSpace_v2(feeder, act_locs, perf_nodes,R,X,depths,node_index_Map
         #print('avgdvdq=',avgSens_dvdq)
         #print('avgddeldp=',avgSens_ddeldp)
         
+    numact=len(act_locs)
     # avgSens_dvdq is list of scalar complex vals
-    q=np.amax(np.absolute(avgSens_dvdq)) # take max abs value of perf-act pair sensitivities
-    p=np.amax(np.absolute(avgSens_ddeldp))
+    q=np.absolute(avgSens_dvdq).mean()*numact # take avg across abs value of perf-act pair sensitivities
+    p=np.absolute(avgSens_ddeldp).mean()*numact
     #print('q=',q) # print when tuning c1 and c2
     #print('p=',p)
     Fq_ub=(1/q)*c[0]
@@ -193,20 +194,22 @@ def detControlMatExistence(feeder, act_locs, A, B, indicMat,substation_name,perf
                     #print('num1evals=',num1evals)
                     #print('dimNull=',dimNull)
                     if dimNull==num1evals:                    
-                        feas=True
                         #print('Found feas F')
                         feasFs=np.append(feasFs,[[Fp, Fq]],axis=0)
                 val=np.sum(eigMags[np.where(eigMags > 1)])
                 myCosts=np.append(myCosts,[[val]],axis=0) # temp
                 myFbases=np.append(myFbases,[[Fp, Fq]],axis=0)
 
-    if feas==True:
+    tol=4 # your choice, define because if only found 1 feas config too borderline to count as feas
+    numfeas=np.append(numfeas,[[len(feasFs)]],axis=0) # number of rows
+
+   # if feas==True:
+    if len(feasFs)>=tol:
         print("Config feasible!")
-        numfeas=np.append(numfeas,[[len(feasFs)]],axis=0) # number of rows
+        feas=True
     else:
         feas=False
-        print("No F found for config --> non-conclusive")
-        numfeas=np.append(numfeas,[[0]],axis=0)
+        print("No (or not enough) F found for config --> infeas")
 
     dataFull=np.concatenate((myFbases,myCosts),axis=1) # [Fp Fq myCost]  
     #print("[Fp,Fq,myCost]=\n",dataFull) # print useful data

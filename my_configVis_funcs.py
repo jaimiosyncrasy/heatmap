@@ -27,14 +27,14 @@ def markActuatorConfig(lst_act_locs, feeder, file_name):
     # lst_act_locs = list of node names where actuators are placed
     # feeder = initialized feeder object
     # file_name = string that will be used as the file name of the returned network graph
+    ff.clear_graph(feeder)
     graph = feeder.network
     
     for loc in lst_act_locs:
         graph.nodes[loc]['style'] = 'filled'
         graph.nodes[loc]['fillcolor'] = 'gray'
-    
-    nx.nx_pydot.write_dot(graph, file_name)
-    render('dot', 'png', file_name)
+    nx.nx_pydot.write_dot(graph, 'actConfig_'+ file_name)
+    render('dot', 'png', 'actConfig_'+ file_name)
     return
 
 

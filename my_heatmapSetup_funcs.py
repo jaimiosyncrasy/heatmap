@@ -335,7 +335,7 @@ def runHeatMapProcess(feeder, all_act_locs, perf_nodes, node_index_map,substatio
             print('evaluating act at ',[test]+cur_act_locs,', perf at ',[perf_nodes[a]] + cur_perf_nodes)
             graph.nodes[perf_nodes[a]]['shape'] = 'square'
 
-            feas, maxError,numfeas = computeFeas_v1(feeder, [test]+cur_act_locs, A, B, indicMat,substation_name,perf_nodes,depths,node_index_map)
+            feas, maxError,numfeas = computeFeas_v1(feeder, [test]+cur_act_locs, A, B, indicMat,substation_name,[perf_nodes[a]] + cur_perf_nodes,depths,node_index_map)
             lzn_error_dic[test] = maxError
             markFeas(feas, test, graph)
             if feas:
