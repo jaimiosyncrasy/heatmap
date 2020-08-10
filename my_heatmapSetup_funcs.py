@@ -6,6 +6,7 @@ import statistics as st
 import cmath
 import matplotlib.pyplot as plt 
 import itertools
+import random
 from operator import add
 importlib.reload(setup_nx)
 from setup_nx import *
@@ -244,38 +245,41 @@ def eval_config(feeder, all_act_locs, perf_nodes, node_index_map,substation_name
     print('Actuator configuration is feasible') if feas else print('Actuator configuration is not feasible')
     return feas, maxError,numfeas
 
-def find_good_colocated(feeder, node_index_map,substation_name,depths, file_name):
+def find_good_colocated(feeder, act_locs, node_index_map, substation_name, depths, file_name):
     # almost the same as runheatmap process, but only runs once and shows one heatmap indicating which nodes are good to place a co-located act/perf node
     # return list of all "green" configs and the associated lzn errors
-    
-    #all_act_locs and perf_nodes = lists of node names as strings
+    # act_locs == a list of pre-set colocated act/perf locations --> to evaluate an empty network, pass in act_locs == []
     a = 0
+    ff.clear_graph(feeder) # clear any previous modifictions made to graph
     graph = feeder.network
-    heatMapNames=[] # collect heat map names as list of strings
+    heatMapNames = [] # collect heat map names as list of strings
     n = len(graph.nodes) #number of nodes in network
-    A, B = setupStateSpace(n, feeder, node_index_map,depths)
-    lzn_error_run_sum = 0
-    feas_configs=[] 
+    A, B = setupStateSpace(n, feeder, node_index_map, depths)
+    feas_configs = [] 
     lzn_error_dic = {} #contains maxLznError for each choice of actuator location with node name as key  
     test_nodes = []
     
-    if file_name=='13NF_test.dot':
-        substIdx=[6, 7] # substation index
-    elif file_name=='123NF_test.dot':
-        substIdx=[22, 24]
-    elif file_name=='PL0001_test.dot':
-        substIdx=[22, 24] # dunno yet
+    if file_name == '13NF_test.dot':
+        substIdx = [6, 7] # substation index
+    elif file_name == '123NF_test.dot':
+        substIdx = [22, 24]
+    elif file_name == 'PL0001_test.dot':
+        substIdx = [22, 24] # dunno yet
     
-    graphNodes_nosub=np.delete(graph.nodes,substIdx) # dont consider co-located at substation nodes, node 650 and 651
+    graphNodes_nosub = np.delete(graph.nodes,substIdx) # dont consider co-located at substation nodes, node 650 and 651
     # Note: ^idx 6 & 7 are MANUALLY PICKED OUT FOR 13NF
     
     for node in graphNodes_nosub: # try placing act/perf at all nodes of the network
-        test_nodes.append(node)
+        if node not in act_locs:
+            test_nodes.append(node)
+    
+    for act in act_locs: 
+        markActLoc(graph, act)
 
     for test in test_nodes:
-        indicMat = updateStateSpace(n, [test], [test], node_index_map) # (n,act,perf,dictionary)
+        indicMat = updateStateSpace(n, [test] + act_locs, [test] + act_locs, node_index_map) # (n,act,perf,dictionary)
         print('evaluating act at ',[test],', perf at ',[test])
-        feas, maxError,numfeas = computeFeas_v1(feeder, [test], A, B, indicMat,substation_name,[test],depths,node_index_map) # pass in potential actual loc
+        feas, maxError, numfeas = computeFeas_v1(feeder, [test] + act_locs, A, B, indicMat,substation_name,[test] + act_locs, depths, node_index_map) # pass in potential actual loc
         lzn_error_dic[test] = maxError
         markFeas(feas, test, graph)
         if feas:
@@ -283,7 +287,7 @@ def find_good_colocated(feeder, node_index_map,substation_name,depths, file_name
             feas_dic['act'] = [test]
             feas_dic['perf'] = [test]
             feas_dic['lznErr'] = [lzn_error_dic[test]]
-            feas_dic['numfeas']=[numfeas]
+            feas_dic['numfeas'] = [numfeas]
             feas_configs += [feas_dic]        
 
     heatMapName='heat_map_colocated' + '_' + file_name
@@ -292,6 +296,7 @@ def find_good_colocated(feeder, node_index_map,substation_name,depths, file_name
     render('dot', 'png', heatMapName)
 
     return feas_configs, heatMapNames
+
 
 def runHeatMapProcess(feeder, all_act_locs, perf_nodes, node_index_map,substation_name,depths, file_name):
     # On empty network, compute heatmap (assess feas and lzn error on every node of the feeder, color each red/green on diagram)
@@ -361,50 +366,44 @@ def runHeatMapProcess(feeder, all_act_locs, perf_nodes, node_index_map,substatio
         # end of while loop
     return feas_configs, lzn_error_run_sum, heatMapNames
 
-def place_max_colocated_acts(feeder, act_locs, file_name, node_index_map, depths, substation_name):
-    # NOT READY TO RUN
+def place_max_colocated_acts(feeder, file_name, node_index_map, depths, substation_name):
     graph = feeder.network
     n = len(graph.nodes) #number of nodes in network
     A, B = setupStateSpace(n, feeder, node_index_map, depths)
     test_nodes = []
-    feas_dic = {}
-    act_configs = []
+    act_locs = []
+    a = 1 # used to track number of times infeasible test node is chosen
     
-    if file_name=='13NF_test.dot':
-        substIdx=[6, 7] # substation index
-    elif file_name=='123NF_test.dot':
-        substIdx=[22, 24]
-    elif file_name=='PL0001_test.dot':
-        substIdx=[22, 24] # dunno yet
-    graphNodes_nosub=np.delete(graph.nodes,substIdx) # dont consider co-located at substation nodes
+    if file_name == '13NF_test.dot':
+        substIdx = [6, 7] # substation index
+    elif file_name == '123NF_test.dot':
+        substIdx = [22, 24]
+    elif file_name == 'PL0001_test.dot':
+        substIdx = [22, 24] # dunno yet
+    graphNodes_nosub = np.delete(graph.nodes, substIdx) # dont consider co-located at substation nodes
         
     for node in graphNodes_nosub:
         if node not in act_locs:
             test_nodes.append(node)
-            
-    for test in test_nodes: 
-        indicMat = updateStateSpace(n, [test] + act_locs, ['bus_611'] + act_locs, node_index_map)
-        feas, maxError, numfeas = computeFeas_v1(feeder, [test] + act_locs, A, B, indicMat, substation_name, ['bus_611'] + act_locs, depths, node_index_map)
-        feas_dic[test] = feas
-        
-    if (True not in list(feas_dic.values())) or len(act_locs) == (n - 2):
-        return act_locs
     
-    for test, feas in feas_dic.items():
-        if feas:
-            max_act_locs = place_max_colocated_acts(feeder, act_locs + [test], file_name, node_index_map, depths, substation_name)
-            act_configs += [max_act_locs]
-            break
-    
-            
-    return act_configs
-            
-        
-    
-        
-        
-            
-            
-    
-    
+    while test_nodes:       
+        rand_test = random.choice(test_nodes)
+        indicMat = updateStateSpace(n, [rand_test] + act_locs, [rand_test] + act_locs, node_index_map)
+        feas, maxError, numfeas = computeFeas_v1(feeder, [rand_test] + act_locs, A, B, indicMat, substation_name, [rand_test] + act_locs, depths, node_index_map)
 
+        if feas:
+            act_locs += [rand_test]
+            test_nodes = []
+            for node in graphNodes_nosub:
+                if node not in act_locs:
+                    test_nodes.append(node)
+        else:
+            feas_configs, heatMapNames = find_good_colocated(feeder, act_locs, node_index_map, substation_name, depths, file_name)
+            nx.nx_pydot.write_dot(graph, 'redirect_max_coloc_acts' + str(a))
+            render('dot', 'png', 'redirect_max_coloc_acts' + str(a))
+            a += 1
+            test_nodes.remove(rand_test)
+    
+    ff.clear_graph(feeder)
+    vis.markActuatorConfig(act_locs, feeder, 'max_coloc_act_config')
+    return act_locs
