@@ -361,3 +361,50 @@ def runHeatMapProcess(feeder, all_act_locs, perf_nodes, node_index_map,substatio
         # end of while loop
     return feas_configs, lzn_error_run_sum, heatMapNames
 
+def place_max_colocated_acts(feeder, act_locs, file_name, node_index_map, depths, substation_name):
+    # NOT READY TO RUN
+    graph = feeder.network
+    n = len(graph.nodes) #number of nodes in network
+    A, B = setupStateSpace(n, feeder, node_index_map, depths)
+    test_nodes = []
+    feas_dic = {}
+    act_configs = []
+    
+    if file_name=='13NF_test.dot':
+        substIdx=[6, 7] # substation index
+    elif file_name=='123NF_test.dot':
+        substIdx=[22, 24]
+    elif file_name=='PL0001_test.dot':
+        substIdx=[22, 24] # dunno yet
+    graphNodes_nosub=np.delete(graph.nodes,substIdx) # dont consider co-located at substation nodes
+        
+    for node in graphNodes_nosub:
+        if node not in act_locs:
+            test_nodes.append(node)
+            
+    for test in test_nodes: 
+        indicMat = updateStateSpace(n, [test] + act_locs, ['bus_611'] + act_locs, node_index_map)
+        feas, maxError, numfeas = computeFeas_v1(feeder, [test] + act_locs, A, B, indicMat, substation_name, ['bus_611'] + act_locs, depths, node_index_map)
+        feas_dic[test] = feas
+        
+    if (True not in list(feas_dic.values())) or len(act_locs) == (n - 2):
+        return act_locs
+    
+    for test, feas in feas_dic.items():
+        if feas:
+            max_act_locs = place_max_colocated_acts(feeder, act_locs + [test], file_name, node_index_map, depths, substation_name)
+            act_configs += [max_act_locs]
+            break
+    
+            
+    return act_configs
+            
+        
+    
+        
+        
+            
+            
+    
+    
+
