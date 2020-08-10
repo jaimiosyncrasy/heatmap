@@ -133,7 +133,7 @@ def assign_network_branches(feeder, substation_name):
             new_branch_heads = all_children
             
             for head in new_branch_heads:
-                branches += assign_network_branches3(feeder, head)
+                branches += assign_network_branches(feeder, head)
                     
         elif len(all_children) == 1:
             cur_child_node = all_children[0]
