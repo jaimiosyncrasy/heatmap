@@ -375,10 +375,10 @@ def compute_line_losses_multiphase(feeder, P_vals, Q_vals, act_locs, Sbase, Zbas
                 #end of function run
                 Seq = sum(sum(Sloss)) + sum(sum(S)) + sum(Sact)
                 #Seq = sum(sum(S)) + sum(Sact)
-                Peq = Seq.real
-                Qeq = Seq.imag
+                Peq, Qeq = Seq.real, Seq.imag
+                Ploss, Qloss = sum(sum(Sloss)).real, sum(sum(Sloss)).imag
                 print('Number of iterations performed: ' + str(run_counter))
-                return Peq, Qeq
+                return Peq, Qeq, Ploss, Qloss
             
             V_drop = np.dot(z_3by3, np.array([ia_prev, ib_prev, ic_prev]))
             Vfork = [edge, V[0][child_index] + V_drop[0]]
@@ -547,13 +547,14 @@ def computePQsweep_losses(feeder, act_locs, Sbase, Zbase, P_lb_results, P_ub_res
     time_Q_ub, Q_ub_rowP, Q_ub_rowQ = Q_ub_results[0], Q_ub_results[1], Q_ub_results[2]
     
     # accounting for line losses:
-    Psweep_lb, _ = compute_line_losses_multiphase(feeder, P_lb_rowP, P_lb_rowQ, act_locs, Sbase, Zbase, headerpath, substation_name, modelpath, depths, lb_mode = True)
-    Psweep_ub, _ = compute_line_losses_multiphase(feeder, P_ub_rowP, P_ub_rowQ, act_locs, Sbase, Zbase, headerpath, substation_name, modelpath, depths, lb_mode = False)
-    _, Qsweep_lb = compute_line_losses_multiphase(feeder, Q_lb_rowP, Q_lb_rowQ, act_locs, Sbase, Zbase, headerpath, substation_name, modelpath, depths, lb_mode = True)
-    _, Qsweep_ub = compute_line_losses_multiphase(feeder, Q_ub_rowP, Q_ub_rowQ, act_locs, Sbase, Zbase, headerpath, substation_name, modelpath, depths, lb_mode = False)
+    Psweep_lb, _, Ploss_plb, Qloss_plb = compute_line_losses_multiphase(feeder, P_lb_rowP, P_lb_rowQ, act_locs, Sbase, Zbase, headerpath, substation_name, modelpath, depths, lb_mode = True)
+    Psweep_ub, _, Ploss_pub, Qloss_pub = compute_line_losses_multiphase(feeder, P_ub_rowP, P_ub_rowQ, act_locs, Sbase, Zbase, headerpath, substation_name, modelpath, depths, lb_mode = False)
+    _, Qsweep_lb, Ploss_qlb, Qloss_qlb = compute_line_losses_multiphase(feeder, Q_lb_rowP, Q_lb_rowQ, act_locs, Sbase, Zbase, headerpath, substation_name, modelpath, depths, lb_mode = True)
+    _, Qsweep_ub, Ploss_qub, Qloss_qub = compute_line_losses_multiphase(feeder, Q_ub_rowP, Q_ub_rowQ, act_locs, Sbase, Zbase, headerpath, substation_name, modelpath, depths, lb_mode = False)
     
     PQ_bounds = [Psweep_lb, Psweep_ub, Qsweep_lb, Qsweep_ub]
-    return PQ_bounds
+    PQ_losses = [Ploss_plb, Qloss_plb, Ploss_pub, Qloss_pub, Ploss_qlb, Qloss_qlb, Ploss_qlb, Qloss_qlb]
+    return PQ_bounds, PQ_losses
 
 
 # Solve fwd-bwd sweep single phase
@@ -1036,7 +1037,7 @@ def detLznRange(feeder, Vbase_ll, Sbase, z12, B12, act_locs, load_data, headerpa
     X12 = z12.imag
     
     P_lb_results, P_ub_results, Q_lb_results, Q_ub_results = computePQsweep_timesteps(feeder, load_data)
-    PQ_bounds = computePQsweep_losses(feeder, act_locs, Sbase, Zbase, P_lb_results, P_ub_results, Q_lb_results, Q_ub_results, headerpath, substation_name, modelpath, depths)
+    PQ_bounds, PQ_losses = computePQsweep_losses(feeder, act_locs, Sbase, Zbase, P_lb_results, P_ub_results, Q_lb_results, Q_ub_results, headerpath, substation_name, modelpath, depths)
     
 # PQbounds is array of 4 scalars, each in per unit power 
     pvals, solns1 = makePVcurve_3ph(PQ_bounds, Sbase,Vbase, R12, X12, B12, V1) # all in not-pu

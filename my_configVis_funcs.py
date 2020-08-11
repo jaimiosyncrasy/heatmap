@@ -296,7 +296,10 @@ def createColorMap(feeder, values_dic, file_name):
     # color reference: https://stackoverflow.com/questions/22408237/named-colors-in-matplotlib
     colors = ['gray','green', 'limegreen', 'yellowgreen', 'yellow','gold', 'orange', 'red']
     bins_with_clrs = [bin_edges[i] + [colors[i]] for i in range(8)]
-    print(bins_with_clrs)
+    
+    print('Color Bin Key')
+    for b in bins_with_clrs:
+        print(str(b[2]) + ': (' + str(b[0]) + ' --> ' + str(b[1]) +')')
     
     for node, val in values_dic.items():
         if isinstance(val, complex):
@@ -316,6 +319,7 @@ def createColorMap(feeder, values_dic, file_name):
   
     nx.nx_pydot.write_dot(graph, file_name)
     render('dot', 'png', file_name)
+    return
 
     
 def createColorMap_BandW(feeder, values_dic, file_name):
