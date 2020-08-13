@@ -557,7 +557,7 @@ def computePQsweep_losses(feeder, act_locs, Sbase, Zbase, P_lb_results, P_ub_res
     return PQ_bounds, PQ_losses
 
 
-# Solve fwd-bwd sweep single phase
+# Solve fwd-bwd sweep single phase, OLD version
 def solveFwdBwdSweep_2bus(R12, X12, V1, P2, Q2):
     # Initialization
     #print('~~~~~~~ Starting FBS Method for Solving PF')
@@ -636,12 +636,10 @@ def solveFwdBwdSweep_2bus(R12, X12, V1, P2, Q2):
 # Solve fwd-bwd sweep 3-phase
 def solveFwdBwdSweep_2bus_3ph(R12, X12, B12,Vs, P2, Q2):
     # Initialization
-    #print('~~~~~~~ Starting FBS Method for Solving PF')
-
-    # Givens: z12, V1, P2, Q2
-    S2=P2+Q2*1j # per unit
-    z12 = R12+X12*1j  # per unit
-    Vs=np.transpose(Vs) # make 1x3 vector, Vs is per unit
+    # everything is NOT pu 
+    S2=P2+Q2*1j # not per unit
+    z12 = R12+X12*1j  # not per unit
+    Vs=np.transpose(Vs) # make 1x3 vector, Vs is not per unit
 
     # Init Cond
     V1,V2,Vconv=(np.empty((0,3)) for i in range(3))
@@ -818,9 +816,9 @@ def makeQVcurve(Sweep_lb, Sweep_ub, Sbase, Vbase, R12, X12, V1):
 
 
 def makePVcurve_3ph(PQbounds_pu, Sbase, Vbase, R12, X12, B12, V1):
-    # all inputs are NOT in per unit, sweeps are scalars
+    # all inputs (except powers) are NOT in per unit, sweeps are scalars in per unit
     numPts = 20
-    Psweep_lb = PQbounds_pu[0]*Sbase # in pu
+    Psweep_lb = PQbounds_pu[0]*Sbase # convert powers to pu
     Psweep_ub = PQbounds_pu[1]*Sbase # each is scalar
     Qsweep_lb = PQbounds_pu[2]*Sbase
     Qsweep_ub = PQbounds_pu[3]*Sbase
@@ -839,11 +837,12 @@ def makePVcurve_3ph(PQbounds_pu, Sbase, Vbase, R12, X12, B12, V1):
     lznDel2 = np.zeros((3, numPts))
     solns = {}
     
-    print('HI, R12=',R12)
-    print('HI, X12=',X12)
-    print('HI, V1=',V1) 
-    print('HI, P12/Sbase=',P12[3]/Sbase)
-    print('HI, Q12/Sbase-',Q12[3]/Sbase) 
+    print('In makePVcurve_3ph, values are:')
+    print('R12=',R12) # not pu 
+    print('X12=',X12)
+    print('V1=',V1) # not pu
+    print('P12 (not pu)=',P12[3]) # not pu
+    print('Q12 (not pu)=',Q12[3]) 
 
     for i in range(len(P12)): 
         # calculating true curve
@@ -862,44 +861,44 @@ def makePVcurve_3ph(PQbounds_pu, Sbase, Vbase, R12, X12, B12, V1):
     
     plt.figure(figsize = (30,30))
     plt.subplot(431)
-    plt.plot(P12/Sbase, lznV2[0]/Vbase,'r', label = 'linearization')
-    plt.plot(P12/Sbase, trueV2[0]/Vbase,'b', label = 'true')
+    plt.plot(P12, lznV2[0]/Vbase,'r', label = 'linearization')
+    plt.plot(P12, trueV2[0]/Vbase,'b', label = 'true')
     plt.xlabel('P12, kW')
     plt.ylabel('V2, pu')
     plt.title('True P-V and Linearization Curves: Phase A')
     plt.legend()
     plt.subplot(432)
-    plt.plot(P12/Sbase, lznV2[1]/Vbase,'r', label = 'linearization')
-    plt.plot(P12/Sbase, trueV2[1]/Vbase,'b', label = 'true')
+    plt.plot(P12, lznV2[1]/Vbase,'r', label = 'linearization')
+    plt.plot(P12, trueV2[1]/Vbase,'b', label = 'true')
     plt.xlabel('P12, kW')
     plt.ylabel('V2, pu')
     plt.title('True P-V and Linearization Curves: Phase B')
     plt.legend()
     plt.subplot(433)
-    plt.plot(P12/Sbase, lznV2[2]/Vbase,'r', label = 'linearization')
-    plt.plot(P12/Sbase, trueV2[2]/Vbase,'b', label = 'true')
+    plt.plot(P12, lznV2[2]/Vbase,'r', label = 'linearization')
+    plt.plot(P12, trueV2[2]/Vbase,'b', label = 'true')
     plt.xlabel('P12, kW')
     plt.ylabel('V2, pu')
     plt.title('True P-V and Linearization Curves: Phase C')
     plt.legend()
     
     plt.subplot(434)
-    plt.plot(P12/Sbase, lznDel2[0],'r', label = 'linearization')
-    plt.plot(P12/Sbase, trueDel2[0],'b', label = 'true')
+    plt.plot(P12, lznDel2[0],'r', label = 'linearization')
+    plt.plot(P12, trueDel2[0],'b', label = 'true')
     plt.xlabel('P12, kW')
     plt.ylabel('Delta2, degrees')
     plt.title('True P-Del and Linearization Curves: Phase A')
     plt.legend()
     plt.subplot(435)
-    plt.plot(P12/Sbase, lznDel2[1],'r', label = 'linearization')
-    plt.plot(P12/Sbase, trueDel2[1],'b', label = 'true')
+    plt.plot(P12, lznDel2[1],'r', label = 'linearization')
+    plt.plot(P12, trueDel2[1],'b', label = 'true')
     plt.xlabel('P12, kW')
     plt.ylabel('Delta2, degrees')
     plt.title('True P-Del and Linearization Curves: Phase B')
     plt.legend()
     plt.subplot(436)
-    plt.plot(P12/Sbase, lznDel2[2],'r', label = 'linearization')
-    plt.plot(P12/Sbase, trueDel2[2],'b', label = 'true')
+    plt.plot(P12, lznDel2[2],'r', label = 'linearization')
+    plt.plot(P12, trueDel2[2],'b', label = 'true')
     plt.xlabel('P12, kW')
     plt.ylabel('Delta2, degrees')
     plt.title('True P-Del and Linearization Curves: Phase C')
@@ -955,44 +954,44 @@ def makeQVcurve_3ph(PQbounds_pu, Sbase, Vbase, R12, X12, B12, V1):
         
     plt.figure(figsize = (30,30))
     plt.subplot(437)
-    plt.plot(Q12/Sbase, lznV2[0]/Vbase,'r', label = 'linearization')
-    plt.plot(Q12/Sbase, trueV2[0]/Vbase,'b', label = 'true')
+    plt.plot(Q12, lznV2[0]/Vbase,'r', label = 'linearization')
+    plt.plot(Q12, trueV2[0]/Vbase,'b', label = 'true')
     plt.xlabel('Q12, kVAR')
     plt.ylabel('V2, pu')
     plt.title('True Q-V and Linearization Curves: Phase A')
     plt.legend()
     plt.subplot(438)
-    plt.plot(Q12/Sbase, lznV2[1]/Vbase,'r', label = 'linearization')
-    plt.plot(Q12/Sbase, trueV2[1]/Vbase,'b', label = 'true')
+    plt.plot(Q12, lznV2[1]/Vbase,'r', label = 'linearization')
+    plt.plot(Q12, trueV2[1]/Vbase,'b', label = 'true')
     plt.xlabel('Q12, kVAR')
     plt.ylabel('V2, pu')
     plt.title('True Q-V and Linearization Curves: Phase B')
     plt.legend()
     plt.subplot(439)
-    plt.plot(Q12/Sbase, lznV2[2]/Vbase,'r', label = 'linearization')
-    plt.plot(Q12/Sbase, trueV2[2]/Vbase,'b', label = 'true')
+    plt.plot(Q12, lznV2[2]/Vbase,'r', label = 'linearization')
+    plt.plot(Q12, trueV2[2]/Vbase,'b', label = 'true')
     plt.xlabel('Q12, kVAR')
     plt.ylabel('V2, pu')
     plt.title('True Q-V and Linearization Curves: Phase C')
     plt.legend()
     
     plt.subplot(4,3,10)
-    plt.plot(Q12/Sbase, lznDel2[0],'r', label = 'linearization')
-    plt.plot(Q12/Sbase, trueDel2[0],'b', label = 'true')
+    plt.plot(Q12, lznDel2[0],'r', label = 'linearization')
+    plt.plot(Q12, trueDel2[0],'b', label = 'true')
     plt.xlabel('Q12, kVAR')
     plt.ylabel('Delta2, degrees')
     plt.title('True Q-Del and Linearization Curves: Phase A')
     plt.legend()
     plt.subplot(4,3,11)
-    plt.plot(Q12/Sbase, lznDel2[1],'r', label = 'linearization')
-    plt.plot(Q12/Sbase, trueDel2[1],'b', label = 'true')
+    plt.plot(Q12, lznDel2[1],'r', label = 'linearization')
+    plt.plot(Q12, trueDel2[1],'b', label = 'true')
     plt.xlabel('Q12, kVAR')
     plt.ylabel('Delta2, degrees')
     plt.title('True Q-Del and Linearization Curves: Phase B')
     plt.legend()
     plt.subplot(4,3,12)
-    plt.plot(Q12/Sbase, lznDel2[2],'r', label = 'linearization')
-    plt.plot(Q12/Sbase, trueDel2[2],'b', label = 'true')
+    plt.plot(Q12, lznDel2[2],'r', label = 'linearization')
+    plt.plot(Q12, trueDel2[2],'b', label = 'true')
     plt.xlabel('Q12, kVAR')
     plt.ylabel('Delta2, degrees')
     plt.title('True Q-Del and Linearization Curves: Phase C')
