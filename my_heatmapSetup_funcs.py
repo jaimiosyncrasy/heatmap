@@ -151,7 +151,8 @@ def setupStateSpace(n, feeder, node_index_map,depths):
 
 # correct version
 def computeFeas_v1(feeder, act_locs, A, B, indicMat,substation_name,perf_nodes,depths,node_index_map,Vbase_ll, Sbase, load_data, headerpath, modelpath):
-    node_1 = list(feeder.network.successors(substation_name))
+    node_0 = list(feeder.network.successors(substation_name))
+    node_1 = list(feeder.network.successors(node_0[0]))
     z12 = imp.get_total_impedance_from_substation(feeder, node_1[0],depths) # 3 phase, not pu
     B12=np.zeros((3,3)) # TEMPORARY, line susceptance, Yshunt=G+jB
 
