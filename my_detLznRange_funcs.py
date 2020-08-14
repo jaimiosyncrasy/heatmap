@@ -67,7 +67,7 @@ def trace_error_to_edge(node_name, branch_lst, graph):
         return edges_to_update
     
     for child in child_nodes:
-        cur_branch = find_branch_in_branch_list(child, branch_lst)
+        cur_branch = vis.find_branch_in_branch_list(child, branch_lst)
         
         if len(cur_branch) >= 2:
             edge = cur_branch[len(cur_branch) - 1: len(cur_branch) - 2: -1][0]
@@ -94,9 +94,7 @@ def retrieve_headers(headerpath):
 
 def parse_headers(feeder, n, P_vals, Q_vals, headers, node_index_map, modelpath):
     # parse through load data headers to find node names then compute S
-    S = np.zeros((3, n))
-    S = S.astype('complex128')
-    
+    S = np.zeros((3, n), dtype = complex)
     workbook_loc = (modelpath) 
     wb = xlrd.open_workbook(workbook_loc) 
     sheet = wb.sheet_by_name('Bus')
@@ -130,7 +128,7 @@ def parse_headers(feeder, n, P_vals, Q_vals, headers, node_index_map, modelpath)
             phase_index = 2
                 
         node_index = node_index_map[node_name]
-        S[phase_index][node_index] = complex(P_vals[i], Q_vals[i])/(5000/3)
+        S[phase_index][node_index] = complex(P_vals[i], Q_vals[i])
     return S
 
 
@@ -288,13 +286,10 @@ def compute_line_losses_multiphase(feeder, P_vals, Q_vals, act_locs, Sbase, Zbas
     # Find edge nodes:
     edge_nodes = find_edge_nodes(feeder)
     
-    edge_nodes.remove('bus_634')
-    edge_nodes += ['bus_633']
-    
     # Find impedances from edge nodes to substation
     z_edges_to_sub = np.zeros((3, len(edge_nodes)), dtype = complex)
     i = 0
-    
+  
     for edge in edge_nodes:
         cur_z = imp.get_total_impedance_from_substation(feeder, edge, depths)
         z_edges_to_sub[0][i] = cur_z[0][0] 
@@ -302,48 +297,45 @@ def compute_line_losses_multiphase(feeder, P_vals, Q_vals, act_locs, Sbase, Zbas
         z_edges_to_sub[2][i] = cur_z[2][2]
         i += 1
     
-    #zmax = max([max(z_edges_to_sub[0]), max(z_edges_to_sub[1]), max(z_edges_to_sub[2])])
-    #Vest = np.empty((3, n), dtype = complex)
+    zmax = max([max(z_edges_to_sub[0]), max(z_edges_to_sub[1]), max(z_edges_to_sub[2])])
     Vest = np.zeros((3, n), dtype = complex) # Vest is proportional to distance from substaion.
     percent_V_drops = percent_V_drop * np.ones((3, n))
     
-    while status == 'unsolved' and run_counter < 1:
+    while status == 'unsolved' and run_counter < 100:
         loop_status = 'unbroken'
         run_counter += 1
     
         # estimate voltages at edge nodes
-        #for i in range(len(edge_nodes)):
-            #cur_edge = edge_nodes[i]
-            #cur_index = node_index_map[cur_edge]
-            #cur_za, cur_zb , cur_zc = z_edges_to_sub[0][i], z_edges_to_sub[1][i], z_edges_to_sub[2][i]
-            #va = 1 - (percent_V_drops[0][cur_index] * (cur_za / zmax)) # per unit
-            #vb = 1 - (percent_V_drops[1][cur_index] * (cur_zb / zmax))
-            #vc = 1 - (percent_V_drops[2][cur_index] * (cur_zc / zmax))
-            #da = -(percent_V_drops[0][cur_index] * (cur_za / zmax)) # per unit
-            #db = -(percent_V_drops[1][cur_index] * (cur_zb / zmax))
-            #dc = -(percent_V_drops[2][cur_index] * (cur_zc / zmax))
-            #Vest[0][cur_index] = complex(va * m.cos(da), va * m.sin(da))
-            #Vest[1][cur_index] = complex(vb * m.cos(db), vb * m.sin(db))
-            #Vest[2][cur_index] = complex(vc * m.cos(dc), vc * m.sin(dc))
+        for i in range(len(edge_nodes)):
+            cur_edge = edge_nodes[i]
+            cur_index = node_index_map[cur_edge]
+            cur_za, cur_zb , cur_zc = z_edges_to_sub[0][i], z_edges_to_sub[1][i], z_edges_to_sub[2][i]
+            # per unit
+            va = complex(m.cos(-120*(m.pi/180)), m.sin(-120*(m.pi/180))) - (percent_V_drops[0][cur_index] * (cur_za / zmax)) 
+            vb = complex(m.cos(120*(m.pi/180)), m.sin(120*(m.pi/180))) - (percent_V_drops[1][cur_index] * (cur_zb / zmax))
+            vc = complex(m.cos(0*(m.pi/180)), m.sin(0*(m.pi/180))) - (percent_V_drops[2][cur_index] * (cur_zc / zmax))
+            Vest[0][cur_index] = va
+            Vest[1][cur_index] = vb
+            Vest[2][cur_index] = vc
             
-        Vest[0][3] = complex(.9859 * m.cos((m.pi/180)*(-121.2784)), .9859 * m.sin(-121.278*(m.pi/180)))
-        Vest[1][3] = complex( .9682* m.cos(118.0922*(m.pi/180)), .9682 * m.sin(118.0922*(m.pi/180)))
-        Vest[2][3] = complex( .1113* m.cos(-2.004*(m.pi/180)), .1113 * m.sin(-2.004*(m.pi/180)))
-        Vest[0][5] = complex( .9871* m.cos(-121.247*(m.pi/180)), .9871* m.sin(-121.247*(m.pi/180)))
-        Vest[1][5] = complex(.973 * m.cos(118.008*(m.pi/180)), .973 * m.sin(118.008*(m.pi/180)))
-        Vest[2][5] = complex( 1* m.cos(-.0006*(m.pi/180)), 1 * m.sin(-.0006*(m.pi/180)))
-        Vest[0][11] = complex(.9964 * m.cos(-121.4939*(m.pi/180)),  .9964* m.sin(-121.4939*(m.pi/180)))
-        Vest[1][11] = complex( .9401* m.cos(116.636*(m.pi/180)), .9401 * m.sin(116.636*(m.pi/180)))
-        Vest[2][11] = complex( .9689* m.cos(-3.69*(m.pi/180)), .9689 * m.sin(-3.69*(m.pi/180)))
-        Vest[0][0] = complex( .9393* m.cos(116.54),.9393  * m.sin(116.54))
-        Vest[1][0] = complex( .9401* m.cos(116.6367*(m.pi/180)),  .9401* m.sin(116.6367*(m.pi/180)))
-        Vest[2][0] = complex(.9819 * m.cos(-1.59*(m.pi/180)), .9819 * m.sin(-1.59*(m.pi/180)))
-        Vest[0][8] = complex( .9701* m.cos(-3.69*(m.pi/180)), .9701 * m.sin(-3.69*(m.pi/180)))
-        Vest[1][8] = complex( .9401* m.cos(116.6367*(m.pi/180)),  .9401* m.sin(116.6367*(m.pi/180)))
-        Vest[2][8] = complex(.9701 * m.cos(-3.69*(m.pi/180)),  .9701* m.sin(-3.69*(m.pi/180)))
-        Vest[0][10] = complex(.9984* m.cos(-121.63*(m.pi/180)),.9984  * m.sin(-121.63*(m.pi/180)))
-        Vest[1][10] = complex( .9392* m.cos(116.6192*(m.pi/180)), .9392 * m.sin(116.6192*(m.pi/180)))
-        Vest[2][10] = complex( .9701* m.cos(-3.69*(m.pi/180)), .9701 * m.sin(-3.69*(m.pi/180)))
+        #Vest[0][3] = complex(.9859 * m.cos((m.pi/180)*(-121.2784)), .9859 * m.sin(-121.278*(m.pi/180)))
+        #Vest[1][3] = complex( .9682* m.cos(118.0922*(m.pi/180)), .9682 * m.sin(118.0922*(m.pi/180)))
+        #Vest[2][3] = complex( .1113* m.cos(-2.004*(m.pi/180)), .1113 * m.sin(-2.004*(m.pi/180)))
+        #Vest[0][5] = complex( .9871* m.cos(-121.247*(m.pi/180)), .9871* m.sin(-121.247*(m.pi/180)))
+        #Vest[1][5] = complex(.973 * m.cos(118.008*(m.pi/180)), .973 * m.sin(118.008*(m.pi/180)))
+        #Vest[2][5] = complex( 1* m.cos(-.0006*(m.pi/180)), 1 * m.sin(-.0006*(m.pi/180)))
+        #Vest[0][11] = complex(.9964 * m.cos(-121.4939*(m.pi/180)),  .9964* m.sin(-121.4939*(m.pi/180)))
+        #Vest[1][11] = complex( .9401* m.cos(116.636*(m.pi/180)), .9401 * m.sin(116.636*(m.pi/180)))
+        #Vest[2][11] = complex( .9689* m.cos(-3.69*(m.pi/180)), .9689 * m.sin(-3.69*(m.pi/180)))
+        #Vest[0][0] = complex( .9393* m.cos(116.54),.9393  * m.sin(116.54))
+        #Vest[1][0] = complex( .9401* m.cos(116.6367*(m.pi/180)),  .9401* m.sin(116.6367*(m.pi/180)))
+        #Vest[2][0] = complex(.9819 * m.cos(-1.59*(m.pi/180)), .9819 * m.sin(-1.59*(m.pi/180)))
+        #Vest[0][8] = complex( .9701* m.cos(-3.69*(m.pi/180)), .9701 * m.sin(-3.69*(m.pi/180)))
+        #Vest[1][8] = complex( .9401* m.cos(116.6367*(m.pi/180)),  .9401* m.sin(116.6367*(m.pi/180)))
+        #Vest[2][8] = complex(.9701 * m.cos(-3.69*(m.pi/180)),  .9701* m.sin(-3.69*(m.pi/180)))
+        #Vest[0][10] = complex(.9984* m.cos(-121.63*(m.pi/180)),.9984  * m.sin(-121.63*(m.pi/180)))
+        #Vest[1][10] = complex( .9392* m.cos(116.6192*(m.pi/180)), .9392 * m.sin(116.6192*(m.pi/180)))
+        #Vest[2][10] = complex( .9701* m.cos(-3.69*(m.pi/180)), .9701 * m.sin(-3.69*(m.pi/180)))
         
 
         V = Vest
@@ -374,9 +366,10 @@ def compute_line_losses_multiphase(feeder, P_vals, Q_vals, act_locs, Sbase, Zbas
             if cur_node == substation_name:
                 #end of function run
                 Seq = sum(sum(Sloss)) + sum(sum(S)) + sum(Sact)
-                #Seq = sum(sum(S)) + sum(Sact)
+                #Seq = sum(sum(S)) 
                 Peq, Qeq = Seq.real, Seq.imag
                 Ploss, Qloss = sum(sum(Sloss)).real, sum(sum(Sloss)).imag
+                print(cur_node)
                 print('Number of iterations performed: ' + str(run_counter))
                 return Peq, Qeq, Ploss, Qloss
             
@@ -408,14 +401,11 @@ def compute_line_losses_multiphase(feeder, P_vals, Q_vals, act_locs, Sbase, Zbas
                                 check_b_imag = (v_outer[2].imag - v_inner[2].imag) / v_outer[2].imag
                                 check_c_real = (v_outer[3].real - v_inner[3].real) / v_outer[3].real
                                 check_c_imag = (v_outer[3].imag - v_inner[3].imag) / v_outer[3].imag
-                                all_checks = [check_a_real, check_a_imag, check_b_real, check_b_imag, check_c_real, check_c_imag]
-                                
-                                #checkVclose = [abs(check_a.real) < .1 and abs(check_a.imag) < .1] # check < than 10% different
-                                #checkVclose += [abs(check_b.real) < .1 and abs(check_b.imag) < .1]
-                                #checkVclose += [abs(check_c.real) < .1 and abs(check_c.imag) < .1]
+                                all_checks = [check_a_real, check_a_imag, check_b_real, check_b_imag, check_c_real, 0]
+                                phase_indxs = [0, 0, 1, 1, 2, 2]
                                 
                                 # check not more than 10% different
-                                large_error_indxs = [i for i in [0, 0, 1, 1, 2, 2] if abs(all_checks[i]) > .1]   
+                                large_error_indxs = [i for i in range(len(all_checks)) if abs(all_checks[i]) > .1] 
                                 for i in large_error_indxs:
                                     if all_checks[i] < 0:
                                         high_v = v_inner
@@ -423,42 +413,32 @@ def compute_line_losses_multiphase(feeder, P_vals, Q_vals, act_locs, Sbase, Zbas
                                         high_v = v_outer                                    
                                     lower_edge_v = trace_error_to_edge(high_v[0], branch_list, graph)
                                     for edge in lower_edge_v:
+                                        print('edge',edge)
                                         cur_index = node_index_map[edge]
-                                        #print('w')
-                                        percent_V_drops[i][cur_index] -= .5
+                                        phase = phase_indxs[i]
+                                        percent_V_drops[phase][cur_index] -= .0005
                                     
-                                if len(large_error_indxs) > 0:
-                                    #print(Vforks['bus_632'])
-                                    
-                                    #for n in graph.nodes:
-                                        #i = node_index_map[n]
-                                        #v = [V[0][i]]
-                                        #v += [V[1][i]]
-                                        #v += [V[2][i]]
-                                    print(key)
-                                        #print(v)
-                        
+                                if len(large_error_indxs) > 0:                        
                                     loop_status = 'broken'
+                                    print(run_counter)
+                                    print(key, v_inner[0],v_outer[0])
+                                    print(all_checks)
                                     break                            
                             
-                            #for v_inner in val:
-                                #checkVclose = [(v_outer[0] - v_inner[0]) / v_outer[0]] # check not more than 10% different
-                                #checkVclose += [(v_outer[1] - v_inner[1]) / v_outer[1]]
-                                #checkVclose += [(v_outer[2] - v_inner[2]) / v_outer[2]]
-                                #print(key + ": " + str(checkVclose))
-                        if key == 'bus_632':
-                            key_index = node_index_map[key]
-                            v = [v for v in val if v[0] == 'bus_671'][0]
-                            V[0][key_index] = v[1]
-                            V[1][key_index] = v[2]
-                            V[2][key_index] = v[3]                            
-                            for branch in branch_list:
-                                if key in branch:
-                                    active_branches += [branch]
-                                    Vforks[key] = []
-                                    break
+                        #if key == 'bus_632':
+                            #key_index = node_index_map[key]
+                            #v = [v for v in val if v[0] == 'bus_671'][0]
+                            #V[0][key_index] = v[1]
+                            #V[1][key_index] = v[2]
+                            #V[2][key_index] = v[3]                            
+                            #for branch in branch_list:
+                                #if key in branch:
+                                    #active_branches += [branch]
+                                    #Vforks[key] = []
+                                    #break
+                                    #and key != 'bus_632'
 
-                        if loop_status == 'unbroken' and key != 'bus_632':
+                        if loop_status == 'unbroken':
                             key_index = node_index_map[key]
                             V[0][key_index] = np.mean([v[1] for v in val])
                             V[1][key_index] = np.mean([v[2] for v in val])
@@ -516,10 +496,10 @@ def computePQsweep_timesteps(feeder, load_data):
     Qsweep_lb = min(run_sum_Q)
     Qsweep_ub = max(run_sum_Q)
     
-    print('P_lb(kW) = '+str(Psweep_lb))
-    print('P_ub(kW) = '+str(Psweep_ub))
-    print('Q_lb(kVAR) = '+str(Qsweep_lb))
-    print('Q_ub(kVAR) = '+str(Qsweep_ub))
+    print('P_lb(kW) = ' + str(Psweep_lb))
+    print('P_ub(kW) = ' + str(Psweep_ub))
+    print('Q_lb(kVAR) = ' + str(Qsweep_lb))
+    print('Q_ub(kVAR) = ' + str(Qsweep_ub))
     
     time_P_lb, P_lb_rowP, P_lb_rowQ = find_timestep(Psweep_lb, run_sum_P, Qstart_index, data_table) 
     time_P_ub, P_ub_rowP, P_ub_rowQ = find_timestep(Psweep_ub, run_sum_P, Qstart_index, data_table)
@@ -553,7 +533,7 @@ def computePQsweep_losses(feeder, act_locs, Sbase, Zbase, P_lb_results, P_ub_res
     _, Qsweep_ub, Ploss_qub, Qloss_qub = compute_line_losses_multiphase(feeder, Q_ub_rowP, Q_ub_rowQ, act_locs, Sbase, Zbase, headerpath, substation_name, modelpath, depths, lb_mode = False)
     
     PQ_bounds = [Psweep_lb, Psweep_ub, Qsweep_lb, Qsweep_ub]
-    PQ_losses = [Ploss_plb, Qloss_plb, Ploss_pub, Qloss_pub, Ploss_qlb, Qloss_qlb, Ploss_qlb, Qloss_qlb]
+    PQ_losses = [Ploss_plb, Qloss_plb, Ploss_pub, Qloss_pub, Ploss_qlb, Qloss_qlb, Ploss_qub, Qloss_qub]
     return PQ_bounds, PQ_losses
 
 
