@@ -305,37 +305,38 @@ def compute_line_losses_multiphase(feeder, P_vals, Q_vals, act_locs, Sbase, Zbas
         loop_status = 'unbroken'
         run_counter += 1
     
-        # estimate voltages at edge nodes
-        for i in range(len(edge_nodes)):
-            cur_edge = edge_nodes[i]
-            cur_index = node_index_map[cur_edge]
-            cur_za, cur_zb , cur_zc = z_edges_to_sub[0][i], z_edges_to_sub[1][i], z_edges_to_sub[2][i]
+        # --- NON CRUTCH METHOD --- estimate voltages at edge nodes (comment for statment to use crutch)
+        #for i in range(len(edge_nodes)):
+            #cur_edge = edge_nodes[i]
+            #cur_index = node_index_map[cur_edge]
+            #cur_za, cur_zb , cur_zc = z_edges_to_sub[0][i], z_edges_to_sub[1][i], z_edges_to_sub[2][i]
             # per unit
-            va = complex(m.cos(-120*(m.pi/180)), m.sin(-120*(m.pi/180))) - (percent_V_drops[0][cur_index] * (cur_za / zmax)) 
-            vb = complex(m.cos(120*(m.pi/180)), m.sin(120*(m.pi/180))) - (percent_V_drops[1][cur_index] * (cur_zb / zmax))
-            vc = complex(m.cos(0*(m.pi/180)), m.sin(0*(m.pi/180))) - (percent_V_drops[2][cur_index] * (cur_zc / zmax))
-            Vest[0][cur_index] = va
-            Vest[1][cur_index] = vb
-            Vest[2][cur_index] = vc
-            
-        #Vest[0][3] = complex(.9859 * m.cos((m.pi/180)*(-121.2784)), .9859 * m.sin(-121.278*(m.pi/180)))
-        #Vest[1][3] = complex( .9682* m.cos(118.0922*(m.pi/180)), .9682 * m.sin(118.0922*(m.pi/180)))
-        #Vest[2][3] = complex( .1113* m.cos(-2.004*(m.pi/180)), .1113 * m.sin(-2.004*(m.pi/180)))
-        #Vest[0][5] = complex( .9871* m.cos(-121.247*(m.pi/180)), .9871* m.sin(-121.247*(m.pi/180)))
-        #Vest[1][5] = complex(.973 * m.cos(118.008*(m.pi/180)), .973 * m.sin(118.008*(m.pi/180)))
-        #Vest[2][5] = complex( 1* m.cos(-.0006*(m.pi/180)), 1 * m.sin(-.0006*(m.pi/180)))
-        #Vest[0][11] = complex(.9964 * m.cos(-121.4939*(m.pi/180)),  .9964* m.sin(-121.4939*(m.pi/180)))
-        #Vest[1][11] = complex( .9401* m.cos(116.636*(m.pi/180)), .9401 * m.sin(116.636*(m.pi/180)))
-        #Vest[2][11] = complex( .9689* m.cos(-3.69*(m.pi/180)), .9689 * m.sin(-3.69*(m.pi/180)))
-        #Vest[0][0] = complex( .9393* m.cos(116.54),.9393  * m.sin(116.54))
-        #Vest[1][0] = complex( .9401* m.cos(116.6367*(m.pi/180)),  .9401* m.sin(116.6367*(m.pi/180)))
-        #Vest[2][0] = complex(.9819 * m.cos(-1.59*(m.pi/180)), .9819 * m.sin(-1.59*(m.pi/180)))
-        #Vest[0][8] = complex( .9701* m.cos(-3.69*(m.pi/180)), .9701 * m.sin(-3.69*(m.pi/180)))
-        #Vest[1][8] = complex( .9401* m.cos(116.6367*(m.pi/180)),  .9401* m.sin(116.6367*(m.pi/180)))
-        #Vest[2][8] = complex(.9701 * m.cos(-3.69*(m.pi/180)),  .9701* m.sin(-3.69*(m.pi/180)))
-        #Vest[0][10] = complex(.9984* m.cos(-121.63*(m.pi/180)),.9984  * m.sin(-121.63*(m.pi/180)))
-        #Vest[1][10] = complex( .9392* m.cos(116.6192*(m.pi/180)), .9392 * m.sin(116.6192*(m.pi/180)))
-        #Vest[2][10] = complex( .9701* m.cos(-3.69*(m.pi/180)), .9701 * m.sin(-3.69*(m.pi/180)))
+            #va = complex(m.cos(-120*(m.pi/180)), m.sin(-120*(m.pi/180))) - (percent_V_drops[0][cur_index] * (cur_za / zmax)) 
+            #vb = complex(m.cos(120*(m.pi/180)), m.sin(120*(m.pi/180))) - (percent_V_drops[1][cur_index] * (cur_zb / zmax))
+            #vc = complex(m.cos(0*(m.pi/180)), m.sin(0*(m.pi/180))) - (percent_V_drops[2][cur_index] * (cur_zc / zmax))
+            #Vest[0][cur_index] = va
+            #Vest[1][cur_index] = vb
+            #Vest[2][cur_index] = vc
+        
+        # --- CRUTCH METHOD --- uncomment to use
+        Vest[0][3] = complex(.9859 * m.cos((m.pi/180)*(-121.2784)), .9859 * m.sin(-121.278*(m.pi/180)))
+        Vest[1][3] = complex( .9682* m.cos(118.0922*(m.pi/180)), .9682 * m.sin(118.0922*(m.pi/180)))
+        Vest[2][3] = complex( .1113* m.cos(-2.004*(m.pi/180)), .1113 * m.sin(-2.004*(m.pi/180)))
+        Vest[0][5] = complex( .9871* m.cos(-121.247*(m.pi/180)), .9871* m.sin(-121.247*(m.pi/180)))
+        Vest[1][5] = complex(.973 * m.cos(118.008*(m.pi/180)), .973 * m.sin(118.008*(m.pi/180)))
+        Vest[2][5] = complex( 1* m.cos(-.0006*(m.pi/180)), 1 * m.sin(-.0006*(m.pi/180)))
+        Vest[0][11] = complex(.9964 * m.cos(-121.4939*(m.pi/180)),  .9964* m.sin(-121.4939*(m.pi/180)))
+        Vest[1][11] = complex( .9401* m.cos(116.636*(m.pi/180)), .9401 * m.sin(116.636*(m.pi/180)))
+        Vest[2][11] = complex( .9689* m.cos(-3.69*(m.pi/180)), .9689 * m.sin(-3.69*(m.pi/180)))
+        Vest[0][0] = complex( .9393* m.cos(116.54),.9393  * m.sin(116.54))
+        Vest[1][0] = complex( .9401* m.cos(116.6367*(m.pi/180)),  .9401* m.sin(116.6367*(m.pi/180)))
+        Vest[2][0] = complex(.9819 * m.cos(-1.59*(m.pi/180)), .9819 * m.sin(-1.59*(m.pi/180)))
+        Vest[0][8] = complex( .9701* m.cos(-3.69*(m.pi/180)), .9701 * m.sin(-3.69*(m.pi/180)))
+        Vest[1][8] = complex( .9401* m.cos(116.6367*(m.pi/180)),  .9401* m.sin(116.6367*(m.pi/180)))
+        Vest[2][8] = complex(.9701 * m.cos(-3.69*(m.pi/180)),  .9701* m.sin(-3.69*(m.pi/180)))
+        Vest[0][10] = complex(.9984* m.cos(-121.63*(m.pi/180)),.9984  * m.sin(-121.63*(m.pi/180)))
+        Vest[1][10] = complex( .9392* m.cos(116.6192*(m.pi/180)), .9392 * m.sin(116.6192*(m.pi/180)))
+        Vest[2][10] = complex( .9701* m.cos(-3.69*(m.pi/180)), .9701 * m.sin(-3.69*(m.pi/180)))
         
 
         V = Vest
