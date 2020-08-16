@@ -365,13 +365,54 @@ def runHeatMapProcess(feeder, all_act_locs, perf_nodes, node_index_map,substatio
         # end of while loop
     return feas_configs, lzn_error_run_sum, heatMapNames
 
-def place_max_colocated_acts(feeder, file_name, node_index_map, depths, substation_name,Vbase_ll, Sbase, load_data, headerpath, modelpath):
+
+def placeMaxColocActs_stopAtInfeas(feeder, file_name, node_index_map, depths, substation_name,Vbase_ll, Sbase, load_data, headerpath, modelpath):
+    # place colocated actuators until an infeasible loc is tested, then call find_good_colocated and return 
     graph = feeder.network
     n = len(graph.nodes) #number of nodes in network
     A, B = setupStateSpace(n, feeder, node_index_map, depths)
     test_nodes = []
     act_locs = []
-    a = 1 # used to track number of times infeasible test node is chosen
+    
+    if file_name == '13NF_test.dot':
+        substIdx = [6, 7] # substation index
+    elif file_name == '123NF_test.dot':
+        substIdx = [22, 24]
+    elif file_name == 'PL0001_test.dot':
+        substIdx = [340] # dunno yet
+    graphNodes_nosub = np.delete(graph.nodes, substIdx) # dont consider co-located at substation nodes
+        
+    for node in graphNodes_nosub:
+        if node not in act_locs:
+            test_nodes.append(node)
+    
+    while test_nodes:       
+        rand_test = random.choice(test_nodes)
+        indicMat = updateStateSpace(n, [rand_test] + act_locs, [rand_test] + act_locs, node_index_map)
+        feas, maxError, numfeas = computeFeas_v1(feeder, [rand_test] + act_locs, A, B, indicMat, substation_name, [rand_test] + act_locs, depths, node_index_map,Vbase_ll, Sbase, load_data, headerpath, modelpath)
+
+        if feas:
+            act_locs += [rand_test]
+            test_nodes.remove(rand_test)
+        else:
+            feas_configs, heatMapNames = find_good_colocated(feeder, act_locs, node_index_map, substation_name, depths, file_name)
+            nx.nx_pydot.write_dot(graph, 'redirect_max_coloc_acts')
+            render('dot', 'png', 'redirect_max_coloc_acts')
+            break
+    
+    ff.clear_graph(feeder)
+    vis.markActuatorConfig(act_locs, feeder, 'max_coloc_acts_before_infeas')
+    return act_locs
+
+
+def place_max_coloc_acts(feeder, file_name, node_index_map, depths, substation_name,Vbase_ll, Sbase, load_data, headerpath, modelpath):
+    # place maximum number of colocated actuators
+    # if infeas loc tested, randomly select another test node and continue function run
+    graph = feeder.network
+    n = len(graph.nodes) #number of nodes in network
+    A, B = setupStateSpace(n, feeder, node_index_map, depths)
+    test_nodes = []
+    act_locs = []
     
     if file_name == '13NF_test.dot':
         substIdx = [6, 7] # substation index
@@ -397,10 +438,6 @@ def place_max_colocated_acts(feeder, file_name, node_index_map, depths, substati
                 if node not in act_locs:
                     test_nodes.append(node)
         else:
-            feas_configs, heatMapNames = find_good_colocated(feeder, act_locs, node_index_map, substation_name, depths, file_name)
-            nx.nx_pydot.write_dot(graph, 'redirect_max_coloc_acts' + str(a))
-            render('dot', 'png', 'redirect_max_coloc_acts' + str(a))
-            a += 1
             test_nodes.remove(rand_test)
     
     ff.clear_graph(feeder)
