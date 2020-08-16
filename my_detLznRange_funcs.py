@@ -306,39 +306,38 @@ def compute_line_losses_multiphase(feeder, P_vals, Q_vals, act_locs, Sbase, Zbas
         run_counter += 1
     
         # --- NON CRUTCH METHOD --- estimate voltages at edge nodes (comment for statment to use crutch)
-        #for i in range(len(edge_nodes)):
-            #cur_edge = edge_nodes[i]
-            #cur_index = node_index_map[cur_edge]
-            #cur_za, cur_zb , cur_zc = z_edges_to_sub[0][i], z_edges_to_sub[1][i], z_edges_to_sub[2][i]
+        for i in range(len(edge_nodes)):
+            cur_edge = edge_nodes[i]
+            cur_index = node_index_map[cur_edge]
+            cur_za, cur_zb , cur_zc = z_edges_to_sub[0][i], z_edges_to_sub[1][i], z_edges_to_sub[2][i]
             # per unit
-            #va = complex(m.cos(-120*(m.pi/180)), m.sin(-120*(m.pi/180))) - (percent_V_drops[0][cur_index] * (cur_za / zmax)) 
-            #vb = complex(m.cos(120*(m.pi/180)), m.sin(120*(m.pi/180))) - (percent_V_drops[1][cur_index] * (cur_zb / zmax))
-            #vc = complex(m.cos(0*(m.pi/180)), m.sin(0*(m.pi/180))) - (percent_V_drops[2][cur_index] * (cur_zc / zmax))
-            #Vest[0][cur_index] = va
-            #Vest[1][cur_index] = vb
-            #Vest[2][cur_index] = vc
+            va = complex(m.cos(-120*(m.pi/180)), m.sin(-120*(m.pi/180))) - (percent_V_drops[0][cur_index] * (cur_za / zmax)) 
+            vb = complex(m.cos(120*(m.pi/180)), m.sin(120*(m.pi/180))) - (percent_V_drops[1][cur_index] * (cur_zb / zmax))
+            vc = complex(m.cos(0*(m.pi/180)), m.sin(0*(m.pi/180))) - (percent_V_drops[2][cur_index] * (cur_zc / zmax))
+            Vest[0][cur_index] = va
+            Vest[1][cur_index] = vb
+            Vest[2][cur_index] = vc
         
         # --- CRUTCH METHOD --- uncomment to use
-        Vest[0][3] = complex(.9859 * m.cos((m.pi/180)*(-121.2784)), .9859 * m.sin(-121.278*(m.pi/180)))
-        Vest[1][3] = complex( .9682* m.cos(118.0922*(m.pi/180)), .9682 * m.sin(118.0922*(m.pi/180)))
-        Vest[2][3] = complex( .1113* m.cos(-2.004*(m.pi/180)), .1113 * m.sin(-2.004*(m.pi/180)))
-        Vest[0][5] = complex( .9871* m.cos(-121.247*(m.pi/180)), .9871* m.sin(-121.247*(m.pi/180)))
-        Vest[1][5] = complex(.973 * m.cos(118.008*(m.pi/180)), .973 * m.sin(118.008*(m.pi/180)))
-        Vest[2][5] = complex( 1* m.cos(-.0006*(m.pi/180)), 1 * m.sin(-.0006*(m.pi/180)))
-        Vest[0][11] = complex(.9964 * m.cos(-121.4939*(m.pi/180)),  .9964* m.sin(-121.4939*(m.pi/180)))
-        Vest[1][11] = complex( .9401* m.cos(116.636*(m.pi/180)), .9401 * m.sin(116.636*(m.pi/180)))
-        Vest[2][11] = complex( .9689* m.cos(-3.69*(m.pi/180)), .9689 * m.sin(-3.69*(m.pi/180)))
-        Vest[0][0] = complex( .9393* m.cos(116.54),.9393  * m.sin(116.54))
-        Vest[1][0] = complex( .9401* m.cos(116.6367*(m.pi/180)),  .9401* m.sin(116.6367*(m.pi/180)))
-        Vest[2][0] = complex(.9819 * m.cos(-1.59*(m.pi/180)), .9819 * m.sin(-1.59*(m.pi/180)))
-        Vest[0][8] = complex( .9701* m.cos(-3.69*(m.pi/180)), .9701 * m.sin(-3.69*(m.pi/180)))
-        Vest[1][8] = complex( .9401* m.cos(116.6367*(m.pi/180)),  .9401* m.sin(116.6367*(m.pi/180)))
-        Vest[2][8] = complex(.9701 * m.cos(-3.69*(m.pi/180)),  .9701* m.sin(-3.69*(m.pi/180)))
-        Vest[0][10] = complex(.9984* m.cos(-121.63*(m.pi/180)),.9984  * m.sin(-121.63*(m.pi/180)))
-        Vest[1][10] = complex( .9392* m.cos(116.6192*(m.pi/180)), .9392 * m.sin(116.6192*(m.pi/180)))
-        Vest[2][10] = complex( .9701* m.cos(-3.69*(m.pi/180)), .9701 * m.sin(-3.69*(m.pi/180)))
+        #Vest[0][3] = complex(.9859 * m.cos((m.pi/180)*(-121.2784)), .9859 * m.sin(-121.278*(m.pi/180)))
+        #Vest[1][3] = complex( .9682* m.cos(118.0922*(m.pi/180)), .9682 * m.sin(118.0922*(m.pi/180)))
+        #Vest[2][3] = complex( .1113* m.cos(-2.004*(m.pi/180)), .1113 * m.sin(-2.004*(m.pi/180)))
+        #Vest[0][5] = complex( .9871* m.cos(-121.247*(m.pi/180)), .9871* m.sin(-121.247*(m.pi/180)))
+        #Vest[1][5] = complex(.973 * m.cos(118.008*(m.pi/180)), .973 * m.sin(118.008*(m.pi/180)))
+        #Vest[2][5] = complex( 1* m.cos(-.0006*(m.pi/180)), 1 * m.sin(-.0006*(m.pi/180)))
+        #Vest[0][11] = complex(.9964 * m.cos(-121.4939*(m.pi/180)),  .9964* m.sin(-121.4939*(m.pi/180)))
+        #Vest[1][11] = complex( .9401* m.cos(116.636*(m.pi/180)), .9401 * m.sin(116.636*(m.pi/180)))
+        #Vest[2][11] = complex( .9689* m.cos(-3.69*(m.pi/180)), .9689 * m.sin(-3.69*(m.pi/180)))
+        #Vest[0][0] = complex( .9393* m.cos(116.54),.9393  * m.sin(116.54))
+        #Vest[1][0] = complex( .9401* m.cos(116.6367*(m.pi/180)),  .9401* m.sin(116.6367*(m.pi/180)))
+        #Vest[2][0] = complex(.9819 * m.cos(-1.59*(m.pi/180)), .9819 * m.sin(-1.59*(m.pi/180)))
+        #Vest[0][8] = complex( .9701* m.cos(-3.69*(m.pi/180)), .9701 * m.sin(-3.69*(m.pi/180)))
+        #Vest[1][8] = complex( .9401* m.cos(116.6367*(m.pi/180)),  .9401* m.sin(116.6367*(m.pi/180)))
+        #Vest[2][8] = complex(.9701 * m.cos(-3.69*(m.pi/180)),  .9701* m.sin(-3.69*(m.pi/180)))
+        #Vest[0][10] = complex(.9984* m.cos(-121.63*(m.pi/180)),.9984  * m.sin(-121.63*(m.pi/180)))
+        #Vest[1][10] = complex( .9392* m.cos(116.6192*(m.pi/180)), .9392 * m.sin(116.6192*(m.pi/180)))
+        #Vest[2][10] = complex( .9701* m.cos(-3.69*(m.pi/180)), .9701 * m.sin(-3.69*(m.pi/180)))
         
-
         V = Vest
         Sloss = np.zeros((n,n), dtype = complex) # will populate 
         Vforks = {}
@@ -370,7 +369,9 @@ def compute_line_losses_multiphase(feeder, P_vals, Q_vals, act_locs, Sbase, Zbas
                 #Seq = sum(sum(S)) 
                 Peq, Qeq = Seq.real, Seq.imag
                 Ploss, Qloss = sum(sum(Sloss)).real, sum(sum(Sloss)).imag
-                print(cur_node)
+                print('S=',sum(sum(S)))
+                print('Sloss=',sum(sum(Sloss)))
+                print('Sact=',sum(Sact))
                 print('Number of iterations performed: ' + str(run_counter))
                 return Peq, Qeq, Ploss, Qloss
             
@@ -396,34 +397,37 @@ def compute_line_losses_multiphase(feeder, P_vals, Q_vals, act_locs, Sbase, Zbas
                                 break
                                 
                             for v_inner in val:
-                                check_a_real = (v_outer[1].real - v_inner[1].real) / v_outer[1].real
-                                check_a_imag = (v_outer[1].imag - v_inner[1].imag) / v_outer[1].imag
-                                check_b_real = (v_outer[2].real - v_inner[2].real) / v_outer[2].real
-                                check_b_imag = (v_outer[2].imag - v_inner[2].imag) / v_outer[2].imag
-                                check_c_real = (v_outer[3].real - v_inner[3].real) / v_outer[3].real
-                                check_c_imag = (v_outer[3].imag - v_inner[3].imag) / v_outer[3].imag
-                                all_checks = [check_a_real, check_a_imag, check_b_real, check_b_imag, check_c_real, 0]
-                                phase_indxs = [0, 0, 1, 1, 2, 2]
+                                check_a_mag = (cmath.polar(v_outer[1])[0] - cmath.polar(v_inner[1])[0]) 
+                                check_a_ang = (cmath.polar(v_outer[1])[1] - cmath.polar(v_inner[1])[1]) 
+                                check_b_mag = (cmath.polar(v_outer[2])[0] - cmath.polar(v_inner[2])[0]) 
+                                check_b_ang = (cmath.polar(v_outer[2])[1] - cmath.polar(v_inner[2])[1]) 
+                                check_c_mag = (cmath.polar(v_outer[3])[0] - cmath.polar(v_inner[3])[0])  
+                                check_c_ang = (cmath.polar(v_outer[3])[1] - cmath.polar(v_inner[3])[1]) 
+                                all_mag_checks = [check_a_mag, check_b_mag, check_c_mag]
+                                all_ang_checks = [check_a_ang, check_b_ang, check_c_ang]
+                                all_checks = all_mag_checks + all_ang_checks
+                                phase_indxs = [0, 1, 2, 0, 1, 2]
                                 
-                                # check not more than 10% different
-                                large_error_indxs = [i for i in range(len(all_checks)) if abs(all_checks[i]) > .1] 
-                                for i in large_error_indxs:
+                                # check not more than .1 degrees, .02 pu
+                                large_err_indxs_mag = [i for i in range(len(all_checks))[:3] if (abs(all_checks[i])) > .02]
+                                large_err_indxs_ang = [i for i in range(len(all_checks))[3:] if (abs(all_checks[i])) > .1] 
+                                large_err_indxs = large_err_indxs_mag + large_err_indxs_ang
+                                for i in large_err_indxs: 
                                     if all_checks[i] < 0:
-                                        high_v = v_inner
+                                        high_v = v_inner[0]
                                     else:
-                                        high_v = v_outer                                    
-                                    lower_edge_v = trace_error_to_edge(high_v[0], branch_list, graph)
-                                    for edge in lower_edge_v:
-                                        print('edge',edge)
+                                        high_v = v_outer[0]
+                                    adjust_edge_v = trace_error_to_edge(high_v, branch_list, graph)
+                                    for edge in adjust_edge_v:
                                         cur_index = node_index_map[edge]
                                         phase = phase_indxs[i]
-                                        percent_V_drops[phase][cur_index] -= .0005
-                                    
-                                if len(large_error_indxs) > 0:                        
+                                        percent_V_drops[phase][cur_index] -= .005
+                                          
+                                if len(large_err_indxs) > 0:                        
                                     loop_status = 'broken'
-                                    print(run_counter)
-                                    print(key, v_inner[0],v_outer[0])
-                                    print(all_checks)
+                                    #print('broken')
+                                    #print(key, v_inner[0],v_outer[0])
+                                    #print(all_checks)
                                     break                            
                             
                         #if key == 'bus_632':
