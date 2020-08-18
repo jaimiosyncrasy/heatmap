@@ -515,7 +515,7 @@ def computePQsweep_timesteps(feeder, load_data):
     time_Q_lb, Q_lb_rowP, Q_lb_rowQ = find_timestep(Qsweep_lb, run_sum_Q, Qstart_index, data_table)
     time_Q_ub, Q_ub_rowP, Q_ub_rowQ = find_timestep(Qsweep_ub, run_sum_Q, Qstart_index, data_table)
     
-    P_lb_results = [time_P_lb, P_lb_rowP, P_lb_rowQ]
+    P_lb_results = [time_P_lb, P_lb_rowP, P_lb_rowQ] # includes timestep  and value
     P_ub_results = [time_P_ub, P_ub_rowP, P_ub_rowQ]
     Q_lb_results = [time_Q_lb, Q_lb_rowP, Q_lb_rowQ]
     Q_ub_results = [time_Q_ub, Q_ub_rowP, Q_ub_rowQ]
@@ -526,7 +526,7 @@ def computePQsweep_timesteps(feeder, load_data):
 #     print('Time Q_lb = ' + str(time_Q_lb))
 #     print('Time Q_ub = ' + str(time_Q_ub))
     
-    return P_lb_results, P_ub_results, Q_lb_results, Q_ub_results
+    return P_lb_results, P_ub_results, Q_lb_results, Q_ub_results # each includes timestep  and value
 
 
 def computePQsweep_losses(feeder, act_locs, Sbase, Zbase, P_lb_results, P_ub_results, Q_lb_results, Q_ub_results, headerpath, substation_name, modelpath, depths):
