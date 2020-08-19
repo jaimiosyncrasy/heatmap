@@ -160,7 +160,7 @@ def computeFeas_v1(feeder, act_locs, A, B, indicMat,substation_name,perf_nodes,d
     print('num feas=',MYnumfeas)
     print('num tried=',MYnumTried)
 
-    lzn_err_max, slopes = lzn.detLznRange(feeder, Vbase_ll, Sbase, z12,B12, act_locs, load_data, headerpath, substation_name, modelpath, depths,printCurves) # usually called by computeFeas
+#    lzn_err_max, slopes = lzn.detLznRange(feeder, Vbase_ll, Sbase, z12,B12, act_locs, load_data, headerpath, substation_name, modelpath, depths,printCurves) # usually called by computeFeas
     lzn_err_max=-1 # workaround
 
     return MYfeas,lzn_err_max,MYnumfeas
@@ -268,7 +268,7 @@ def find_good_colocated(feeder, act_locs, node_index_map, substation_name, depth
     elif file_name == '123NF_test.dot':
         substIdx = [22, 24]
     elif file_name == 'PL0001_test.dot':
-        substIdx = [340] # dunno yet
+        substIdx = [340] 
     
     graphNodes_nosub = np.delete(graph.nodes,substIdx) # dont consider co-located at substation nodes, node 650 and 651
     # Note: ^idx 6 & 7 are MANUALLY PICKED OUT FOR 13NF
@@ -332,7 +332,7 @@ def runHeatMapProcess(feeder, all_act_locs, perf_nodes, node_index_map,substatio
         elif file_name=='123NF_test.dot':
             substIdx=[22, 24]
         elif file_name=='PL0001_test.dot':
-            substIdx = [340] # dunno yet
+            substIdx = [340] 
         graphNodes_nosub=np.delete(graph.nodes,substIdx) # dont consider co-located at substation nodes
         
         for node in graphNodes_nosub:
@@ -386,7 +386,7 @@ def placeMaxColocActs_stopAtInfeas(feeder, file_name, node_index_map, depths, su
     elif file_name == '123NF_test.dot':
         substIdx = [22, 24]
     elif file_name == 'PL0001_test.dot':
-        substIdx = [340] # dunno yet
+        substIdx = [340] 
     graphNodes_nosub = np.delete(graph.nodes, substIdx) # dont consider co-located at substation nodes
         
     for node in graphNodes_nosub:
@@ -429,7 +429,7 @@ def place_max_coloc_acts(feeder, file_name, node_index_map, depths, substation_n
     elif file_name == '123NF_test.dot':
         substIdx = [22, 24]
     elif file_name == 'PL0001_test.dot':
-        substIdx = [340] # dunno yet
+        substIdx = [340] 
     graphNodes_nosub = np.delete(graph.nodes, substIdx) # dont consider co-located at substation nodes
         
     for node in graphNodes_nosub:

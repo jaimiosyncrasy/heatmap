@@ -66,8 +66,10 @@ def computeFParamSpace_v2(feeder, act_locs, perf_nodes,R,X,depths,node_index_Map
     elif feeder.loadfolder=='123NF/':
         c=np.array([0.3,0.45]) 
     elif feeder.loadfolder=='PL0001/':
-        c=np.array([0.3,0.45])  # dunno yet
-    
+        #c=np.array([0.18,0.3]) 
+        #c=np.array([0.3,0.45]) 
+        #c=np.array([0.5,0.9])  
+        c=np.array([1,1])
     avgSens_dvdq,avgSens_ddeldp= (np.empty((0,1)) for i in range(2))
     i=0
     for act in act_locs: # for each (perf,act) pair in current config you're evaluating
