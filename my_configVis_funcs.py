@@ -38,7 +38,7 @@ def markActuatorConfig(lst_act_locs, feeder, file_name):
     return
 
 
-def markCommonFeasNodes(lst_feas_configs, feeder):
+def markCommonFeasNodes(lst_feas_configs, feeder, file_name):
     # input a list of feasible actuator configurations where each configuration is its own list (ie a list of lists)
     # for actuator locations that appear in every configuration, mark node blue
     shared_locs = lst_feas_configs[0]
@@ -73,7 +73,7 @@ def find_ActLoc_in_FeasConfigs(act_loc, feas_configs):
     return configs_with_actLoc
     
 
-def plot_actuator_num_histogram(lst_feas_configs):
+def plot_actuator_num_histogram(lst_feas_configs, file_name):
     # input list of lists of feasible actuator configurations
     # output histogram reflecting number of actuators in each configuration
     lst_num_acts = []
@@ -145,7 +145,7 @@ def assign_network_branches(feeder, substation_name):
     return branches
 
 
-def mark_network_branches(feeder, branch_lst):
+def mark_network_branches(feeder, branch_lst, file_name):
     # feeder = initialized feeder object
     # branch_lst = a list of lists containing node names as strings of nodes that are in the same branch
     # can mark up to 21 uniquely colored branches, for branch lists with more than 21 branches colors will repeat
@@ -286,6 +286,7 @@ def phaseCouplingPerNode(feeder,depths):
 
 def createColorMap(feeder, values_dic, file_name):
     graph = feeder.network
+    ff.clear_graph(feeder)
     vals = values_dic.values()
     if isinstance(list(vals)[0], complex):
         vals = [(val.imag**2 + val.real**2)**(1/2) for val in vals]
@@ -316,8 +317,8 @@ def createColorMap(feeder, values_dic, file_name):
                 graph.nodes[node]['fillcolor'] = b[2]
                 break
   
-    nx.nx_pydot.write_dot(graph, 'colorMap_'+file_name)
-    render('dot', 'png', 'colorMap_'+file_name)
+    nx.nx_pydot.write_dot(graph, 'colorMap_' + file_name)
+    render('dot', 'png', 'colorMap_' + file_name)
     return
     
 def createColorMap_BandW(feeder, values_dic, file_name):
