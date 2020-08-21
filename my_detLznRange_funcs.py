@@ -276,9 +276,9 @@ def compute_line_losses_multiphase(feeder, P_vals, Q_vals, act_locs, Sbase, Zbas
     
     # set actuators to extreme values for lower or upper bound
     if lb_mode:
-        act_cap = -(50/Sbase) #per phase
+        act_cap = -(200/Sbase) #actuator capacity, per phase, kW/Sbase
     else:
-        act_cap = (50/Sbase) #per phase
+        act_cap = (200/Sbase) #per phase
     for act in act_locs:
         index = node_index_map[act]
         Sact[index] = act_cap
@@ -1038,7 +1038,7 @@ def detLznRange(feeder, Vbase_ll, Sbase, z12, B12, act_locs, load_data, headerpa
     errVmax2, slope_vq = computeLznItvl(qvals / Sbase, solns2['lznV2'][0] / Vbase, solns2['trueV2'][0] / Vbase)
     errDelmax2, slope_delq = computeLznItvl(qvals / Sbase, solns2['lznDel2'][0], solns2['trueDel2'][0])
     
-    true_lzn_error_max = [errVmax1, errVmax2, errDelmax1, errDelmax2]
+    true_lzn_error_max = [errVmax1, errVmax2, errDelmax1, errDelmax2] # PV, QV, Pdel,Qdel
     slope_across_PQ_sweep = [slope_vp, slope_delp, slope_vq, slope_delq]
     
     return true_lzn_error_max, slope_across_PQ_sweep 

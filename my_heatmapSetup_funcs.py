@@ -160,8 +160,8 @@ def computeFeas_v1(feeder, act_locs, A, B, indicMat,substation_name,perf_nodes,d
     print('num feas=',MYnumfeas)
     print('num tried=',MYnumTried)
 
-#    lzn_err_max, slopes = lzn.detLznRange(feeder, Vbase_ll, Sbase, z12,B12, act_locs, load_data, headerpath, substation_name, modelpath, depths,printCurves) # usually called by computeFeas
-    lzn_err_max=-1 # workaround
+    lzn_err_max, slopes = lzn.detLznRange(feeder, Vbase_ll, Sbase, z12,B12, act_locs, load_data, headerpath, substation_name, modelpath, depths,printCurves) # usually called by computeFeas
+    #lzn_err_max=[-1, -1, -1, -1] # workaround, for [PV, QV, Pdel,Qdel] lzn errors
 
     return MYfeas,lzn_err_max,MYnumfeas
 
@@ -316,7 +316,7 @@ def runHeatMapProcess(feeder, all_act_locs, perf_nodes, node_index_map,substatio
     heatMapNames=[] # collect heat map names as list of strings
     n = len(graph.nodes) #number of nodes in network
     A, B = setupStateSpace(n, feeder, node_index_map,depths)
-    lzn_error_run_sum = 0
+    lzn_error_run_sum = np.zeros((1,4)) # [PV, QV, Pdel,Qdel]
     feas_configs=[]
     printCurves=False # your choice on whether to print PVcurves
 
@@ -324,7 +324,7 @@ def runHeatMapProcess(feeder, all_act_locs, perf_nodes, node_index_map,substatio
         for act in cur_act_locs: 
             markActLoc(graph, act)
             
-        lzn_error_dic = {} #contains maxLznError for each choice of actuator location with node name as key  
+        lzn_error_dic = {} #contains set of 4 maxLznError for each choice of actuator location with node name as key  
         test_nodes = []
         
         if file_name=='13NF_test.dot':
@@ -352,10 +352,11 @@ def runHeatMapProcess(feeder, all_act_locs, perf_nodes, node_index_map,substatio
                 feas_dic = {}
                 feas_dic['act'] = [test] + cur_act_locs
                 feas_dic['perf'] = [test] + cur_perf_nodes
-                feas_dic['lznErr'] = [lzn_error_dic[test]]
+                feas_dic['lznErr'] = [lzn_error_dic[test]] # [PV, QV, Pdel,Qdel]
                 feas_dic['numfeas']=[numfeas]
                 feas_configs += [feas_dic]        
         
+        # after generate data for heatmap..
         heatMapName='heat_map_' + str(a) + '_' + file_name
         heatMapNames.append(heatMapName)
         nx.nx_pydot.write_dot(graph, heatMapName)
@@ -365,7 +366,7 @@ def runHeatMapProcess(feeder, all_act_locs, perf_nodes, node_index_map,substatio
         if a <= len(all_act_locs): # choose actuator and finalize assoc perf node
             cur_act_locs = all_act_locs[0:a] # populate cur_act_locs with subset of all_act_locs
             cur_perf_nodes = perf_nodes[0:a] 
-            lzn_error_run_sum += lzn_error_dic[cur_act_locs[-1]]
+            lzn_error_run_sum += lzn_error_dic[cur_act_locs[-1]] # 1x4 += 1x4 vector
             print('The total max linearization error after '+ str(a) +' actuators have been placed = '+ str(lzn_error_run_sum))
             
         # end of while loop
