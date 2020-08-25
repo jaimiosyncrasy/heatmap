@@ -205,8 +205,10 @@ def find_good_branches(lst_feas_configs, branch_lst, num_good_branches):
                     
                 elif act_loc in branch and unique_tracker == 1:
                     branch_dic_repeat[branch_head] += 1
+                    break
     
-    common_branches = [k for k, v in branch_dic_unique.items() if v > 0]
+    # common_branches = branches that have at least one actuator placed on them in every feas config
+    common_branches = [k for k, v in branch_dic_unique.items() if v == len(lst_feas_configs)]
     counter = num_good_branches
     while counter > 0:
         max_unique = max(branch_dic_unique, key = branch_dic_unique.get)
@@ -218,7 +220,7 @@ def find_good_branches(lst_feas_configs, branch_lst, num_good_branches):
         counter -= 1
     
     print('Branches are represented by their first node (the node closest to the substation).')
-    print('\nCommon Branches:')
+    print('\nBranches Common Across Configs:')
     print(common_branches)
     print('\nThe ' + str(num_good_branches) + ' best branches when each actuator configuration is only considered once:')
     print(best_branches_unique)
