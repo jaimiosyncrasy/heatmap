@@ -148,26 +148,19 @@ def assign_network_branches(feeder, substation_name):
 def mark_network_branches(feeder, branch_lst, file_name):
     # feeder = initialized feeder object
     # branch_lst = a list of lists containing node names as strings of nodes that are in the same branch
-    # can mark up to 21 uniquely colored branches, for branch lists with more than 21 branches colors will repeat
     graph = feeder.network
-    cur_color = 1
-    color_scheme = 'set312'
+    num_branches = len(branch_lst)
+    color_dif = .9/num_branches
+    colors = [round((i + 1)*color_dif, 5) for i in range(num_branches)]
+    i = 0
     
     for branch in branch_lst:
-        
+        cur_color = colors[i]
         for node in branch:
-            graph.nodes[node]['colorscheme'] = color_scheme
             graph.nodes[node]['style'] = 'filled'
-            graph.nodes[node]['fillcolor'] = cur_color
-        
-        cur_color += 1
-        
-        if color_scheme == 'set312' and cur_color > 12:
-            cur_color = 1
-            color_scheme = 'set19'
-        elif color_scheme == 'set19' and cur_color > 9:
-            cur_color = 1
-            color_scheme = 'set312'
+            graph.nodes[node]['fillcolor'] = str(cur_color) + '.5, .7'
+        colors.remove(cur_color)
+        i = -1 if i == 0 else 0
     
     nx.nx_pydot.write_dot(graph, 'branch_key:' + file_name)
     render('dot', 'png', 'branch_key:' + file_name)
