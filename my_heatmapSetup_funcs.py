@@ -160,8 +160,8 @@ def computeFeas_v1(feeder, act_locs, A, B, indicMat,substation_name,perf_nodes,d
     print('num feas=',MYnumfeas)
     print('num tried=',MYnumTried)
 
-    lzn_err_max, slopes = lzn.detLznRange(feeder, Vbase_ll, Sbase, z12,B12, act_locs, load_data, headerpath, substation_name, modelpath, depths,printCurves) # usually called by computeFeas
-    #lzn_err_max=[-1, -1, -1, -1] # workaround, for [PV, QV, Pdel,Qdel] lzn errors
+    #lzn_err_max, slopes = lzn.detLznRange(feeder, Vbase_ll, Sbase, z12, B12, act_locs, load_data, headerpath, substation_name, modelpath, depths,printCurves) # usually called by computeFeas
+    lzn_err_max=[-1, -1, -1, -1] # workaround, for [PV, QV, Pdel,Qdel] lzn errors
 
     return MYfeas,lzn_err_max,MYnumfeas
 
@@ -245,8 +245,22 @@ def eval_config(feeder, all_act_locs, perf_nodes, node_index_map,substation_name
     vis.markActuatorConfig(all_act_locs, feeder, file_name) # create diagram with actuator locs marked
     
     print('Actuator configuration is feasible') if feas else print('Actuator configuration is not feasible')
-    return feas, maxError,numfeas
+    return feas, maxError, numfeas
 
+
+def remove_subst_nodes(feeder, file_name):
+    # remove the substation nodes/node from the network's node list
+    graph = feeder.network
+    if file_name == '13NF_test.dot':
+        substIdx = [6, 7] # substation index --> Note: idx 6 & 7 are MANUALLY PICKED OUT FOR 13NF
+    elif file_name == '123NF_test.dot':
+        substIdx = [22, 24]
+    elif file_name == 'PL0001_test.dot':
+        substIdx = [340] 
+    
+    graphNodes_nosub = np.delete(graph.nodes, substIdx) # dont consider substation nodes, node 650 and 651 for 13NF
+    return graphNodes_nosub
+    
 def find_good_colocated(feeder, act_locs, node_index_map, substation_name, depths, file_name,Vbase_ll, Sbase, load_data, headerpath, modelpath):
     # almost the same as runheatmap process, but only runs once and shows one heatmap indicating which nodes are good to place a co-located act/perf node
     # return list of all "green" configs and the associated lzn errors
@@ -261,17 +275,7 @@ def find_good_colocated(feeder, act_locs, node_index_map, substation_name, depth
     lzn_error_dic = {} #contains maxLznError for each choice of actuator location with node name as key  
     test_nodes = []
     printCurves=False # your choice on whether to print PVcurves
-
-    
-    if file_name == '13NF_test.dot':
-        substIdx = [6, 7] # substation index
-    elif file_name == '123NF_test.dot':
-        substIdx = [22, 24]
-    elif file_name == 'PL0001_test.dot':
-        substIdx = [340] 
-    
-    graphNodes_nosub = np.delete(graph.nodes,substIdx) # dont consider co-located at substation nodes, node 650 and 651
-    # Note: ^idx 6 & 7 are MANUALLY PICKED OUT FOR 13NF
+    graphNodes_nosub = remove_subst_nodes(feeder, file_name) # dont consider co-located at substation nodes, node 650 and 651
     
     for node in graphNodes_nosub: # try placing act/perf at all nodes of the network
         if node not in act_locs:
@@ -302,62 +306,54 @@ def find_good_colocated(feeder, act_locs, node_index_map, substation_name, depth
     return feas_configs, heatMapNames
 
 
-def runHeatMapProcess(feeder, all_act_locs, perf_nodes, node_index_map,substation_name,depths, file_name,Vbase_ll, Sbase, load_data, headerpath, modelpath):
-    # On empty network, compute heatmap (assess feas and lzn error on every node of the feeder, color each red/green on diagram)
+def runHeatMapProcess(feeder, set_acts, set_perfs, all_act_locs, perf_nodes, node_index_map, substation_name, depths, file_name, Vbase_ll, Sbase, load_data, headerpath, modelpath):
+    # compute heatmap (assess feas and lzn error on every node of the feeder, color each red/green on diagram)
     # Then for each act-perf node pair, compute heatmap
     # return list of all "green" configs and the associated lzn errors
     # heatmap shows good places to placed act wrt given perf node, NOT good places to place colocated act-perf node
-    
     #all_act_locs and perf_nodes = lists of node names as strings
     a = 0
     graph = feeder.network
-    cur_act_locs = []
-    cur_perf_nodes=[]
-    heatMapNames=[] # collect heat map names as list of strings
+    cur_act_locs = set_acts
+    cur_perf_nodes = set_perfs
+    heatMapNames = [] # collect heat map names as list of strings
     n = len(graph.nodes) #number of nodes in network
-    A, B = setupStateSpace(n, feeder, node_index_map,depths)
-    lzn_error_run_sum = np.zeros((1,4)) # [PV, QV, Pdel,Qdel]
-    feas_configs=[]
-    printCurves=False # your choice on whether to print PVcurves
-
-    while a < len(all_act_locs): #outer loop, a=number of actuators
+    A, B = setupStateSpace(n, feeder, node_index_map, depths)
+    lzn_error_run_sum = 0
+    feas_configs = []
+    
+    while a < len(all_act_locs): #outer loop, a = number of actuators
         for act in cur_act_locs: 
             markActLoc(graph, act)
             
-        lzn_error_dic = {} #contains set of 4 maxLznError for each choice of actuator location with node name as key  
+        lzn_error_dic = {} #contains maxLznError for each choice of actuator location with node name as key  
         test_nodes = []
-        
-        if file_name=='13NF_test.dot':
-            substIdx=[6, 7] # substation index
-        elif file_name=='123NF_test.dot':
-            substIdx=[22, 24]
-        elif file_name=='PL0001_test.dot':
-            substIdx = [340] 
-        graphNodes_nosub=np.delete(graph.nodes,substIdx) # dont consider co-located at substation nodes
+        graphNodes_nosub = remove_subst_nodes(feeder, file_name) # dont consider co-located at substation nodes, node 650 and 651
         
         for node in graphNodes_nosub:
             if node not in cur_act_locs:
                 test_nodes.append(node)
-    
+        
         for test in test_nodes: #inner loop
-            # heatmap color indicates indicates good places to place actuator given chosen loc of perf node (not necessarily colocated)
+            # heatmap color indicates good places to place actuator given chosen loc of perf node (not necessarily colocated)
             indicMat = updateStateSpace(n, [test] + cur_act_locs, [perf_nodes[a]] + cur_perf_nodes, node_index_map)
-            print('evaluating act at ',[test]+cur_act_locs,', perf at ',[perf_nodes[a]] + cur_perf_nodes)
-            graph.nodes[perf_nodes[a]]['shape'] = 'square'
-
-            feas, maxError,numfeas = computeFeas_v1(feeder, [test]+cur_act_locs, A, B, indicMat,substation_name,[perf_nodes[a]] + cur_perf_nodes,depths,node_index_map,Vbase_ll, Sbase, load_data, headerpath, modelpath,printCurves)
+            print('evaluating act at ', [test] + cur_act_locs,', perf at ', [perf_nodes[a]] + cur_perf_nodes)
+          
+            feas, maxError, numfeas = computeFeas_v1(feeder, [test] + cur_act_locs, A, B, indicMat, substation_name,[perf_nodes[a]] + cur_perf_nodes, depths, node_index_map, Vbase_ll, Sbase, load_data, headerpath, modelpath, False)
             lzn_error_dic[test] = maxError
             markFeas(feas, test, graph)
+            
             if feas:
                 feas_dic = {}
                 feas_dic['act'] = [test] + cur_act_locs
                 feas_dic['perf'] = [test] + cur_perf_nodes
-                feas_dic['lznErr'] = [lzn_error_dic[test]] # [PV, QV, Pdel,Qdel]
+                feas_dic['lznErr'] = [lzn_error_dic[test]]
                 feas_dic['numfeas']=[numfeas]
                 feas_configs += [feas_dic]        
         
+        graph.nodes[perf_nodes[a]]['shape'] = 'square'
         # after generate data for heatmap..
-        heatMapName='heat_map_' + str(a) + '_' + file_name
+        heatMapName = 'heat_map_' + str(a) + '_' + file_name
         heatMapNames.append(heatMapName)
         nx.nx_pydot.write_dot(graph, heatMapName)
         render('dot', 'png', heatMapName)
@@ -366,11 +362,12 @@ def runHeatMapProcess(feeder, all_act_locs, perf_nodes, node_index_map,substatio
         if a <= len(all_act_locs): # choose actuator and finalize assoc perf node
             cur_act_locs = all_act_locs[0:a] # populate cur_act_locs with subset of all_act_locs
             cur_perf_nodes = perf_nodes[0:a] 
-            lzn_error_run_sum += lzn_error_dic[cur_act_locs[-1]] # 1x4 += 1x4 vector
+            lzn_error_run_sum += lzn_error_dic[cur_act_locs[-1]][0]
             print('The total max linearization error after '+ str(a) +' actuators have been placed = '+ str(lzn_error_run_sum))
             
         # end of while loop
     return feas_configs, lzn_error_run_sum, heatMapNames
+
 
 
 def placeMaxColocActs_stopAtInfeas(feeder, file_name, node_index_map, depths, substation_name,Vbase_ll, Sbase, load_data, headerpath, modelpath):
@@ -381,14 +378,7 @@ def placeMaxColocActs_stopAtInfeas(feeder, file_name, node_index_map, depths, su
     test_nodes = []
     act_locs = []
     printCurves=False # your choice on whether to print PVcurves
-
-    if file_name == '13NF_test.dot':
-        substIdx = [6, 7] # substation index
-    elif file_name == '123NF_test.dot':
-        substIdx = [22, 24]
-    elif file_name == 'PL0001_test.dot':
-        substIdx = [340] 
-    graphNodes_nosub = np.delete(graph.nodes, substIdx) # dont consider co-located at substation nodes
+    graphNodes_nosub = remove_subst_nodes(feeder, file_name) # dont consider substation nodes, node 650 and 651 for 13NF
         
     for node in graphNodes_nosub:
         if node not in act_locs:
@@ -424,14 +414,7 @@ def place_max_coloc_acts(feeder, file_name, node_index_map, depths, substation_n
     test_nodes = []
     act_locs = []
     printCurves=False # your choice on whether to print PVcurves
-
-    if file_name == '13NF_test.dot':
-        substIdx = [6, 7] # substation index
-    elif file_name == '123NF_test.dot':
-        substIdx = [22, 24]
-    elif file_name == 'PL0001_test.dot':
-        substIdx = [340] 
-    graphNodes_nosub = np.delete(graph.nodes, substIdx) # dont consider co-located at substation nodes
+    graphNodes_nosub = remove_subst_nodes(feeder, file_name) # dont consider substation nodes, node 650 and 651 for 13NF
         
     for node in graphNodes_nosub:
         if node not in act_locs:
