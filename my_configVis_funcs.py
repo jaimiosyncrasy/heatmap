@@ -258,14 +258,14 @@ def find_branch_in_branch_list(node_in_branch, branch_lst):
     return my_branch
             
     
-def phaseCouplingPerNode(feeder,depths):
+def phaseCouplingPerNode(feeder, depths, file_name):
     # phase coupling = mutual impedance/ self impedance
     graph = feeder.network
-    nodes = graph.nodes
     coupling_ratios = {}
+    graphNodes_nosub = hm.remove_subst_nodes(feeder, file_name) # dont consider substation nodes, node 650 and 651 for 13NF
     
-    for node in nodes:
-        edge_path = hm.get_path_to_substation(feeder, node,depths)
+    for node in graphNodes_nosub:
+        edge_path = hm.get_path_to_substation(feeder, node, depths)
         self_imped = 0
         mutual_imped = 0
             

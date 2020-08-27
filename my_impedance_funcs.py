@@ -172,7 +172,7 @@ def get_total_impedance_between_two_buses(feeder, node_name_1, node_name_2, dept
     return total_impedance
     
 #Returns the R/X ratio from a node up to the substation       
-def get_RX_ratio_tosubst(feeder, node_name,depths):
+def get_RX_ratio_tosubst(feeder, node_name, depths):
     impedances_per_phase = get_total_impedance_from_substation(feeder, node_name,depths)
     
     #p1_z = impedances_per_phase['Phase 1']
@@ -182,11 +182,11 @@ def get_RX_ratio_tosubst(feeder, node_name,depths):
     p2_z = impedances_per_phase[1][1]
     p3_z = impedances_per_phase[2][2]
     
-    p1_rx = np.real(p1_z) / np.imag(p1_z) # R/X ratio
-    p2_rx = np.real(p2_z) / np.imag(p1_z) 
-    p3_rx = np.real(p3_z) / np.imag(p1_z) 
+    p1_rx = np.real(p1_z) / np.imag(p1_z) if p1_z.imag != 0 else 0 # R/X ratio
+    p2_rx = np.real(p2_z) / np.imag(p2_z) if p2_z.imag != 0 else 0
+    p3_rx = np.real(p3_z) / np.imag(p3_z) if p3_z.imag != 0 else 0
     
-    return {'Phase 1' : np.around(p1_rx,2), 'Phase 2' : np.around(p2_rx,2), 'Phase 3' : np.around(p3_rx,2)}
+    return {'Phase 1' : np.around(p1_rx, 2), 'Phase 2' : np.around(p2_rx, 2), 'Phase 3' : np.around(p3_rx, 2)}
 
 #Returns the R/X ratio between 2 nodes      
 def get_RX_ratio_between_two_buses(feeder, node_name_1, node_name_2,depths):
@@ -199,9 +199,9 @@ def get_RX_ratio_between_two_buses(feeder, node_name_1, node_name_2,depths):
     p2_z = impedances_per_phase[1][1]
     p3_z = impedances_per_phase[2][2]
 
-    p1_rx = np.real(p1_z) / np.imag(p1_z) # R/X ratio
-    p2_rx = np.real(p2_z) / np.imag(p1_z) 
-    p3_rx = np.real(p3_z) / np.imag(p1_z) 
+    p1_rx = np.real(p1_z) / np.imag(p1_z) if p1_z.imag != 0 else 0 # R/X ratio
+    p2_rx = np.real(p2_z) / np.imag(p2_z) if p2_z.imag != 0 else 0
+    p3_rx = np.real(p3_z) / np.imag(p3_z) if p3_z.imag != 0 else 0
     
     return {'Phase 1' : np.around(p1_rx,2), 'Phase 2' : np.around(p2_rx,2), 'Phase 3' : np.around(p3_rx,2)}
 

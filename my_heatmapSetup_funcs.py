@@ -235,7 +235,7 @@ def markFeas(feas, test_act_loc, graph):
 
 def eval_config(feeder, all_act_locs, perf_nodes, node_index_map,substation_name,depths,file_name,Vbase_ll, Sbase, load_data, headerpath, modelpath):
     #all_act_locs and perf_nodes = lists of node names as strings
-    printCurves=True # your choice on whether to print PVcurves
+    printCurves = True # your choice on whether to print PVcurves
     
     graph = feeder.network
     n = len(graph.nodes) #number of nodes in network

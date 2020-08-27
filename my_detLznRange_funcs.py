@@ -106,20 +106,26 @@ def parse_headers(feeder, n, P_vals, Q_vals, headers, node_index_map, modelpath)
     for i in range(len(P_vals)):
         label = headers[i]
         node_name = label[3:]
-        node_name = node_name[len(node_name)-4::-1]
-        node_name = node_name[len(node_name)::-1]
+        node_name, find_phase = node_name.split('/')
         node_name = 'bus_' + node_name
         
-        find_phase = int(label[-1]) - 1
-        phases_per_node = []
-        for p in all_phases:
-            cur_node = p[len(p)-3::-1]
-            cur_node = cur_node[len(cur_node)::-1]
-            if node_name[4:] == cur_node:
-                phases_per_node += p[len(p)-1:len(p)-2:-1]
+        find_phase = find_phase[-1]
+        try:
+            find_phase = int(find_phase) - 1
+            break
+        except ValueError:
+            phase = find_phase
         
-        phase = phases_per_node[find_phase]
-        
+        if isinstance(find_phase, int):
+            phases_per_node = []
+            for p in all_phases:
+                cur_node = p[len(p)-3::-1]
+                cur_node = cur_node[len(cur_node)::-1]
+                if node_name[4:] == cur_node:
+                    phases_per_node += p[-1]
+
+            phase = phases_per_node[find_phase]
+
         if phase == 'a':
             phase_index = 0
         elif phase =='b':
@@ -304,8 +310,8 @@ def compute_line_losses_multiphase(feeder, P_vals, Q_vals, act_locs, Sbase, Zbas
     while status == 'unsolved' and run_counter < 100:
         loop_status = 'unbroken'
         run_counter += 1
-        if run_counter>1: #if Vfork doesnt agree, increment in which case print the value
-            print('Number of iterations performed: ' + str(run_counter)) 
+        #if run_counter > 1: #if Vfork doesnt agree, increment in which case print the value
+            #print('Number of iterations performed: ' + str(run_counter)) 
 
         # --- NON CRUTCH METHOD --- estimate voltages at edge nodes (comment for statment to use crutch)
         for i in range(len(edge_nodes)):
@@ -371,7 +377,7 @@ def compute_line_losses_multiphase(feeder, P_vals, Q_vals, act_locs, Sbase, Zbas
                 #Seq = sum(sum(S)) 
                 Peq, Qeq = Seq.real, Seq.imag
                 Ploss, Qloss = sum(sum(Sloss)).real, sum(sum(Sloss)).imag
-                
+                print('Number of iterations performed: ' + str(run_counter)) 
 #                 print('compute line loss multiphase vals:')
 #                 print('S=',sum(sum(S)))
 #                 print('Sloss=',sum(sum(Sloss)))
