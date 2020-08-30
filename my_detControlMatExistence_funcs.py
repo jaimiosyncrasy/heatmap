@@ -102,6 +102,10 @@ def computeFParamSpace_v2(feeder, act_locs, perf_nodes,R,X,depths,node_index_Map
         avg_dvdq=sensEst_dvdq.mean() # converts 3x3 to scalar complex for each act-perf pair
         avg_ddeldp=sensEst_ddeldp.mean()
         
+        if np.isnan(avg_dvdq) or np.isnan(avg_ddeldp):
+            print('act=',act)  
+            sys.exit('Error: avg_dvdq or avg_ddeldp are NaN')  
+            
         avgSens_dvdq=np.append(avgSens_dvdq,avg_dvdq)
         avgSens_ddeldp=np.append(avgSens_ddeldp,avg_ddeldp)
         #print('avgdvdq=',avgSens_dvdq)
@@ -109,12 +113,15 @@ def computeFParamSpace_v2(feeder, act_locs, perf_nodes,R,X,depths,node_index_Map
         
     numact=len(act_locs)
     # avgSens_dvdq is list of scalar complex vals
-    q=np.absolute(avgSens_dvdq).mean()*numact # take avg across abs value of perf-act pair sensitivities
-    p=np.absolute(avgSens_ddeldp).mean()*numact
+    q=np.mean(np.absolute(avgSens_dvdq))*numact # take avg across abs value of perf-act pair sensitivities
+    p=np.mean(np.absolute(avgSens_ddeldp))*numact
     #print('q=',q) # print when tuning c1 and c2
     #print('p=',p)
-    Fq_ub=(1/q)*c[0]
-    Fp_ub=(1/p)*c[1]
+    try: 
+        Fq_ub=(1/q)*c[0]
+        Fp_ub=(1/p)*c[1]
+    except: 
+        print('error: q or p = 0, avgSens are=',avgSens_dvdq)
 
     return Fq_ub,Fp_ub
 
@@ -154,8 +161,8 @@ def detControlMatExistence(feeder, act_locs, A, B, indicMat,substation_name,perf
     numsamp=15 # temporary, should really do at least 15
     Fq_range=np.linspace(0.0001, Fq_ub, numsamp)
     Fp_range=np.linspace(0.0001, Fp_ub, numsamp)
+    #print('Fp_range=',Fp_ub)
     #print('Fq_range=',Fq_ub)
-    #print('Fq_range=',Fq_range)
 
 # Initialize arrays, will be populated in loops
     feas=False # boolean
