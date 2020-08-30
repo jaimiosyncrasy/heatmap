@@ -65,11 +65,9 @@ def computeFParamSpace_v2(feeder, act_locs, perf_nodes,R,X,depths,node_index_Map
         c=np.array([0.412,0.857]) # (q,p) tuned for 13NF based on data from feas configs
     elif feeder.loadfolder=='123NF/':
         c=np.array([0.3,0.45]) 
-    elif feeder.loadfolder=='PL0001/':
-        #c=np.array([0.18,0.3]) 
-        #c=np.array([0.3,0.45]) 
-        #c=np.array([0.5,0.9])  
-        c=np.array([1,1])
+    elif feeder.loadfolder=='PL0001/': 
+        c=np.array([0.32,0.65])
+        
     avgSens_dvdq,avgSens_ddeldp= (np.empty((0,1)) for i in range(2))
     i=0
     for act in act_locs: # for each (perf,act) pair in current config you're evaluating
@@ -202,11 +200,11 @@ def detControlMatExistence(feeder, act_locs, A, B, indicMat,substation_name,perf
                 myCosts=np.append(myCosts,[[val]],axis=0) # temp
                 myFbases=np.append(myFbases,[[Fp, Fq]],axis=0)
 
-    tol=4 # your choice, define because if only found 1 feas config too borderline to count as feas
+    threshold=1 # your choice, define because if only found 1 feas config too borderline to count as feas
     numfeas=np.append(numfeas,[[len(feasFs)]],axis=0) # number of rows
 
    # if feas==True:
-    if len(feasFs)>=tol:
+    if len(feasFs)>=threshold:
         print("Config feasible!")
         feas=True
     else:

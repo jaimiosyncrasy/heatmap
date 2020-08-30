@@ -160,7 +160,7 @@ def computeFeas_v1(feeder, act_locs, A, B, indicMat,substation_name,perf_nodes,d
     print('num feas=',MYnumfeas)
     print('num tried=',MYnumTried)
 
-    #lzn_err_max, slopes = lzn.detLznRange(feeder, Vbase_ll, Sbase, z12, B12, act_locs, load_data, headerpath, substation_name, modelpath, depths,printCurves) # usually called by computeFeas
+    lzn_err_max, slopes = lzn.detLznRange(feeder, Vbase_ll, Sbase, z12, B12, act_locs, load_data, headerpath, substation_name, modelpath, depths,printCurves) # usually called by computeFeas
     lzn_err_max=[-1, -1, -1, -1] # workaround, for [PV, QV, Pdel,Qdel] lzn errors
 
     return MYfeas,lzn_err_max,MYnumfeas
@@ -219,7 +219,7 @@ def markActLoc(graph, act_loc):
     return
         
 
-def markFeas(feas, test_act_loc, graph):
+def markFeas(numfeas, test_act_loc, graph):
     #if controllability can be achieved with actuator at test_act_loc then mark green, otherwise mark red
     #feas = True or False
     #test_act_loc = node name as string
@@ -227,8 +227,11 @@ def markFeas(feas, test_act_loc, graph):
     graph.nodes[test_act_loc]['style'] = 'filled'
     graph.nodes[test_act_loc]['shape'] = 'circle'
 
-    if feas:
+    thresh_yellowgreen=15 # you choose
+    if numfeas>=thresh_yellowgreen:
         graph.nodes[test_act_loc]['fillcolor'] = 'green'
+    elif numfeas>=1:
+        graph.nodes[test_act_loc]['fillcolor'] = 'yellow'
     else:
         graph.nodes[test_act_loc]['fillcolor'] = 'red'
     return
@@ -289,7 +292,7 @@ def find_good_colocated(feeder, act_locs, node_index_map, substation_name, depth
         indicMat = updateStateSpace(n, [test] + act_locs, [test] + act_locs, node_index_map) # (n,act,perf,dictionary)
         feas, maxError, numfeas = computeFeas_v1(feeder, [test] + act_locs, A, B, indicMat,substation_name,[test] + act_locs, depths, node_index_map,Vbase_ll, Sbase, load_data, headerpath, modelpath,printCurves) # pass in potential actual loc
         lzn_error_dic[test] = maxError
-        markFeas(feas, test, graph)
+        markFeas(numfeas, test, graph)
         if feas:
             feas_dic = {}
             feas_dic['act'] = [test]
@@ -341,7 +344,7 @@ def runHeatMapProcess(feeder, set_acts, set_perfs, all_act_locs, perf_nodes, nod
           
             feas, maxError, numfeas = computeFeas_v1(feeder, [test] + cur_act_locs, A, B, indicMat, substation_name,[perf_nodes[a]] + cur_perf_nodes, depths, node_index_map, Vbase_ll, Sbase, load_data, headerpath, modelpath, False)
             lzn_error_dic[test] = maxError
-            markFeas(feas, test, graph)
+            markFeas(numfeas, test, graph)
             
             if feas:
                 feas_dic = {}
