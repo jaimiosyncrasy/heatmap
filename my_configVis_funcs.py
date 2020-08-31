@@ -6,6 +6,7 @@ import statistics as st
 import cmath
 import matplotlib.pyplot as plt 
 import itertools
+import random
 from operator import add
 importlib.reload(setup_nx)
 from setup_nx import *
@@ -145,22 +146,46 @@ def assign_network_branches(feeder, substation_name):
     return branches
 
 
-def mark_network_branches(feeder, branch_lst, file_name):
+def mark_network_branches(feeder, branch_lst, file_name, substation_name, depths):
     # feeder = initialized feeder object
     # branch_lst = a list of lists containing node names as strings of nodes that are in the same branch
     graph = feeder.network
-    num_branches = len(branch_lst)
-    color_dif = .9/num_branches
-    colors = [round((i + 1)*color_dif, 5) for i in range(num_branches)]
-    i = 0
+    colors = ['turquoise', 'purple', 'limegreen', 'yellow','pink', 'orange', 'gray', 'red', 'orchid']
+    node_colors = {}
+    branch_heads = [branch[0] for branch in branch_lst]
+    head_depths = [depths[h] for h in branch_heads]
+    unique_depths = []
     
-    for branch in branch_lst:
-        cur_color = colors[i]
-        for node in branch:
-            graph.nodes[node]['style'] = 'filled'
-            graph.nodes[node]['fillcolor'] = str(cur_color) + '.5, .7'
-        colors.remove(cur_color)
-        i = -1 if i == 0 else 0
+    for d in head_depths:
+        if d not in unique_depths and d != 0:
+            unique_depths += [d]
+    
+    subst_branch = [b for b in branch_lst if substation_name in b][0]  
+    for node in subst_branch:
+        node_colors[node] = colors[0]
+        
+    while unique_depths:
+        cur_depth = min(unique_depths)
+        unique_depths.remove(cur_depth)
+        cur_heads = [head for head in branch_heads if depths[head] == cur_depth]
+        used_colors = []
+        for head in cur_heads:
+            cur_branch = [b for b in branch_lst if head in b][0]
+            parent_node = list(graph.predecessors(head))
+            parent_color = node_colors[parent_node[0]]
+            color_choices = list(colors)
+            color_choices.remove(parent_color)
+            for uc in used_colors:
+                if uc in color_choices:
+                    color_choices.remove(uc)
+            cur_color = random.choice(color_choices)
+            for node in cur_branch:
+                node_colors[node] = cur_color
+            used_colors += [color_choices[0]]
+        
+    for node in graph.nodes:
+        graph.nodes[node]['style'] = 'filled'
+        graph.nodes[node]['fillcolor'] = node_colors[node]
     
     nx.nx_pydot.write_dot(graph, 'branch_key:' + file_name)
     render('dot', 'png', 'branch_key:' + file_name)
