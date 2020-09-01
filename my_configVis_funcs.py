@@ -284,9 +284,9 @@ def find_branch_in_branch_list(node_in_branch, branch_lst):
             
     
 def phaseCouplingPerNode(feeder, depths, file_name):
-    # phase coupling = mutual impedance/ self impedance
+    # phase coupling = mutual impedance/ self impedance on EACH phase
     graph = feeder.network
-    coupling_ratios = {}
+    coupling_ratios_list = {} # create array, rewrite
     graphNodes_nosub = hm.remove_subst_nodes(feeder, file_name) # dont consider substation nodes, node 650 and 651 for 13NF
     
     for node in graphNodes_nosub:
@@ -297,6 +297,7 @@ def phaseCouplingPerNode(feeder, depths, file_name):
         mutual_imped_A = 0
         mutual_imped_B = 0
         mutual_imped_C = 0
+        coupling_ratio_3ph={} # create array, rewrite
 
         for edge in edge_path:
             impedance_test = graph.get_edge_data(edge[1], edge[0], default=None)['connector']
@@ -312,10 +313,12 @@ def phaseCouplingPerNode(feeder, depths, file_name):
         rat_A=mutual_imped_A/self_imped_A if self_imped_A != 0 else 0
         rat_B=mutual_imped_B/self_imped_B if self_imped_B != 0 else 0
         rat_C=mutual_imped_C/self_imped_C if self_imped_C != 0 else 0
- 
-        coupling_ratios= {'Phase 1' : np.around(rat_A,3), 'Phase 2' : np.around(rat_B,3), 'Phase 3' : np.around(rat_C,3)}
-
-    return coupling_ratios
+         
+        coupling_ratio_3ph=[1 1 1] # rewrite and put ratA,ratB,ratC into an array here
+        # add coupling_ratio_3ph to coupling_ratios_list
+    
+    # coupling ratios is a list of lists, i.e. node list where each node has a 3x1 array for phase coupling ratio on 3 phases
+    return coupling_ratios_list
 
 
 def createColorMap(feeder, values_dic, file_name):
