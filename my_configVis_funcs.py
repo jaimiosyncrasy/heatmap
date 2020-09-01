@@ -291,16 +291,30 @@ def phaseCouplingPerNode(feeder, depths, file_name):
     
     for node in graphNodes_nosub:
         edge_path = hm.get_path_to_substation(feeder, node, depths)
-        self_imped = 0
-        mutual_imped = 0
-            
+        self_imped_A = 0
+        self_imped_B = 0
+        self_imped_C = 0
+        mutual_imped_A = 0
+        mutual_imped_B = 0
+        mutual_imped_C = 0
+
         for edge in edge_path:
             impedance_test = graph.get_edge_data(edge[1], edge[0], default=None)['connector']
             impedance = impedance_test.Z if isinstance(impedance_test, setup_nx.line) else np.zeros((3,3))
-            self_imped += impedance[0][0] + impedance[1][1] + impedance[2][2]
-            mutual_imped += impedance[0][1] + impedance[0][2] + impedance[1][0] + impedance[1][2] + impedance[2][0] + impedance[2][1]
-        
-        coupling_ratios[node] = mutual_imped / self_imped if self_imped != 0 else mutual_imped
+            self_imped_A += impedance[0][0] + impedance[1][1] + impedance[2][2]
+            self_imped_B += impedance[0][0] + impedance[1][1] + impedance[2][2]
+            self_imped_C += impedance[0][0] + impedance[1][1] + impedance[2][2]
+
+            mutual_imped_A += impedance[0][1] + impedance[0][2] 
+            mutual_imped_B += impedance[1][0] + impedance[1][2]
+            mutual_imped_C += impedance[2][0] + impedance[2][1]
+
+        rat_A=mutual_imped_A/self_imped_A if self_imped_A != 0 else 0
+        rat_B=mutual_imped_B/self_imped_B if self_imped_B != 0 else 0
+        rat_C=mutual_imped_C/self_imped_C if self_imped_C != 0 else 0
+ 
+        coupling_ratios= {'Phase 1' : np.around(rat_A,3), 'Phase 2' : np.around(rat_B,3), 'Phase 3' : np.around(rat_C,3)}
+
     return coupling_ratios
 
 
