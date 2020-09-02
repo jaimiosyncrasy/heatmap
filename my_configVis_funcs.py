@@ -286,39 +286,34 @@ def find_branch_in_branch_list(node_in_branch, branch_lst):
 def phaseCouplingPerNode(feeder, depths, file_name):
     # phase coupling = mutual impedance/ self impedance on EACH phase
     graph = feeder.network
-    coupling_ratios_list = {} # create array, rewrite
+    coupling_ratios_3ph = {} 
     graphNodes_nosub = hm.remove_subst_nodes(feeder, file_name) # dont consider substation nodes, node 650 and 651 for 13NF
     
     for node in graphNodes_nosub:
         edge_path = hm.get_path_to_substation(feeder, node, depths)
-        self_imped_A = 0
-        self_imped_B = 0
-        self_imped_C = 0
-        mutual_imped_A = 0
-        mutual_imped_B = 0
-        mutual_imped_C = 0
-        coupling_ratio_3ph={} # create array, rewrite
-
+        couplingRatio_runSum = np.zeros((1, 3), dtype = complex)
+      
         for edge in edge_path:
             impedance_test = graph.get_edge_data(edge[1], edge[0], default=None)['connector']
             impedance = impedance_test.Z if isinstance(impedance_test, setup_nx.line) else np.zeros((3,3))
-            self_imped_A += impedance[0][0] 
-            self_imped_B += impedance[1][1]
-            self_imped_C += impedance[2][2]
+            self_imped_A = impedance[0][0] 
+            self_imped_B = impedance[1][1]
+            self_imped_C = impedance[2][2]
 
-            mutual_imped_A += impedance[0][1] + impedance[0][2] 
-            mutual_imped_B += impedance[1][0] + impedance[1][2]
-            mutual_imped_C += impedance[2][0] + impedance[2][1]
+            mutual_imped_A = impedance[0][1] + impedance[0][2] 
+            mutual_imped_B = impedance[1][0] + impedance[1][2]
+            mutual_imped_C = impedance[2][0] + impedance[2][1]
+            
+            rat_A = mutual_imped_A/self_imped_A if self_imped_A != 0 else 0
+            rat_B = mutual_imped_B/self_imped_B if self_imped_B != 0 else 0
+            rat_C = mutual_imped_C/self_imped_C if self_imped_C != 0 else 0
+            
+            couplingRatio_runSum += np.array([[rat_A, rat_B, rat_C]])
 
-        rat_A=mutual_imped_A/self_imped_A if self_imped_A != 0 else 0
-        rat_B=mutual_imped_B/self_imped_B if self_imped_B != 0 else 0
-        rat_C=mutual_imped_C/self_imped_C if self_imped_C != 0 else 0
-         
-        coupling_ratio_3ph=[1 1 1] # rewrite and put ratA,ratB,ratC into an array here
-        # add coupling_ratio_3ph to coupling_ratios_list
-    
-    # coupling ratios is a list of lists, i.e. node list where each node has a 3x1 array for phase coupling ratio on 3 phases
-    return coupling_ratios_list
+        coupling_ratios_3ph[node] = couplingRatio_runSum/len(edge_path) # take average of coupling ratios across edges to sub.
+            
+    # coupling ratios is a dictionary with node names as keys and phase coupling ratios per node as values
+    return coupling_ratios_3ph
 
 
 def createColorMap(feeder, values_dic, file_name):
