@@ -251,3 +251,27 @@ def plot_histogram_RX_ratios(feeder, leaves,slack_bus,depths,leaves_only=False):
     plt.show()
     
     return None
+
+
+def get_largest_imped_to_sub(feeder, depths, num_impeds):
+    # returns dictionary with the edge names and impedances for the num_impeds largest impedances from an edge to the substation
+    edge_depths = {}
+    max_edge_imps = {}
+    edge_imps = {}
+    edge_nodes = lzn.find_edge_nodes(feeder)
+    for edge in edge_nodes:
+        edge_depths[edge] = depths[edge]
+    
+    for edge in edge_depths.keys():
+        imp_3by3 = get_total_impedance_from_substation(feeder, edge, depths)
+        imp_lst = list(imp_3by3[0]) + list(imp_3by3[1]) + list(imp_3by3[2])
+        avg_imp = np.mean(imp_lst)
+        avg_imp_mag = ((avg_imp.real**2) + (avg_imp.imag**2))**(1/2)
+        edge_imps[edge] = avg_imp_mag
+        
+    for _ in range(num_impeds):
+        max_z_edge = max(edge_imps, key = edge_imps.get)
+        max_edge_imps[max_z_edge] = edge_imps[max_z_edge]
+        edge_imps.pop(max_z_edge)
+    
+    return max_edge_imps
