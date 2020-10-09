@@ -192,58 +192,85 @@ def mark_network_branches(feeder, branch_lst, file_name, substation_name, depths
     return
         
 
-def find_good_branches(lst_feas_configs, branch_lst, num_good_branches):
+def find_good_branches(lst_feas_configs, branch_lst, num_good_branches,placed):
     # branch_lst = list of branches for a certain feeder --> get by calling assign_network_branches()
     # lst_feas_configs = list of feasible actuator configurations --> get by calling runHeatMapProcess()
     # num_good_branches = number of 'good' branches you want returned by the function, argument should be an integer, branches returned in order from 'best' to 'worst'
-    # the 'best' branch is the branch with the most actuators on it across all configurations
-    branch_dic_unique = {}
-    branch_dic_repeat = {}
-    best_branches_unique = []
-    best_branches_repeat = []
+    # placed is an ordered list of lists, where the k'th ele of the list is the actuators placed at that step
+
+    # the 'best' branch is done here with respect to 2 metrics:
+    # 1) best_branches_unique, is where a branch is "upvoted" once when a feas config contains at least one act on that branch
+    # 2) best_branches_percent, is where a branch is best if it has highest percentage of green/yellow (excluding gray) in heatmap across all heatmaps used to create the config set
+    
+    branch_dic_unique,branch_dic_gray,percent_good = {},{},{}
+    best_branches_unique,best_branches_percent = [],[]
     
     for branch in branch_lst:
         branch_head = branch[0]
         branch_dic_unique[branch_head] = 0
-        branch_dic_repeat[branch_head] = 0
+        branch_dic_gray[branch_head] = 0
+        percent_good[branch_head] = 0
+    
+    num_hm=len(placed)-1 # number of heatmaps used to create config set
+    flag=np.zeros(num_hm)
     
     for feas in lst_feas_configs:
         unique_tracker = 0 # tracks whether or not an a branch has already been represented in a certain configuration
-       
-        for act_loc in feas:
-            
+        totact=len(feas)
+        for act_loc in feas: 
             for branch in branch_lst:
                 branch_head = branch[0]
-                
-                if act_loc in branch and unique_tracker == 0:
-                    branch_dic_unique[branch_head] += 1
-                    branch_dic_repeat[branch_head] += 1
-                    unique_tracker = 1
-                    break
-                    
-                elif act_loc in branch and unique_tracker == 1:
-                    branch_dic_repeat[branch_head] += 1
-                    break
-    
+                if (act_loc not in placed[totact-1]): # then green or yellow on heatmap
+                    if (act_loc in branch) and (unique_tracker == 0): # exclude actuators already placed from the count on branch usage
+                        branch_dic_unique[branch_head] += 1
+                        unique_tracker = 1
+                        break # found which branch the act is on
+
+    for placed_act in placed: # for each act in list of placed actuators
+        for branch in branch_lst:
+            branch_head = branch[0]
+        if (placed_act in branch):
+            branch_dic_gray[branch_head]+=1 # increment the gray property for branch those placed actuators is on
+            break # found which branch the act is on
+            
+     # Compute (green+yellow)/(green+red+yellow)   
+    for branch in branch_lst:
+        branch_head = branch[0]
+        gy=branch_dic_unique[branch_head]
+        gry_gray=len(branch)*(num_hm) # gives us green+red+yellow+gray
+        gray=branch_dic_gray[branch_head]
+        if (gy/(gry_gray-gray)<0):
+            print('problem at branch ',branch)
+            print('gry+gray=',gry_gray)
+            print('gray=',gray)
+        if len(branch)<4: # don't count branches that are too short (i.e. <4 nodes)
+            percent_good[branch_head]=-111 # bogus number, should never show up as a best branch
+        else:
+            percent_good[branch_head]=gy/(gry_gray-gray)
+        
+    print('percent good dictionary is=',percent_good,'\n')
+
     # common_branches = branches that have at least one actuator placed on them in every feas config
     common_branches = [k for k, v in branch_dic_unique.items() if v == len(lst_feas_configs)]
+    
     counter = num_good_branches
     while counter > 0:
         max_unique = max(branch_dic_unique, key = branch_dic_unique.get)
-        max_repeat = max(branch_dic_repeat, key = branch_dic_repeat.get)
+        max_percent = max(percent_good, key = percent_good.get)
+        
         best_branches_unique += [max_unique + ' = ' + str(branch_dic_unique[max_unique]) + ' actuators']
-        best_branches_repeat += [max_repeat + ' = ' + str(branch_dic_repeat[max_repeat]) + ' actuators']
+        best_branches_percent += [max_percent + ' = ' + str(100*percent_good[max_percent]) + ' percent']
         branch_dic_unique.pop(max_unique)
-        branch_dic_repeat.pop(max_repeat)
+        percent_good.pop(max_percent)
         counter -= 1
     
     print('Branches are represented by their first node (the node closest to the substation).')
     print('\nBranches Common Across Configs:')
     print(common_branches)
     print('\nThe ' + str(num_good_branches) + ' best branches when each actuator configuration is only considered once:')
-    print(best_branches_unique)
-    print('\nThe ' + str(num_good_branches) + ' best branches when each actuator configuration is considered multiple times:')            
-    print(best_branches_repeat)
+    print(best_branches_unique) # "upvoted" once when a feas config contains at least one act on that branch
+    print('\nThe ' + str(num_good_branches) + ' best branches by percentage of green/yellow (excluding <=3 len branches):')            
+    print(best_branches_percent)
     return
 
 
