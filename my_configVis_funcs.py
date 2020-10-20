@@ -346,8 +346,10 @@ def phaseCouplingPerNode(feeder, depths, file_name):
 def createColorMap(feeder, values_dic, file_name):
     graph = feeder.network
     ff.clear_graph(feeder)
-    vals = values_dic.values()
-    if isinstance(list(vals)[0], complex):
+    vals = list(values_dic.values())
+    if isinstance(vals[0], np.ndarray):
+        vals = [np.mean(val) for val in vals]
+    if isinstance(vals[0], complex):
         vals = [(val.imag**2 + val.real**2)**(1/2) for val in vals]
     maxVal = max(vals)
     minVal = min(vals)
@@ -361,11 +363,12 @@ def createColorMap(feeder, values_dic, file_name):
         print(str(b[2]) + ': (' + str(b[0]) + ' --> ' + str(b[1]) +')')
         
     for node, val in values_dic.items():
+        if isinstance(val, np.ndarray):
+            val = np.mean(val)
         if isinstance(val, complex):
-            color_num = (val.imag**2 + val.real**2)**(1/2)
-        else:
-            color_num = val
-            
+            val = (val.imag**2 + val.real**2)**(1/2)
+        color_num = val
+        
         for b in bins_with_clrs:
             if color_num == minVal and b[0] == minVal:
                 graph.nodes[node]['style'] = 'filled'
