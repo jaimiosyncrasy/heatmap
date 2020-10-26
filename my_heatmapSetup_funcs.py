@@ -11,10 +11,8 @@ from operator import add
 importlib.reload(setup_nx)
 from setup_nx import *
 from graphviz import Source, render
-
 import datetime
 import time
-
 import my_feeder_funcs as ff
 import my_impedance_funcs as imp
 import my_configVis_funcs as vis
@@ -22,8 +20,8 @@ import my_detControlMatExistence_funcs as ctrl
 import my_detLznRange_funcs as lzn
 
 
-def get_path_to_substation(feeder, node,depths):
-    #returns list of edges, not impedances, between node and substation
+def get_path_to_substation(feeder, node, depths):
+    #returns list of edges (not impedances) between node and substation
     #node = node name as string
     #feeder = initiaized feeder object
     graph = feeder.network
@@ -37,48 +35,8 @@ def get_path_to_substation(feeder, node,depths):
     return node_path
 
 
-def createRXmatrices(feeder, node_index_map,depths):
-    #calculated using phase A impedances unless there is no phase A then phase B else phase C
-    #feeder = initiaized feeder object
-    #node_index_map = dictionary of node indices with node names as keys
-    graph = feeder.network
-    n = len(graph.nodes) #number of nodes
-    R = np.zeros((n,n)) #initializing R matrix
-    X = np.zeros((n,n)) #initializing X matrix
-    P = {} #initializing line path dictionary
-   
-    for node in graph.nodes:
-        P[node] = get_path_to_substation(feeder, node,depths)
-    
-    for n_outer in graph.nodes: #outer loop
-        index_outer = node_index_map[n_outer]
-        
-        for n_inner in graph.nodes: #inner loop
-            index_inner = node_index_map[n_inner]
-            intersection_set = set.intersection(set(P[n_outer]), set(P[n_inner])) #finds common edges in paths from node to substation
-            intersection_list = list(intersection_set)
-            r_sum = 0
-            x_sum = 0
-            
-            for edge in intersection_list: #iterates through shared edges and sums their impedances
-                tot_edge_impedance = imp.get_total_impedance_between_two_buses(feeder, edge[0], edge[1],depths)
-                
-                if tot_edge_impedance['Phase 1']:
-                    phase_edge_impedance = tot_edge_impedance['Phase 1']
-                elif tot_edge_impedance['Phase 2']:
-                    phase_edge_impedance = tot_edge_impedance['Phase 2']
-                else:
-                    phase_edge_impedance = tot_edge_impedance['Phase 3']  
-                    
-                r_sum += phase_edge_impedance.real
-                x_sum += phase_edge_impedance.imag
-            R[index_outer][index_inner] = 2*r_sum
-            X[index_outer][index_inner] = 2*x_sum
-            
-    return R, X
-
-
-def createRXmatrices_3ph(feeder, node_index_map,depths):
+def createRXmatrices_3ph(feeder, node_index_map, depths):
+    #returns 2 (3n)x(3n) matrices containing R and X values for the network 
     #includes all 3 phases
     #feeder = initiaized feeder object
     #node_index_map = dictionary of node indices with node names as keys
@@ -102,14 +60,14 @@ def createRXmatrices_3ph(feeder, node_index_map,depths):
             imped_sum = imped_sum.astype('complex128')
             
             for edge in intersection_list: #iterates through shared edges and sums their impedances
-                impedance = feeder.network.get_edge_data(edge[1], edge[0], default=None)['connector']
+                impedance = feeder.network.get_edge_data(edge[1], edge[0], default = None)['connector']
                 tot_edge_impedance = impedance.Z if isinstance(impedance, setup_nx.line) else np.zeros((3,3)) 
                 imped_sum += tot_edge_impedance
             #print('impedance.Z=',impedance.Z)
             for i_row in range(3):    
                 for i_col in range(3):
-                    R[(3 * index_outer) + i_row][(3 * index_inner) + i_col] = 2 * imped_sum[i_row][i_col].real
-                    X[(3 * index_outer) + i_row][(3 * index_inner) + i_col] = 2 * imped_sum[i_row][i_col].imag
+                    R[(3*index_outer) + i_row][(3*index_inner) + i_col] = 2*imped_sum[i_row][i_col].real
+                    X[(3*index_outer) + i_row][(3*index_inner) + i_col] = 2*imped_sum[i_row][i_col].imag
             
     return R, X
 
@@ -137,7 +95,8 @@ def getKey(dictionary, value):
     return key 
 
 
-def setupStateSpace(n, feeder, node_index_map,depths):
+def setupStateSpace(n, feeder, node_index_map, depths):
+    #initializes state space matrices A and B
     #n = number of nodes in network
     #feeder = initiaized feeder object
     #node_index_map = dictionary of node indices with node names as keys
@@ -150,7 +109,7 @@ def setupStateSpace(n, feeder, node_index_map,depths):
 
 
 # correct version
-def computeFeas_v1(feeder, act_locs, A, B, indicMat,substation_name,perf_nodes,depths,node_index_map,Vbase_ll, Sbase, load_data, headerpath, modelpath,printCurves):
+def computeFeas_v1(feeder, act_locs, A, B, indicMat, substation_name, perf_nodes, depths, node_index_map, Vbase_ll, Sbase, load_data, headerpath, modelpath, printCurves):
     node_0 = list(feeder.network.successors(substation_name))
     node_1 = list(feeder.network.successors(node_0[0]))
     z12 = imp.get_total_impedance_from_substation(feeder, node_1[0],depths) # 3 phase, not pu
@@ -185,7 +144,6 @@ def updateStateSpace(feeder, n, act_locs, perf_nodes, node_index_map):
     #perf_nodes = list of performance nodes 
     #node_index_map = dictionary of node indices for indicMat and F matrix
     indicMat = np.zeros((6*n,6*n))
-    
     for i in range(len(act_locs)): 
         act = act_locs[i]
         perf = perf_nodes[i]
@@ -214,7 +172,7 @@ def updateStateSpace(feeder, n, act_locs, perf_nodes, node_index_map):
 
     
 def markActLoc(graph, act_loc):
-    #changes color of nodes with set actuators to turquoise
+    #changes color of nodes with set actuators to gray
     #graph = networkx graph object (feeder.network)
     #act_loc = node name as string where actuator is placed
     graph.nodes[act_loc]['style'] = 'filled'
@@ -224,23 +182,26 @@ def markActLoc(graph, act_loc):
         
 
 def markFeas(numfeas, test_act_loc, graph):
-    #if controllability can be achieved with actuator at test_act_loc then mark green, otherwise mark red
+    #if controllability can be achieved with actuator at test_act_loc then mark green, if only a few controllable configurations (given by thresh_yellowgreen) exist mark yellow, otherwise mark red
     #feas = True or False
     #test_act_loc = node name as string
     #graph = networkx graph object (feeder.network)
     graph.nodes[test_act_loc]['style'] = 'filled'
     graph.nodes[test_act_loc]['shape'] = 'circle'
 
-    thresh_yellowgreen=15 # you choose
-    if numfeas>=thresh_yellowgreen:
+    thresh_yellowgreen = 15 # you choose
+    if numfeas >= thresh_yellowgreen:
         graph.nodes[test_act_loc]['fillcolor'] = 'green'
-    elif numfeas>=1:
+    elif numfeas >= 1:
         graph.nodes[test_act_loc]['fillcolor'] = 'yellow'
     else:
         graph.nodes[test_act_loc]['fillcolor'] = 'red'
     return
 
-def eval_config(feeder, all_act_locs, perf_nodes, node_index_map,substation_name,depths,file_name,Vbase_ll, Sbase, load_data, headerpath, modelpath):
+
+def eval_config(feeder, all_act_locs, perf_nodes, node_index_map, substation_name, depths, file_name, Vbase_ll, Sbase, load_data, headerpath, modelpath):
+    #returns whether controllability can be achieved for a given actuator performance node configuration
+    #also returns the linearization error associated with the feasibility calculation
     #all_act_locs and perf_nodes = lists of node names as strings
     printCurves = True # your choice on whether to print PVcurves
     
@@ -248,7 +209,7 @@ def eval_config(feeder, all_act_locs, perf_nodes, node_index_map,substation_name
     n = len(graph.nodes) #number of nodes in network
     A, B = setupStateSpace(n, feeder, node_index_map,depths)
     indicMat = updateStateSpace(feeder, n, all_act_locs, perf_nodes, node_index_map)
-    feas, maxError,numfeas = computeFeas_v1(feeder, all_act_locs, A, B, indicMat,substation_name,perf_nodes,depths,node_index_map,Vbase_ll, Sbase, load_data, headerpath, modelpath,printCurves)
+    feas, maxError, numfeas = computeFeas_v1(feeder, all_act_locs, A, B, indicMat, substation_name, perf_nodes, depths, node_index_map, Vbase_ll, Sbase, load_data, headerpath, modelpath, printCurves)
     vis.markActuatorConfig(all_act_locs, feeder, file_name) # create diagram with actuator locs marked
     
     print('Actuator configuration is feasible') if feas else print('Actuator configuration is not feasible')
@@ -256,7 +217,7 @@ def eval_config(feeder, all_act_locs, perf_nodes, node_index_map,substation_name
 
 
 def remove_subst_nodes(feeder, file_name):
-    # remove the substation nodes/node from the network's node list
+    #remove the substation nodes/node from the network's node list
     graph = feeder.network
     if file_name == '13NF_test.dot':
         substIdx = [6, 7] # substation index --> Note: idx 6 & 7 are MANUALLY PICKED OUT FOR 13NF
@@ -267,11 +228,12 @@ def remove_subst_nodes(feeder, file_name):
     
     graphNodes_nosub = np.delete(graph.nodes, substIdx) # dont consider substation nodes, node 650 and 651 for 13NF
     return graphNodes_nosub
+
     
-def find_good_colocated(feeder, act_locs, node_index_map, substation_name, depths, file_name,Vbase_ll, Sbase, load_data, headerpath, modelpath):
-    # almost the same as runheatmap process, but only runs once and shows one heatmap indicating which nodes are good to place a co-located act/perf node
-    # return list of all "green" configs and the associated lzn errors
-    # act_locs == a list of pre-set colocated act/perf locations --> to evaluate an empty network, pass in act_locs == []
+def find_good_colocated(feeder, act_locs, node_index_map, substation_name, depths, file_name, Vbase_ll, Sbase, load_data, headerpath, modelpath):
+    #almost the same as runheatmap process, but only runs once and shows one heatmap indicating which nodes are good to place a co-located act/perf node
+    #return list of all "green" configs and the associated lzn errors
+    #act_locs == a list of pre-set colocated act/perf locations --> to evaluate an empty network, pass in act_locs == []
     a = 0
     ff.clear_graph(feeder) # clear any previous modifictions made to graph
     graph = feeder.network
@@ -314,10 +276,10 @@ def find_good_colocated(feeder, act_locs, node_index_map, substation_name, depth
 
 
 def runHeatMapProcess(feeder, set_acts, set_perfs, all_act_locs, perf_nodes, node_index_map, substation_name, depths, file_name, Vbase_ll, Sbase, load_data, headerpath, modelpath):
-    # compute heatmap (assess feas and lzn error on every node of the feeder, color each red/green on diagram)
-    # Then for each act-perf node pair, compute heatmap
-    # return list of all "green" configs and the associated lzn errors
-    # heatmap shows good places to placed act wrt given perf node, NOT good places to place colocated act-perf node
+    #compute heatmap (assess feas and lzn error on every node of the feeder, color each red/green on diagram)
+    #Then for each act-perf node pair, compute heatmap
+    #return list of all "green" configs and the associated lzn errors
+    #heatmap shows good places to placed act wrt given perf node, NOT good places to place colocated act-perf node
     #all_act_locs and perf_nodes = lists of node names as strings
     a = 0
     graph = feeder.network
@@ -376,9 +338,8 @@ def runHeatMapProcess(feeder, set_acts, set_perfs, all_act_locs, perf_nodes, nod
     return feas_configs, lzn_error_run_sum, heatMapNames
 
 
-
 def placeMaxColocActs_stopAtInfeas(feeder, file_name, node_index_map, depths, substation_name,Vbase_ll, Sbase, load_data, headerpath, modelpath):
-    # place colocated actuators until an infeasible loc is tested, then call find_good_colocated and return 
+    #place colocated actuators until an infeasible loc is tested, then call find_good_colocated and return 
     graph = feeder.network
     n = len(graph.nodes) #number of nodes in network
     A, B = setupStateSpace(n, feeder, node_index_map, depths)
@@ -413,8 +374,8 @@ def placeMaxColocActs_stopAtInfeas(feeder, file_name, node_index_map, depths, su
 
 
 def place_max_coloc_acts(feeder, file_name, node_index_map, depths, substation_name,Vbase_ll, Sbase, load_data, headerpath, modelpath):
-    # place maximum number of colocated actuators
-    # if infeas loc tested, randomly select another test node and continue function run
+    #place maximum number of colocated actuators
+    #if infeas loc tested, randomly select another test node and continue function run
     graph = feeder.network
     n = len(graph.nodes) #number of nodes in network
     A, B = setupStateSpace(n, feeder, node_index_map, depths)
