@@ -11,10 +11,8 @@ from operator import add
 importlib.reload(setup_nx)
 from setup_nx import *
 from graphviz import Source, render
-
 import datetime
 import time
-
 import matplotlib.pyplot as plt
 import my_feeder_funcs as ff
 import my_impedance_funcs as imp
@@ -24,10 +22,10 @@ import my_heatmapSetup_funcs as hm
 
 
 def markActuatorConfig(lst_act_locs, feeder, file_name):
-    # creates diagram of actuator-configuration (though leaves out performance nodes)
-    # lst_act_locs = list of node names where actuators are placed
-    # feeder = initialized feeder object
-    # file_name = string that will be used as the file name of the returned network graph
+    #creates diagram of actuator-configuration (though leaves out performance nodes)
+    #lst_act_locs = list of node names where actuators are placed
+    #feeder = initialized feeder object
+    #file_name = string that will be used as the file name of the returned network graph
     ff.clear_graph(feeder)
     graph = feeder.network
     
@@ -40,8 +38,8 @@ def markActuatorConfig(lst_act_locs, feeder, file_name):
 
 
 def markCommonFeasNodes(lst_feas_configs, feeder, file_name):
-    # input a list of feasible actuator configurations where each configuration is its own list (ie a list of lists)
-    # for actuator locations that appear in every configuration, mark node blue
+    #input a list of feasible actuator configurations where each configuration is its own list (ie a list of lists)
+    #for actuator locations that appear in every configuration, mark node gray
     shared_locs = lst_feas_configs[0]
     num_configs = len(lst_feas_configs)
     graph = feeder.network
@@ -64,8 +62,9 @@ def markCommonFeasNodes(lst_feas_configs, feeder, file_name):
 
 
 def find_ActLoc_in_FeasConfigs(act_loc, feas_configs):
-    # act_loc = node name of potential actuator location
-    # feas_configs = a list of feasible actuator configurations
+    #returns list of configurations in feas_configs that contain act_loc
+    #act_loc = node name of potential actuator location
+    #feas_configs = a list of feasible actuator configurations
     configs_with_actLoc = []
     
     for config in feas_configs:
@@ -75,8 +74,8 @@ def find_ActLoc_in_FeasConfigs(act_loc, feas_configs):
     
 
 def plot_actuator_num_histogram(lst_feas_configs, file_name):
-    # input list of lists of feasible actuator configurations
-    # output histogram reflecting number of actuators in each configuration
+    #input list of lists of feasible actuator configurations
+    #output histogram reflecting number of actuators in each configuration
     lst_num_acts = []
     for config in lst_feas_configs:
         lst_num_acts += [len(config)]
@@ -92,10 +91,11 @@ def plot_actuator_num_histogram(lst_feas_configs, file_name):
     return
 
 
-#used in multiphase line loss func
 def assign_network_branches1(feeder, substation_name):
-    # feeder = initialized feeder
-    # substation_name = name of substation node as string
+    #used in multiphase line loss func
+    #feeder = initialized feeder
+    #substation_name = name of substation node as string
+    #devides network into branches
     cur_child_nodes = list(feeder.network.successors(substation_name))
     branches = []
     branch_builder = [substation_name]
@@ -116,10 +116,11 @@ def assign_network_branches1(feeder, substation_name):
     return branches  
 
 
-# used for general visualization
 def assign_network_branches(feeder, substation_name):
-    # feeder = initialized feeder
-    # substation_name = name of substation node as string
+    #used for general visualization
+    #feeder = initialized feeder
+    #substation_name = name of substation node as string
+    #devides network into branches
     cur_child_node = substation_name
     branches = []
     branch_builder = []
@@ -147,8 +148,9 @@ def assign_network_branches(feeder, substation_name):
 
 
 def mark_network_branches(feeder, branch_lst, file_name, substation_name, depths):
-    # feeder = initialized feeder object
-    # branch_lst = a list of lists containing node names as strings of nodes that are in the same branch
+    #marks network branches in different colors so they canbe visualized
+    #feeder = initialized feeder object
+    #branch_lst = a list of lists containing node names as strings of nodes that are in the same branch
     graph = feeder.network
     colors = ['turquoise', 'purple', 'limegreen', 'yellow','pink', 'orange', 'gray', 'red', 'orchid']
     node_colors = {}
@@ -192,15 +194,15 @@ def mark_network_branches(feeder, branch_lst, file_name, substation_name, depths
     return
         
 
-def find_good_branches(lst_feas_configs, branch_lst, num_good_branches,placed):
-    # branch_lst = list of branches for a certain feeder --> get by calling assign_network_branches()
-    # lst_feas_configs = list of feasible actuator configurations --> get by calling runHeatMapProcess()
-    # num_good_branches = number of 'good' branches you want returned by the function, argument should be an integer, branches returned in order from 'best' to 'worst'
-    # placed is an ordered list of lists, where the k'th ele of the list is the actuators placed at that step
+def find_good_branches(lst_feas_configs, branch_lst, num_good_branches, placed):
+    #branch_lst = list of branches for a certain feeder --> get by calling assign_network_branches()
+    #lst_feas_configs = list of feasible actuator configurations --> get by calling runHeatMapProcess()
+    #num_good_branches = number of 'good' branches you want returned by the function, argument should be an integer, branches returned in order from 'best' to 'worst'
+    #placed is an ordered list of lists, where the k'th ele of the list is the actuators placed at that step
 
-    # the 'best' branch is done here with respect to 2 metrics:
-    # 1) best_branches_unique, is where a branch is "upvoted" once when a feas config contains at least one act on that branch
-    # 2) best_branches_percent, is where a branch is best if it has highest percentage of green/yellow (excluding gray) in heatmap across all heatmaps used to create the config set
+    #the 'best' branch is done here with respect to 2 metrics:
+    #1) best_branches_unique, is where a branch is "upvoted" once when a feas config contains at least one act on that branch
+    #2) best_branches_percent, is where a branch is best if it has highest percentage of green/yellow (excluding gray) in heatmap across all heatmaps used to create the config set
     
     branch_dic_unique,branch_dic_gray,percent_good = {},{},{}
     best_branches_unique,best_branches_percent = [],[]
@@ -300,8 +302,9 @@ def determine_good_or_bad_branch(branch, lst_feas_configs, num_configs_for_good_
 
 
 def find_branch_in_branch_list(node_in_branch, branch_lst):
-    # node_in_branch = a node in the branch you want to select
-    # branch_lst = list of branches in a network
+    #node_in_branch = a node in the branch you want to select
+    #branch_lst = list of branches in a network
+    #returns branch containing node_in_branch
     for branch in branch_lst:
         
         if node_in_branch in branch:
@@ -311,10 +314,10 @@ def find_branch_in_branch_list(node_in_branch, branch_lst):
             
     
 def phaseCouplingPerNode(feeder, depths, file_name):
-    # phase coupling = mutual impedance/ self impedance on EACH phase
+    #phase coupling = mutual impedance/ self impedance on EACH phase
     graph = feeder.network
     coupling_ratios_3ph = {} 
-    graphNodes_nosub = hm.remove_subst_nodes(feeder, file_name) # dont consider substation nodes, node 650 and 651 for 13NF
+    graphNodes_nosub = hm.remove_subst_nodes(feeder, file_name) #dont consider substation nodes, node 650 and 651 for 13NF
     
     for node in graphNodes_nosub:
         edge_path = hm.get_path_to_substation(feeder, node, depths)
@@ -339,11 +342,13 @@ def phaseCouplingPerNode(feeder, depths, file_name):
 
         coupling_ratios_3ph[node] = couplingRatio_runSum/len(edge_path) # take average of coupling ratios across edges to sub.
             
-    # coupling ratios is a dictionary with node names as keys and phase coupling ratios per node as values
+    #coupling ratios is a dictionary with node names as keys and phase coupling ratios per node as values
     return coupling_ratios_3ph
 
 
 def createColorMap(feeder, values_dic, file_name):
+    #takes in a dictionary of values with node names as keys and devides the nodes into 8 color bins based on their values
+    #generates png file with feeder nodes colored based on which bin they fall into
     graph = feeder.network
     ff.clear_graph(feeder)
     vals = list(values_dic.values())
@@ -355,6 +360,7 @@ def createColorMap(feeder, values_dic, file_name):
     minVal = min(vals)
     bin_size = (maxVal - minVal)/8
     bin_edges = [[minVal + (i*bin_size), minVal + ((i + 1)*bin_size)] for i in range(8)]
+    
     # color reference: https://stackoverflow.com/questions/22408237/named-colors-in-matplotlib
     colors = ['darkgreen','green', 'limegreen', 'yellowgreen', 'yellow','gold', 'orange', 'red']
     bins_with_clrs = [bin_edges[i] + [colors[i]] for i in range(8)]
@@ -382,31 +388,3 @@ def createColorMap(feeder, values_dic, file_name):
     nx.nx_pydot.write_dot(graph, 'colorMap_' + file_name)
     render('dot', 'png', 'colorMap_' + file_name)
     return
-    
-def createColorMap_BandW(feeder, values_dic, file_name):
-    graph = feeder.network
-    vals = values_dic.values()
-    if isinstance(list(vals)[0], complex):
-        vals = [(val.imag**2 + val.real**2)**(1/2) for val in vals]
-    maxVal = max(vals)
-    minVal = min(vals)
-    bin_size = (maxVal - minVal)/8
-    bin_edges = [[minVal + (i*bin_size), minVal + ((i + 1)*bin_size)] for i in range(8)]
-    sizes = [.1, .2, .3, .4, .5, .6, .7, .8]
-    bins_with_sizes = [bin_edges[i] + [sizes[i]] for i in range(8)]
-    
-    for node, val in values_dic.items():
-        if isinstance(val, complex):
-            size_num = (val.imag**2 + val.real**2)**(1/2)
-        else:
-            size_num = val
-            
-        for b in bins_with_sizes:
-            if size_num == minVal and b[0] == minVal:
-                graph.nodes[node]['width'] = b[2]
-                break
-            elif size_num > b[0] and size_num <= b[1]:
-                graph.nodes[node]['width'] = b[2]
-                break
-                
-    nx.nx_pydot.write_dot(graph, file_name)
