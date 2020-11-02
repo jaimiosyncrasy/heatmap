@@ -388,3 +388,56 @@ def createColorMap(feeder, values_dic, file_name):
     nx.nx_pydot.write_dot(graph, 'colorMap_' + file_name)
     render('dot', 'png', 'colorMap_' + file_name)
     return
+
+
+def get_path_to_subst_as_list(feeder, node, substation_name):
+    #returns list of nodes between node and substation
+    #node = node name as string
+    #feeder = initiaized feeder object
+    graph = feeder.network
+    node_path = [node]
+    current_node = node
+    
+    while current_node != substation_name:
+        pred_node = list(graph.predecessors(current_node)) #retrieves parent node of current_node
+        node_path += pred_node
+        current_node = pred_node[0]
+    
+    node_path += [substation_name]
+    return node_path
+
+
+def find_main_branch(feeder, substation_name, file_name):
+    # returns the "main branch" of a feeder and creates a png file with the main branch marked in orange
+    # main branch is the path from substation to an edge node that traces the maximum amount of intersection between the paths of every node in the network to the substation
+    ff.clear_graph(feeder)
+    main_branch = [substation_name]
+    graph = feeder.network
+    children = list(graph.successors(substation_name))
+    nodes = graph.nodes
+    paths_to_sub = []
+    
+    for node in nodes:
+        paths_to_sub += [get_path_to_subst_as_list(feeder, node, substation_name)]
+        
+    while children != []:
+        if len(children) == 1:
+            main_branch += children
+            children = list(graph.successors(children[0]))
+        elif len(children) > 1:
+            nodes_below = {}
+            
+            for child in children:
+                num_nodes_below = len([1 for path in paths_to_sub if child in path])
+                nodes_below[child] = num_nodes_below
+            
+            max_nodes_below = max(nodes_below, key = nodes_below.get)
+            main_branch += [max_nodes_below]
+            children = list(graph.successors(max_nodes_below))
+    
+    for node in main_branch:
+        graph.nodes[node]['fillcolor'] = 'orange'
+    
+    nx.nx_pydot.write_dot(graph, 'main_branch_' + file_name)
+    render('dot', 'png', 'main_branch_' + file_name)            
+    return main_branch           
