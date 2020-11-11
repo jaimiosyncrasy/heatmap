@@ -63,7 +63,6 @@ class feeder:
         # groom data (note that the functions below are not separable... 
         # ...e.g. buses are not completely defined until all these functions have been run)
         self.busdict = busbuilder(self.modeldata, subkVbase_phg, subkVAbase, timesteps)
-        print('len busdict=',self.busdict)
         #self.Vsrcdict = Vsrcbuilder(self.modeldata, self.busdict)
         #****** NOTE: Uncomment this after formatting has been changed
         #self.shuntdict = shuntbuilder(self.modeldata, self.busdict,timesteps)
@@ -903,7 +902,7 @@ def switchbuilder(modeldata, busdict, timesteps):
 
             indkey = indkeyfrom + 'to' + indkeyto
 
-            if indkey in switchdict.keys():
+            if indkey in switchdict.keys(): # if already in switch list
                 switchdict[indkey].phases_from.append(indphasefrom)
                 switchdict[indkey].phases_to.append(indphaseto)
 
@@ -934,7 +933,7 @@ def switchbuilder(modeldata, busdict, timesteps):
         from_ph_lst = list(map(string.ascii_lowercase.index,switchdict[indkey].phases_from))
         to_ph_lst = list(map(string.ascii_lowercase.index,switchdict[indkey].phases_to))
 
-        for idx in range(0, len(from_ph_lst)):
+        for idx in range(0, len(from_ph_lst)): # set impedance over switch to be tiny value, not zero
             switchdict[indkey].Z[from_ph_lst[idx], to_ph_lst[idx]] = 1e-4
             switchdict[indkey].Y[from_ph_lst[idx], to_ph_lst[idx]] = 1e4
             switchdict[indkey].Zpu[from_ph_lst[idx], to_ph_lst[idx]] = tempz
@@ -1178,7 +1177,7 @@ def network_mapper(modeldata,busdict,linedict,transdict,switchdict, depth_dict, 
     #Make sure slack bus was found properly
     assert(slack != None)
         
-    for value in linedict.values():
+    for value in linedict.values(): # depths dictionary includes all nodes mentioned in line tab, transformer tab, and switch tab
         #print("Value of line is " + str(value))
         all_edges[value.from_node.name] += [[value.to_node.name, value]]
         all_edges[value.to_node.name] += [[value.from_node.name, value]]
@@ -1194,7 +1193,7 @@ def network_mapper(modeldata,busdict,linedict,transdict,switchdict, depth_dict, 
     #the format of the feeder is that of a tree
     current_level_pairs = [[slack.name, None]]
     
-    depth = 0
+    depth = 0 # start at substation and move downward
        
     while len(current_level_pairs) != 0:
         next_level_pairs = []
@@ -1206,7 +1205,7 @@ def network_mapper(modeldata,busdict,linedict,transdict,switchdict, depth_dict, 
                 if [current_level_pair[0], next_level_pair[1]] in all_edges[next_level_pair[0]]:                
                     all_edges[next_level_pair[0]].remove([current_level_pair[0], next_level_pair[1]])
                 next_level_pairs += [next_level_pair]
-        depth += 1
+        depth += 1 # move down the tree by one level
         current_level_pairs = next_level_pairs
     
     
