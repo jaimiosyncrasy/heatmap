@@ -190,8 +190,9 @@ def markFeas(numfeas, test_act_loc, graph):
     graph.nodes[test_act_loc]['shape'] = 'circle'
 
     thresh_yellowgreen = 15 # you choose
+    # for more colors see https://graphviz.org/doc/info/attrs.html
     if numfeas >= thresh_yellowgreen:
-        graph.nodes[test_act_loc]['fillcolor'] = 'green'
+        graph.nodes[test_act_loc]['fillcolor'] = 'turquoise'
     elif numfeas >= 1:
         graph.nodes[test_act_loc]['fillcolor'] = 'yellow'
     else:
@@ -219,11 +220,11 @@ def eval_config(feeder, all_act_locs, perf_nodes, node_index_map, substation_nam
 def remove_subst_nodes(feeder, file_name):
     #remove the substation nodes/node from the network's node list
     graph = feeder.network
-    if file_name == '13NF_test.dot':
+    if file_name == '13NF':
         substIdx = [6, 7] # substation index --> Note: idx 6 & 7 are MANUALLY PICKED OUT FOR 13NF
-    elif file_name == '123NF_test.dot':
+    elif file_name == '123NF':
         substIdx = [22, 24]
-    elif file_name == 'PL0001_test.dot':
+    elif file_name == 'PL0001':
         substIdx = [340] 
     
     graphNodes_nosub = np.delete(graph.nodes, substIdx) # dont consider substation nodes, node 650 and 651 for 13NF
@@ -267,7 +268,7 @@ def find_good_colocated(feeder, act_locs, node_index_map, substation_name, depth
             feas_dic['numfeas'] = [numfeas]
             feas_configs += [feas_dic]        
 
-    heatMapName='heat_map_colocated' + '_' + file_name
+    heatMapName='heatmap_colocated' + '_' + file_name
     heatMapNames.append(heatMapName)
     nx.nx_pydot.write_dot(graph, heatMapName)
     render('dot', 'png', heatMapName)
@@ -306,7 +307,7 @@ def runHeatMapProcess(feeder, set_acts, set_perfs, all_act_locs, perf_nodes, nod
         for test in test_nodes: #inner loop
             # heatmap color indicates good places to place actuator given chosen loc of perf node (not necessarily colocated)
             indicMat = updateStateSpace(feeder, n, [test] + cur_act_locs, [perf_nodes[a]] + cur_perf_nodes, node_index_map)
-            print('evaluating act at ', [test] + cur_act_locs,', perf at ', [perf_nodes[a]] + cur_perf_nodes)
+            print('evaluating actuator node at ', [test] + cur_act_locs,',\n performance node at ', [perf_nodes[a]] + cur_perf_nodes)
           
             feas, maxError, numfeas = computeFeas_v1(feeder, [test] + cur_act_locs, A, B, indicMat, substation_name,[perf_nodes[a]] + cur_perf_nodes, depths, node_index_map, Vbase_ll, Sbase, load_data, headerpath, modelpath, False)
             lzn_error_dic[test] = maxError
@@ -322,7 +323,7 @@ def runHeatMapProcess(feeder, set_acts, set_perfs, all_act_locs, perf_nodes, nod
         
         graph.nodes[perf_nodes[a]]['shape'] = 'square'
         # after generate data for heatmap..
-        heatMapName = 'heat_map_' + str(a) + '_' + file_name
+        heatMapName = 'NPP_heatmap_step' + str(a) + '_' + file_name
         heatMapNames.append(heatMapName)
         nx.nx_pydot.write_dot(graph, heatMapName)
         render('dot', 'png', heatMapName)
@@ -355,7 +356,7 @@ def placeMaxColocActs_stopAtInfeas(feeder, file_name, node_index_map, depths, su
     random.seed(3)  # initialize random num generator so results are reproducable
     while test_nodes:       
         rand_test = random.choice(test_nodes)
-        print('evaluating act and perf colocated at ',[rand_test] + act_locs) 
+        print('evaluating actuator and performance node colocated at ',[rand_test] + act_locs) 
         indicMat = updateStateSpace(feeder, n, [rand_test] + act_locs, [rand_test] + act_locs, node_index_map)
         feas, maxError, numfeas = computeFeas_v1(feeder, [rand_test] + act_locs, A, B, indicMat, substation_name, [rand_test] + act_locs, depths, node_index_map,Vbase_ll, Sbase, load_data, headerpath, modelpath,printCurves)
 
@@ -363,17 +364,19 @@ def placeMaxColocActs_stopAtInfeas(feeder, file_name, node_index_map, depths, su
             act_locs += [rand_test]
             test_nodes.remove(rand_test)
         else:
-            feas_configs, heatMapNames = find_good_colocated(feeder, act_locs, node_index_map, substation_name, depths, file_name)
-            nx.nx_pydot.write_dot(graph, 'redirect_max_coloc_acts')
-            render('dot', 'png', 'redirect_max_coloc_acts')
+            feas_configs, heatMapNames = find_good_colocated(feeder, act_locs, node_index_map, substation_name, depths,file_name, Vbase_ll, Sbase, load_data, headerpath, modelpath) # makes a heatmap
+
+            # Believe this img below is redundant as find_good_colocated makes a heatmap already
+            #nx.nx_pydot.write_dot(graph, 'CPP_heatmap'+ '_' + file_name)
+            #render('dot', 'png', 'CPP_heatmap'+ '_' + file_name)
             break
     
     ff.clear_graph(feeder)
-    vis.markActuatorConfig(act_locs, feeder, 'max_coloc_before_infeas')
+    vis.markActuatorConfig(act_locs, feeder, 'nonauto-CPP')
     return act_locs
 
 
-def place_max_coloc_acts(feeder, file_name, node_index_map, depths, substation_name,Vbase_ll, Sbase, load_data, headerpath, modelpath):
+def place_max_coloc_acts(seedkey,feeder, file_name, node_index_map, depths, substation_name,Vbase_ll, Sbase, load_data, headerpath, modelpath):
     #place maximum number of colocated actuators
     #if infeas loc tested, randomly select another test node and continue function run
     graph = feeder.network
@@ -388,10 +391,10 @@ def place_max_coloc_acts(feeder, file_name, node_index_map, depths, substation_n
         if node not in act_locs:
             test_nodes.append(node)
     
-    random.seed(7)  # initialize random num generator so results are reproducable
+    random.seed(seedkey)  # random num generator seed so results are reproducable
     while test_nodes:       
         rand_test = random.choice(test_nodes)
-        print('evaluating act and perf colocated at ',[rand_test] + act_locs) 
+        print('evaluating actuator and performance node colocated at ',[rand_test] + act_locs) 
         indicMat = updateStateSpace(feeder, n, [rand_test] + act_locs, [rand_test] + act_locs, node_index_map)
         feas, maxError, numfeas = computeFeas_v1(feeder, [rand_test] + act_locs, A, B, indicMat, substation_name, [rand_test] + act_locs, depths, node_index_map,Vbase_ll, Sbase, load_data, headerpath, modelpath,printCurves)
 
@@ -405,5 +408,5 @@ def place_max_coloc_acts(feeder, file_name, node_index_map, depths, substation_n
             test_nodes.remove(rand_test)
     print('Randomly placed ',len(act_locs),' actuators, among n=',len(graphNodes_nosub),' nodes on feeder')
     ff.clear_graph(feeder)
-    vis.markActuatorConfig(act_locs, feeder, 'max_coloc')
+    vis.markActuatorConfig(act_locs, feeder, 'auto-CPP_seed'+str(seedkey))
     return act_locs
