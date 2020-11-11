@@ -64,7 +64,8 @@ def computeFParamSpace_v2(feeder, act_locs, perf_nodes,R,X,depths,node_index_Map
     if feeder.loadfolder=='13NF_balanced/':
         c=np.array([0.412,0.857]) # (q,p) tuned for 13NF based on data from feas configs
     elif feeder.loadfolder=='123NF/':
-        c=np.array([0.3,0.45]) 
+        #c=np.array([0.3,0.45])  # setting on 9/2/20
+        c=np.array([0.5,0.7]) # place_max_coloc getting not-great results from this
     elif feeder.loadfolder=='PL0001/': 
         c=np.array([0.32,0.65])
         
@@ -212,11 +213,11 @@ def detControlMatExistence(feeder, act_locs, A, B, indicMat,substation_name,perf
 
    # if feas==True:
     if len(feasFs)>=threshold:
-        print("Config feasible!")
+        print("Config good!")
         feas=True
     else:
         feas=False
-        print("No (or not enough) F found for config --> infeas")
+        print("No F found for config --> bad config")
 
     dataFull=np.concatenate((myFbases,myCosts),axis=1) # [Fp Fq myCost]  
     #print("[Fp,Fq,myCost]=\n",dataFull) # print useful data
