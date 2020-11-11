@@ -109,13 +109,13 @@ def setupStateSpace(n, feeder, node_index_map, depths):
 
 
 # correct version
-def computeFeas_v1(feeder, act_locs, A, B, indicMat, substation_name, perf_nodes, depths, node_index_map, Vbase_ll, Sbase, load_data, headerpath, modelpath, printCurves):
+def computeFeas_v1(feeder, act_locs, A, B, indicMat, substation_name, perf_nodes, depths, node_index_map, Vbase_ll, Sbase, load_data, headerpath, modelpath, printCurves,file_name):
     node_0 = list(feeder.network.successors(substation_name))
     node_1 = list(feeder.network.successors(node_0[0]))
     z12 = imp.get_total_impedance_from_substation(feeder, node_1[0],depths) # 3 phase, not pu
     B12=np.zeros((3,3)) # TEMPORARY, line susceptance, Yshunt=G+jB
 
-    MYfeas,MYfeasFs,MYnumfeas,MYnumTried,MYnumact = ctrl.detControlMatExistence(feeder, act_locs, A, B, indicMat,substation_name,perf_nodes,depths,node_index_map)
+    MYfeas,MYfeasFs,MYnumfeas,MYnumTried,MYnumact = ctrl.detControlMatExistence(feeder, act_locs, A, B, indicMat,substation_name,perf_nodes,depths,node_index_map,file_name)
     print('num feas=',MYnumfeas)
     print('num tried=',MYnumTried)
 
@@ -210,7 +210,7 @@ def eval_config(feeder, all_act_locs, perf_nodes, node_index_map, substation_nam
     n = len(graph.nodes) #number of nodes in network
     A, B = setupStateSpace(n, feeder, node_index_map,depths)
     indicMat = updateStateSpace(feeder, n, all_act_locs, perf_nodes, node_index_map)
-    feas, maxError, numfeas = computeFeas_v1(feeder, all_act_locs, A, B, indicMat, substation_name, perf_nodes, depths, node_index_map, Vbase_ll, Sbase, load_data, headerpath, modelpath, printCurves)
+    feas, maxError, numfeas = computeFeas_v1(feeder, all_act_locs, A, B, indicMat, substation_name, perf_nodes, depths, node_index_map, Vbase_ll, Sbase, load_data, headerpath, modelpath, printCurves,file_name)
     vis.markActuatorConfig(all_act_locs, feeder, file_name) # create diagram with actuator locs marked
     
     print('Actuator configuration is feasible') if feas else print('Actuator configuration is not feasible')
@@ -257,7 +257,7 @@ def find_good_colocated(feeder, act_locs, node_index_map, substation_name, depth
     for test in test_nodes:
         print('evaluating act and perf colocated at ',[test]) 
         indicMat = updateStateSpace(feeder, n, [test] + act_locs, [test] + act_locs, node_index_map) # (n,act,perf,dictionary)
-        feas, maxError, numfeas = computeFeas_v1(feeder, [test] + act_locs, A, B, indicMat,substation_name,[test] + act_locs, depths, node_index_map,Vbase_ll, Sbase, load_data, headerpath, modelpath,printCurves) # pass in potential actual loc
+        feas, maxError, numfeas = computeFeas_v1(feeder, [test] + act_locs, A, B, indicMat,substation_name,[test] + act_locs, depths, node_index_map,Vbase_ll, Sbase, load_data, headerpath, modelpath,printCurves,file_name) # pass in potential actual loc
         lzn_error_dic[test] = maxError
         markFeas(numfeas, test, graph)
         if feas:
@@ -309,7 +309,7 @@ def runHeatMapProcess(feeder, set_acts, set_perfs, all_act_locs, perf_nodes, nod
             indicMat = updateStateSpace(feeder, n, [test] + cur_act_locs, [perf_nodes[a]] + cur_perf_nodes, node_index_map)
             print('evaluating actuator node at ', [test] + cur_act_locs,',\n performance node at ', [perf_nodes[a]] + cur_perf_nodes)
           
-            feas, maxError, numfeas = computeFeas_v1(feeder, [test] + cur_act_locs, A, B, indicMat, substation_name,[perf_nodes[a]] + cur_perf_nodes, depths, node_index_map, Vbase_ll, Sbase, load_data, headerpath, modelpath, False)
+            feas, maxError, numfeas = computeFeas_v1(feeder, [test] + cur_act_locs, A, B, indicMat, substation_name,[perf_nodes[a]] + cur_perf_nodes, depths, node_index_map, Vbase_ll, Sbase, load_data, headerpath, modelpath, False,file_name) # false for printing PV curves
             lzn_error_dic[test] = maxError
             markFeas(numfeas, test, graph)
             
@@ -358,7 +358,7 @@ def placeMaxColocActs_stopAtInfeas(feeder, file_name, node_index_map, depths, su
         rand_test = random.choice(test_nodes)
         print('evaluating actuator and performance node colocated at ',[rand_test] + act_locs) 
         indicMat = updateStateSpace(feeder, n, [rand_test] + act_locs, [rand_test] + act_locs, node_index_map)
-        feas, maxError, numfeas = computeFeas_v1(feeder, [rand_test] + act_locs, A, B, indicMat, substation_name, [rand_test] + act_locs, depths, node_index_map,Vbase_ll, Sbase, load_data, headerpath, modelpath,printCurves)
+        feas, maxError, numfeas = computeFeas_v1(feeder, [rand_test] + act_locs, A, B, indicMat, substation_name, [rand_test] + act_locs, depths, node_index_map,Vbase_ll, Sbase, load_data, headerpath, modelpath,printCurves, file_name)
 
         if feas:
             act_locs += [rand_test]
@@ -396,7 +396,7 @@ def place_max_coloc_acts(seedkey,feeder, file_name, node_index_map, depths, subs
         rand_test = random.choice(test_nodes)
         print('evaluating actuator and performance node colocated at ',[rand_test] + act_locs) 
         indicMat = updateStateSpace(feeder, n, [rand_test] + act_locs, [rand_test] + act_locs, node_index_map)
-        feas, maxError, numfeas = computeFeas_v1(feeder, [rand_test] + act_locs, A, B, indicMat, substation_name, [rand_test] + act_locs, depths, node_index_map,Vbase_ll, Sbase, load_data, headerpath, modelpath,printCurves)
+        feas, maxError, numfeas = computeFeas_v1(feeder, [rand_test] + act_locs, A, B, indicMat, substation_name, [rand_test] + act_locs, depths, node_index_map,Vbase_ll, Sbase, load_data, headerpath, modelpath,printCurves, file_name)
 
         if feas:
             act_locs += [rand_test]

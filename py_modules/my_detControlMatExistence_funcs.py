@@ -58,16 +58,18 @@ def computeFParamSpace_v1(feeder, act_locs, perf_nodes):
     return Fq_lb,Fp_lb
 
 #version 2, correct
-def computeFParamSpace_v2(feeder, act_locs, perf_nodes,R,X,depths,node_index_Map):
+def computeFParamSpace_v2(feeder, act_locs, perf_nodes,R,X,depths,node_index_Map, file_name):
     # Compute (Fq,Fp) ranges as a func of impedance paths between act nodes, perf nodes, and substation
-    
-    if feeder.loadfolder=='13NF_balanced/':
+    if file_name=='13NFbalanced':
         c=np.array([0.412,0.857]) # (q,p) tuned for 13NF based on data from feas configs
-    elif feeder.loadfolder=='123NF/':
+    elif file_name=='123NF':
         #c=np.array([0.3,0.45])  # setting on 9/2/20
         c=np.array([0.5,0.7]) # place_max_coloc getting not-great results from this
-    elif feeder.loadfolder=='PL0001/': 
+    elif file_name=='PL0001': 
         c=np.array([0.32,0.65])
+    else:
+        print('error: c not assigned because couldnt find load file in folder')
+
         
     avgSens_dvdq,avgSens_ddeldp= (np.empty((0,1)) for i in range(2))
     i=0
@@ -117,7 +119,7 @@ def computeFParamSpace_v2(feeder, act_locs, perf_nodes,R,X,depths,node_index_Map
     q=np.mean(np.absolute(avgSens_dvdq))*numact # take avg across abs value of perf-act pair sensitivities
     p=np.mean(np.absolute(avgSens_ddeldp))*numact
     #print('q=',q) # print when tuning c1 and c2
-    #print('p=',p)
+    #print('(1/q)*c[0]=',(1/q)*c[0])
     try: 
         Fq_ub=(1/q)*c[0]
         Fp_ub=(1/p)*c[1]
@@ -126,38 +128,14 @@ def computeFParamSpace_v2(feeder, act_locs, perf_nodes,R,X,depths,node_index_Map
 
     return Fq_ub,Fp_ub
 
-#   Compute (Fp,Fq) ranges as a func 
-# Zmag=sqrt(X.^2+R.^2);
-# gamma=[0.08 0.35]; % scaling factor, different for Fp vs. Fq
-# 
-# % For one config, may have several act-perf node pairs
-# actLoc_vec=[4] % node 3 and 4
-# perfLoc_vec=[3]; % node 2 and 6
-# Fp=[]; Fq=[];
-#  for i=1:numAct
-#      actLoc=actLoc_vec(i);
-#      perfLoc=perfLoc_vec(i);
-#      mainPath=Zmag(perfLoc,perfLoc); % path from perf node to substation z01+z12
-#      % deratePath written below is not generalizable to any config. Rewrite
-#      % to be the path between perf node and act node
-#      deratePath=Zmag(actloc,actloc)-Zmag(perfLoc,perfLoc); % path between perf node and act node
-#      derating=(1-min(deratePath,mainPath)/mainPath) % due to actuator not being co0located with perf node
-#      Fp(i)=derating*gamma(1)*mainPath
-#      Fq(i)=derating*gamma(2)*mainPath
-#  end
-#  Fp_ub=min(Fp); % range of Fp and Fq chosen as the smallest among all act-perf pairs, smallest because we set all kgains equal so better to be under than over aggressive
-#  Fq_ub=min(Fq); 
-#  
-#  % Fq=0.6, Fp=0.1
-
-
-def detControlMatExistence(feeder, act_locs, A, B, indicMat,substation_name,perf_nodes,depths,node_index_map):
+              
+def detControlMatExistence(feeder, act_locs, A, B, indicMat,substation_name,perf_nodes,depths,node_index_map,file_name):
 #def detControlMatExistence(feeder, act_locs, perf_nodes,A,B,R,X,indicMat):
     n=int(len(indicMat)/6) # indicMat is 6n x 6n
 
 # Compute good (Fp,Fq) sample space
     R,X=hm.createRXmatrices_3ph(feeder, node_index_map,depths)
-    Fq_ub,Fp_ub=computeFParamSpace_v2(feeder, act_locs, perf_nodes,R,X,depths,node_index_map)
+    Fq_ub,Fp_ub=computeFParamSpace_v2(feeder, act_locs, perf_nodes,R,X,depths,node_index_map,file_name)
 
     numsamp=15 # temporary, should really do at least 15
     Fq_range=np.linspace(0.0001, Fq_ub, numsamp)
