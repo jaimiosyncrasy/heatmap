@@ -7,13 +7,18 @@ This repo contains code to:
 ### Downloading the Repository
 ### Python Packages that Need to be Installed
 * Anaconda Navigator with Jupitor Notebook 
-* xlrd --> [installation instructions](https://xlrd.readthedocs.io/en/latest/installation.html)
-* networkx --> [installation instructions](https://networkx.org/documentation/stable/install.html)
-* pandas --> [installation instructions](https://pypi.org/project/pandas/)
-* matplotlib --> [installation instructions](https://pypi.org/project/matplotlib/)
+* xlrd
+  * [installation instructions](https://xlrd.readthedocs.io/en/latest/installation.html)
+* networkx
+  * [installation instructions](https://networkx.org/documentation/stable/install.html)
+* pandas 
+  * [installation instructions](https://pypi.org/project/pandas/)
+* matplotlib 
+  * [installation instructions](https://pypi.org/project/matplotlib/)
 * graphviz & pygraphviz
   * to install, open Anaconda Navigator, select "Environments" on the left-hand toolbar, make sure the dropdown menu is set to "Not Installed," then search "graphviz" in the search field on the far right. Check the boxes next to "graphviz" and "pygraphviz."
-* scipy --> [installation instructions](https://pypi.org/project/scipy/)
+* scipy 
+  * [installation instructions](https://pypi.org/project/scipy/)
 ## *Using the Tool*
 ### Getting Started - Step by Step
 1. Open Jupitor Notebook and navigate to the folder containing the cloned github repo
