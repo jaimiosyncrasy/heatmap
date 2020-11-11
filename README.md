@@ -12,7 +12,8 @@ This repo contains code to:
 * pandas --> [installation instructions](https://pypi.org/project/pandas/)
 * matplotlib --> [installation instructions](https://pypi.org/project/matplotlib/)
 * graphviz & pygraphviz
-* scipy --> [installation instructions]()
+  * to install, open Anaconda Navigator, select "Environments" on the left-hand toolbar, make sure the dropdown menu is set to "Not Installed," then search "graphviz" in the search field on the far right. Check the boxes next to "graphviz" and "pygraphviz."
+* scipy --> [installation instructions](https://pypi.org/project/scipy/)
 ## *Using the Tool*
 ### Getting Started - Step by Step
 1. Open Jupitor Notebook and navigate to the folder containing the cloned github repo
