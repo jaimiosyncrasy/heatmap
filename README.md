@@ -5,7 +5,6 @@ This repo contains code to:
 * choose the best location to place another actuator given an set of actuators that have already been placed
 * determine the configuration which allows for the maximum number of colocated actuator performance nodes on a network
 ## *Installation*
-### Downloading the Repository
 ### Python Packages that Need to be Installed
 * Anaconda Navigator with Jupitor Notebook 
 * xlrd - [installation instructions](https://xlrd.readthedocs.io/en/latest/installation.html)
