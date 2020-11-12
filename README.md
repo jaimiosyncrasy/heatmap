@@ -22,17 +22,17 @@ This repo contains code to:
 4. To view all of the generated heatmaps, open the python file "imgs_forPaper.ipynb" and run the code blocks
 ### Introduction to py_modules
 The folder "py_modules" holds the .py files which contain the functions called by "driver_code_forPaper.ipynb," as well as additional functions which can be used to analyze and visualize actuator configurations on distribution networks.
-*my_configVis_funcs.py
+*my_configVis_funcs.py*
   * contains functions primarily dedicated to dividing a distribution network into branches, and determining which branches are the best for placing actuators.
-*my_detControlMatExistence_funcs.py
+*my_detControlMatExistence_funcs.py*
   * contains the functions used to determine if a particular actuator configuration is stable.
-*my_detLznRange_funcs.py
+*my_detLznRange_funcs.py*
   *
-*my_feeder_funcs.py
+*my_feeder_funcs.py*
   *
-*my_heatmapSetup_funcs.py
+*my_heatmapSetup_funcs.py*
   *
-*my_impedance_funcs.py 
+*my_impedance_funcs.py*
   *
-*setup_nx.py
+*setup_nx.py*
   *
