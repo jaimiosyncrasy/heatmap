@@ -15,8 +15,14 @@ This repo contains code to:
   * to install, open Anaconda Navigator, select "Environments" on the left-hand toolbar, make sure the dropdown menu is set to "Not Installed," then search "graphviz" in the search field on the far right. Check the boxes next to "graphviz" and "pygraphviz."
 * scipy [installation instructions](https://pypi.org/project/scipy/)
 ## *Using the Tool*
-### Getting Started - Step by Step
+### Getting Started - Reproducing our Results
 1. Open Jupitor Notebook in Anaconda Navigator and navigate to the folder containing the cloned github repo
 2. To reproduce the results described in the paper, open the python file "driver_code_forPaper.ipynb"
 3. Run the code blocks in the order that they appear to produce the results and .png files of various heatmaps
 4. To view all of the generated heatmaps, open the python file "imgs_forPaper.ipynb" and run the code blocks
+### Introduction to py_modules
+The folder "py_modules" holds the .py files which contain the functions called by "driver_code_forPaper.ipynb," as well as additional functions which can be used to analyze and visualize actuator configurations on distribution networks
+#### my_configVis_funcs.py
+This .py file contains functions primarily dedicated to dividing a distribution network into branches, and determining which branches are the best for placing actuators.
+#### my_detControlMatExistence_funcs.py
+This 
