@@ -7,13 +7,13 @@ This repo contains code to:
 ### Downloading the Repository
 ### Python Packages that Need to be Installed
 * Anaconda Navigator with Jupitor Notebook 
-* xlrd [installation instructions](https://xlrd.readthedocs.io/en/latest/installation.html)
-* networkx [installation instructions](https://networkx.org/documentation/stable/install.html)
-* pandas [installation instructions](https://pypi.org/project/pandas/)
-* matplotlib [installation instructions](https://pypi.org/project/matplotlib/)
+* xlrd - [installation instructions](https://xlrd.readthedocs.io/en/latest/installation.html)
+* networkx - [installation instructions](https://networkx.org/documentation/stable/install.html)
+* pandas - [installation instructions](https://pypi.org/project/pandas/)
+* matplotlib - [installation instructions](https://pypi.org/project/matplotlib/)
 * graphviz & pygraphviz
   * to install, open Anaconda Navigator, select "Environments" on the left-hand toolbar, make sure the dropdown menu is set to "Not Installed," then search "graphviz" in the search field on the far right. Check the boxes next to "graphviz" and "pygraphviz."
-* scipy [installation instructions](https://pypi.org/project/scipy/)
+* scipy - [installation instructions](https://pypi.org/project/scipy/)
 ## *Using the Tool*
 ### Getting Started - Reproducing our Results
 1. Open Jupitor Notebook in Anaconda Navigator and navigate to the folder containing the cloned github repo
@@ -23,6 +23,16 @@ This repo contains code to:
 ### Introduction to py_modules
 The folder "py_modules" holds the .py files which contain the functions called by "driver_code_forPaper.ipynb," as well as additional functions which can be used to analyze and visualize actuator configurations on distribution networks
 #### my_configVis_funcs.py
-This .py file contains functions primarily dedicated to dividing a distribution network into branches, and determining which branches are the best for placing actuators.
+* contains functions primarily dedicated to dividing a distribution network into branches, and determining which branches are the best for placing actuators.
 #### my_detControlMatExistence_funcs.py
-This 
+* contains the functions used to determine if a particular actuator configuration is stable.
+#### my_detLznRange_funcs.py
+*
+#### my_feeder_funcs.py
+*
+#### my_heatmapSetup_funcs.py
+*
+#### my_impedance_funcs.py 
+*
+#### setup_nx.py
+*
