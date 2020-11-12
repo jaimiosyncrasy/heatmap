@@ -22,17 +22,24 @@ This repo contains code to:
 4. To view all of the generated heatmaps, open the python file "imgs_forPaper.ipynb" and run the code blocks
 ### Introduction to py_modules
 The folder "py_modules" holds the .py files which contain the functions called by "driver_code_forPaper.ipynb," as well as additional functions which can be used to analyze and visualize actuator configurations on distribution networks.
-*my_configVis_funcs.py*
-  * contains functions primarily dedicated to dividing a distribution network into branches, and determining which branches are the best for placing actuators.
-*my_detControlMatExistence_funcs.py*
-  * contains the functions used to determine if a particular actuator configuration is stable.
-*my_detLznRange_funcs.py*
-  *
-*my_feeder_funcs.py*
-  *
-*my_heatmapSetup_funcs.py*
-  *
-*my_impedance_funcs.py*
-  *
-*setup_nx.py*
-  *
+
+***my_configVis_funcs.py***
+  * contains functions primarily dedicated to dividing a distribution network into branches, and determining which branches are the best for placing actuators
+
+***my_detControlMatExistence_funcs.py***
+  * contains the functions used to determine if a particular actuator configuration is stable
+
+***my_detLznRange_funcs.py***
+  * contains functions that set up the linearized power flow model and use the model to solve for line losses
+
+***my_feeder_funcs.py***
+  * contains functions that initialize the feeder object and reset the feeders graphviz graph
+
+***my_heatmapSetup_funcs.py***
+  * contains the functions called to produce the majority of the heatmaps 
+
+***my_impedance_funcs.py***
+  * contains function which allow you find the impedance between any two nodes on a network
+
+***setup_nx.py***
+  * contains the code that defines the feeder object used throughout the other .py files
