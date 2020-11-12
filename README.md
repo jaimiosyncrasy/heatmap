@@ -2,6 +2,7 @@
 ## *Summary of Tool*
 This repo contains code to:
 * analyze the stability of different actuator configurations on a distribution network
+* choose the best location to place another actuator given an set of actuators that have already been placed
 * determine the configuration which allows for the maximum number of colocated actuator performance nodes on a network
 ## *Installation*
 ### Downloading the Repository
@@ -33,13 +34,13 @@ The folder "py_modules" holds the .py files which contain the functions called b
   * contains functions that set up the linearized power flow model and use the model to solve for line losses
 
 ***my_feeder_funcs.py***
-  * contains functions that initialize the feeder object and reset the feeders graphviz graph
+  * contains functions that initialize the feeder object and reset the feeder's graphviz graph
 
 ***my_heatmapSetup_funcs.py***
   * contains the functions called to produce the majority of the heatmaps 
 
 ***my_impedance_funcs.py***
-  * contains function which allow you find the impedance between any two nodes on a network
+  * contains functions which allow you to find the impedance between any two nodes on a network
 
 ***setup_nx.py***
   * contains the code that defines the feeder object used throughout the other .py files
