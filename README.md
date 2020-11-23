@@ -5,7 +5,11 @@ This repo contains code to evaluating control configurations of Phasor-Based Con
 * Co-located Placement Process (CPP)
 * Auto-colocated placement process (Auto-CPP)
 
-Each process generally analyzes configurations of actuator-performance node pairs by evaluating the stability of each and generating heatmaps to illustrate the results. More details on these processes as well as the model used to evaluate stability is available in the associated paper at: https://arxiv.org/abs/2011.07232
+Each process generally analyzes configurations of actuator-performance node pairs by evaluating the stability of each and generating heatmaps to illustrate the results. 
+
+More details on these processes as well as the model used to evaluate stability is available in the associated paper at: https://arxiv.org/abs/2011.07232
+
+You can view the full set of figures associated with the paper by viewing "imgs_forPaper.ipynb". To run/modify the code that generates these figures, follow the installation instructions below
 
 ## *Installation*
 ### Python Packages that Need to be Installed
