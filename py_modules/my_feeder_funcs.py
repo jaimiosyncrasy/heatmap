@@ -63,8 +63,8 @@ def make_graph(feeder, file_name):
         graph.edges[e]['arrowhead'] = 'none'
         graph.edges[e]['color'] = 'gray'
     
-    nx.nx_pydot.write_dot(graph, file_name+'_blank')
-    render('dot', 'png', file_name+'_blank')  
+    nx.nx_pydot.write_dot(graph, 'generated_figs/'+file_name+'_blank')
+    render('dot', 'png', 'generated_figs/'+file_name+'_blank')  
     return
 
 def clear_graph(feeder):

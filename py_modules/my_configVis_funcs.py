@@ -32,8 +32,8 @@ def markActuatorConfig(lst_act_locs, feeder, file_name):
     for loc in lst_act_locs:
         graph.nodes[loc]['style'] = 'filled'
         graph.nodes[loc]['fillcolor'] = 'gray'
-    nx.nx_pydot.write_dot(graph, 'actConfig_'+ file_name)
-    render('dot', 'png', 'actConfig_'+ file_name)
+    nx.nx_pydot.write_dot(graph, 'generated_figs/'+'actConfig_'+ file_name)
+    render('dot', 'png', 'generated_figs/'+'actConfig_'+ file_name)
     return
 
 
@@ -56,8 +56,8 @@ def markCommonFeasNodes(lst_feas_configs, feeder, file_name):
         graph.nodes[act_loc]['style'] = 'filled'
         graph.nodes[act_loc]['fillcolor'] = 'gray'
         
-    nx.nx_pydot.write_dot(graph, 'shared_act_locs_' + file_name)
-    render('dot', 'png', 'shared_act_locs_' + file_name)
+    nx.nx_pydot.write_dot(graph, 'generated_figs/'+'shared_act_locs_' + file_name)
+    render('dot', 'png', 'generated_figs/'+'shared_act_locs_' + file_name)
     return shared_locs
 
 
@@ -189,8 +189,8 @@ def mark_network_branches(feeder, branch_lst, file_name, substation_name, depths
         graph.nodes[node]['style'] = 'filled'
         graph.nodes[node]['fillcolor'] = node_colors[node]
     
-    nx.nx_pydot.write_dot(graph, 'branch_key:' + file_name)
-    render('dot', 'png', 'branch_key:' + file_name)
+    nx.nx_pydot.write_dot(graph, 'generated_figs/'+'branch_key:' + file_name)
+    render('dot', 'png', 'generated_figs/'+'branch_key:' + file_name)
     return
         
 
@@ -385,8 +385,8 @@ def createColorMap(feeder, values_dic, file_name):
                 graph.nodes[node]['fillcolor'] = b[2]
                 break
   
-    nx.nx_pydot.write_dot(graph, 'colorMap_' + file_name)
-    render('dot', 'png', 'colorMap_' + file_name)
+    nx.nx_pydot.write_dot(graph, 'generated_figs/'+'colorMap_' + file_name)
+    render('dot', 'png', 'generated_figs/'+'colorMap_' + file_name)
     return
 
 
@@ -438,6 +438,6 @@ def find_main_branch(feeder, substation_name, file_name):
     for node in main_branch:
         graph.nodes[node]['fillcolor'] = 'orange'
     
-    nx.nx_pydot.write_dot(graph, 'main_branch_' + file_name)
-    render('dot', 'png', 'main_branch_' + file_name)            
+    nx.nx_pydot.write_dot(graph, 'generated_figs/'+'main_branch_' + file_name)
+    render('dot', 'png', 'generated_figs/'+'main_branch_' + file_name)            
     return main_branch           

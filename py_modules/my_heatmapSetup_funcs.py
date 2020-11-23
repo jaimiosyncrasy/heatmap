@@ -270,8 +270,8 @@ def find_good_colocated(feeder, act_locs, node_index_map, substation_name, depth
 
     heatMapName='heatmap_colocated' + '_' + file_name
     heatMapNames.append(heatMapName)
-    nx.nx_pydot.write_dot(graph, heatMapName)
-    render('dot', 'png', heatMapName)
+    nx.nx_pydot.write_dot(graph, 'generated_figs/'+heatMapName)
+    render('dot', 'png', 'generated_figs/'+heatMapName)
 
     return feas_configs, heatMapNames
 
@@ -325,8 +325,8 @@ def runHeatMapProcess(feeder, set_acts, set_perfs, all_act_locs, perf_nodes, nod
         # after generate data for heatmap..
         heatMapName = 'NPP_heatmap_step' + str(a) + '_' + file_name
         heatMapNames.append(heatMapName)
-        nx.nx_pydot.write_dot(graph, heatMapName)
-        render('dot', 'png', heatMapName)
+        nx.nx_pydot.write_dot(graph, 'generated_figs/'+heatMapName)
+        render('dot', 'png', 'generated_figs/'+heatMapName)
         a += 1 # place actuator
         
         if a <= len(all_act_locs): # choose actuator and finalize assoc perf node
@@ -364,6 +364,7 @@ def placeMaxColocActs_stopAtInfeas(feeder, file_name, node_index_map, depths, su
             act_locs += [rand_test]
             test_nodes.remove(rand_test)
         else:
+            print('Random choice of co-located APNP yields unstable  configuration. Generating heatmap by checking all remaining feeder nodes...')
             feas_configs, heatMapNames = find_good_colocated(feeder, act_locs, node_index_map, substation_name, depths,file_name, Vbase_ll, Sbase, load_data, headerpath, modelpath) # makes a heatmap
 
             # Believe this img below is redundant as find_good_colocated makes a heatmap already
