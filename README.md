@@ -1,9 +1,11 @@
 # **Visual Tool for Assessing Stability of DER Configurations on Three-Phase Radial Networks**
 ## *Summary of Tool*
-This repo contains code to:
-* analyze the stability of different actuator configurations on a distribution network
-* choose the best location to place another actuator given an set of actuators that have already been placed
-* determine the configuration which allows for the maximum number of colocated actuator performance nodes on a network
+This repo contains code to evaluating control configurations of Phasor-Based Control on three-phase radial distribution grid feeders. Three main processes for doing so are:
+* Non-colocated placement process (NPP)
+* Co-located Placement Process (CPP)
+* Auto-colocated placement process (Auto-CPP)
+Each process generally analyzes configurations of actuator-performance node pairs by evaluating the stability of each and generating heatmaps to illustrate the results. More details on these processes as well as the model used to evaluate stability is available in the associated paper at: https://arxiv.org/abs/2011.07232
+
 ## *Installation*
 ### Python Packages that Need to be Installed
 * Anaconda Navigator with Jupitor Notebook 
@@ -21,25 +23,27 @@ This repo contains code to:
 3. Run the code blocks in the order that they appear to produce the results and .png files of various heatmaps
 4. To view all of the generated heatmaps, open the python file "imgs_forPaper.ipynb" and run the code blocks
 ### Introduction to py_modules
-The folder "py_modules" holds the .py files which contain the functions called by "driver_code_forPaper.ipynb," as well as additional functions which can be used to analyze and visualize actuator configurations on distribution networks.
+The main file is "driver_code_forPaper.ipynb,". The main file calls functions in the .py module files, which are collected into the folder "py_modules". The .py module files contain additional functions not called by the main file currently, but that may be incorporated in future releases.
 
-***my_configVis_funcs.py***
-  * contains functions primarily dedicated to dividing a distribution network into branches, and determining which branches are the best for placing actuators
+***setup_nx.py***
+  * reads line data from the impedance excel files to create the feeder object used for the other .py files
+  
+***my_feeder_funcs.py***
+  * contains functions that initialize the feeder object and reset the feeder's graphviz graph
+
+***my_impedance_funcs.py***
+  * contains functions which allow you to find the impedance between any two nodes on a network
 
 ***my_detControlMatExistence_funcs.py***
   * contains the functions used to determine if a particular actuator configuration is stable
 
 ***my_detLznRange_funcs.py***
-  * contains functions that set up the linearized power flow model and use the model to solve for line losses
-
-***my_feeder_funcs.py***
-  * contains functions that initialize the feeder object and reset the feeder's graphviz graph
+  * contains functions that set up the linearized power flow model and use the model to solve for line losses. Not used in this version of the code
 
 ***my_heatmapSetup_funcs.py***
-  * contains the functions called to produce the majority of the heatmaps 
+  * contains the functions called to run the placement processed and produce majority of the heatmaps. "runHeatMapProcess" runs the NPP, "placeMaxColocActs_stopAtInfeas" runs the CPP, and "place_max_coloc_acts" runs the Auto-CPP. 
 
-***my_impedance_funcs.py***
-  * contains functions which allow you to find the impedance between any two nodes on a network
+***my_configVis_funcs.py***
+  * contains functions primarily dedicated to dividing a distribution network into branches, and analyzing which branches are the best for placing actuators
 
-***setup_nx.py***
-  * contains the code that defines the feeder object used throughout the other .py files
+
