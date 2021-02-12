@@ -1,6 +1,6 @@
 # **Visual Tool for Assessing Stability of DER Configurations on Three-Phase Radial Networks**
 ## *Summary of Tool*
-This repo contains code to evaluating control configurations of Phasor-Based Control on three-phase radial distribution grid feeders. Three main processes for doing so are:
+This repo contains code for evaluating control configurations of Phasor-Based Control on three-phase radial distribution grid feeders. Three main processes for doing so are:
 * Non-colocated placement process (NPP)
 * Co-located Placement Process (CPP)
 * Auto-colocated placement process (Auto-CPP)
