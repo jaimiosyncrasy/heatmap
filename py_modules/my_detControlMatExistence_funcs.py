@@ -145,7 +145,7 @@ def detControlMatExistence(feeder, act_locs, A, B, indicMat,substation_name,perf
 
 # Initialize arrays, will be populated in loops
     feas=False # boolean
-    numfeas,myCosts= (np.empty((0,1)) for i in range(2))
+    numfeas,myCosts,domeig_mags= (np.empty((0,1)) for i in range(3))
     feasFs,myFbases=(np.empty((0,2)) for i in range(2)) # 0 for dim to concatenate on, 2 for length of vectors being concatenated
     dataFull, data_zero = (np.array([]) for i in range(2)) # for each config
     CLmat=np.empty((6*n,6*n))
@@ -176,15 +176,22 @@ def detControlMatExistence(feeder, act_locs, A, B, indicMat,substation_name,perf
                     Y = LA.null_space(CLmat-eval*np.eye(len(CLmat))) #null(CLmat-eval*eye(size(CLmat,1))); % Y is orthonorm basis matrix
                     dimNull=len(Y[0]) # number of cols
                     
+                    mylist = np.absolute(np.absolute(eigs)-1) # find evals not at 1
+                    def condition(x): return x > tol # find evals not at 1
+                    idx = [i for i, element in enumerate(mylist) if condition(element)] # find evals not at 1
+                    mag_domeig=np.amax(np.absolute(eigs[idx]))
+                    #print("mag_domeig=",mag_domeig) 
+                    
                     #print('eigs are in/on unit circle..')
                     #print('num1evals=',num1evals)
                     #print('dimNull=',dimNull)
                     if dimNull==num1evals:                    
                         #print('Found feas F')
                         feasFs=np.append(feasFs,[[Fp, Fq]],axis=0)
+                        domeig_mags=np.append(domeig_mags,mag_domeig)
                 val=np.sum(eigMags[np.where(eigMags > 1)])
                 myCosts=np.append(myCosts,[[val]],axis=0) # temp
-                myFbases=np.append(myFbases,[[Fp, Fq]],axis=0)
+                myFbases=np.append(myFbases,[[Fp, Fq]],axis=0) # save all Fs tried
 
     threshold=1 # your choice, define because if only found 1 feas config too borderline to count as feas
     numfeas=np.append(numfeas,[[len(feasFs)]],axis=0) # number of rows
@@ -192,6 +199,8 @@ def detControlMatExistence(feeder, act_locs, A, B, indicMat,substation_name,perf
    # if feas==True:
     if len(feasFs)>=threshold:
         print("Config good!")
+        bestF=feasFs[np.argmin(domeig_mags)][:] # the F that results in the most stable dominant eval
+        print("Best F is (Fp Fq)=",bestF)
         feas=True
     else:
         feas=False
