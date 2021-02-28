@@ -176,18 +176,21 @@ def detControlMatExistence(feeder, act_locs, A, B, indicMat,substation_name,perf
                     Y = LA.null_space(CLmat-eval*np.eye(len(CLmat))) #null(CLmat-eval*eye(size(CLmat,1))); % Y is orthonorm basis matrix
                     dimNull=len(Y[0]) # number of cols
                     
-                    mylist = np.absolute(np.absolute(eigs)-1) # find evals not at 1
-                    def condition(x): return x > tol # find evals not at 1
-                    idx = [i for i, element in enumerate(mylist) if condition(element)] # find evals not at 1
-                    mag_domeig=np.amax(np.absolute(eigs[idx]))
-                    #print("mag_domeig=",mag_domeig) 
-                    
                     #print('eigs are in/on unit circle..')
                     #print('num1evals=',num1evals)
                     #print('dimNull=',dimNull)
                     if dimNull==num1evals:                    
                         #print('Found feas F')
                         feasFs=np.append(feasFs,[[Fp, Fq]],axis=0)
+                        
+                        # find dominant eval
+                        mylist = np.absolute(np.absolute(eigs)-1) # find evals not at 1
+                        def condition(x): return x > tol # find evals not at 1
+                        idx = [i for i, element in enumerate(mylist) if condition(element)] # find evals not at 1
+                        if idx: # if nonempty
+                            mag_domeig=np.amax(np.absolute(eigs[idx]))
+                        else:
+                            mag_domeig=eigs[0] # just pick any of them
                         domeig_mags=np.append(domeig_mags,mag_domeig)
                 val=np.sum(eigMags[np.where(eigMags > 1)])
                 myCosts=np.append(myCosts,[[val]],axis=0) # temp
