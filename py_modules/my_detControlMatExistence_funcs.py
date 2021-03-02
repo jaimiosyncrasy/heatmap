@@ -64,7 +64,9 @@ def computeFParamSpace_v2(feeder, act_locs, perf_nodes,R,X,depths,node_index_Map
         c=np.array([0.412,0.857]) # (q,p) tuned for 13NF based on data from feas configs
     elif file_name=='123NF':
         #c=np.array([0.3,0.45])  # setting on 9/2/20
-        c=np.array([0.5,0.7]) # place_max_coloc getting not-great results from this
+        #c=np.array([0.5,0.7]) # place_max_coloc getting not-great results from this
+        c=np.array([0.3,0.45])  # setting back to this on 2/28/21
+
     elif file_name=='PL0001': 
         c=np.array([0.32,0.65])
     else:

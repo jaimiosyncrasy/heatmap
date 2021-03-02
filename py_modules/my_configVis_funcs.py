@@ -362,7 +362,7 @@ def createColorMap(feeder, values_dic, file_name):
     bin_edges = [[minVal + (i*bin_size), minVal + ((i + 1)*bin_size)] for i in range(8)]
     
     # color reference: https://stackoverflow.com/questions/22408237/named-colors-in-matplotlib
-    colors = ['darkgreen','green', 'limegreen', 'yellowgreen', 'yellow','gold', 'orange', 'red']
+    colors = ['darkgreen','limegreen', 'yellowgreen','yellow','gold', 'orange','tomato','firebrick']
     bins_with_clrs = [bin_edges[i] + [colors[i]] for i in range(8)]
     print('Color Bin Key')
     for b in bins_with_clrs:

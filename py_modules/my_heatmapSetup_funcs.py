@@ -153,22 +153,25 @@ def updateStateSpace(feeder, n, act_locs, perf_nodes, node_index_map):
         perf_index = node_index_map[perf]
         
         phase_intrsct = [ph for ph in act_phases if ph in perf_phases]
-        if phase_intrsct == []:
+        if phase_intrsct == []: # disallow configs in which the act and perf node phases are not aligned. Results in kgain=0.0001 and thinks it's feasible
             print('WARNING: act_node ' + act + ' can NOT track perf_node ' + perf + ' --> no common phases')
-        
-        for i in range(len(phase_intrsct)):
-            if phase_intrsct[i] == 'a':
-                phase_intrsct[i] = 0
-            elif phase_intrsct[i] == 'b':
-                phase_intrsct[i] = 1
-            elif phase_intrsct[i] == 'c':
-                phase_intrsct[i] = 2
-                          
-        for ph in phase_intrsct:
-            indicMat[(act_index*3)+ph][(perf_index*3)+ph] = 1
-            indicMat[(act_index*3)+(3*n)+ph][(perf_index*3)+(3*n)+ph] = 1   
+            phase_loop_check=False
+            break # if any actuator of the config has phase mismtach (between act and perf), don't evaluate the config
+        else:
+            phase_loop_check=True
+            for i in range(len(phase_intrsct)):
+                if phase_intrsct[i] == 'a':
+                    phase_intrsct[i] = 0
+                elif phase_intrsct[i] == 'b':
+                    phase_intrsct[i] = 1
+                elif phase_intrsct[i] == 'c':
+                    phase_intrsct[i] = 2
+
+            for ph in phase_intrsct:
+                indicMat[(act_index*3)+ph][(perf_index*3)+ph] = 1
+                indicMat[(act_index*3)+(3*n)+ph][(perf_index*3)+(3*n)+ph] = 1   
             
-    return indicMat
+    return indicMat,phase_loop_check
 
     
 def markActLoc(graph, act_loc):
@@ -181,7 +184,7 @@ def markActLoc(graph, act_loc):
     return
         
 
-def markFeas(numfeas, test_act_loc, graph):
+def markFeas(numfeas, test_act_loc, graph,phase_loop_check):
     #if controllability can be achieved with actuator at test_act_loc then mark green, if only a few controllable configurations (given by thresh_yellowgreen) exist mark yellow, otherwise mark red
     #feas = True or False
     #test_act_loc = node name as string
@@ -191,7 +194,9 @@ def markFeas(numfeas, test_act_loc, graph):
 
     thresh_yellowgreen = 15 # you choose
     # for more colors see https://graphviz.org/doc/info/attrs.html
-    if numfeas >= thresh_yellowgreen:
+    if not phase_loop_check:
+        graph.nodes[test_act_loc]['fillcolor'] = 'firebrick'
+    elif numfeas >= thresh_yellowgreen:
         graph.nodes[test_act_loc]['fillcolor'] = 'turquoise'
     elif numfeas >= 1:
         graph.nodes[test_act_loc]['fillcolor'] = 'yellow'
@@ -209,8 +214,13 @@ def eval_config(feeder, all_act_locs, perf_nodes, node_index_map, substation_nam
     graph = feeder.network
     n = len(graph.nodes) #number of nodes in network
     A, B = setupStateSpace(n, feeder, node_index_map,depths)
-    indicMat = updateStateSpace(feeder, n, all_act_locs, perf_nodes, node_index_map)
-    feas, maxError, numfeas = computeFeas_v1(feeder, all_act_locs, A, B, indicMat, substation_name, perf_nodes, depths, node_index_map, Vbase_ll, Sbase, load_data, headerpath, modelpath, printCurves,file_name)
+    indicMat,phase_loop_check = updateStateSpace(feeder, n, all_act_locs, perf_nodes, node_index_map)
+    if phase_loop_check:  # disallow configs in which the act and perf node phases are not aligned
+        feas, maxError, numfeas = computeFeas_v1(feeder, all_act_locs, A, B, indicMat, substation_name, perf_nodes, depths, node_index_map, Vbase_ll, Sbase, load_data, headerpath, modelpath, printCurves,file_name)
+    else:
+        feas=False
+        maxError=1
+        numfeas=0
     vis.markActuatorConfig(all_act_locs, feeder, file_name) # create diagram with actuator locs marked
     
     print('Actuator configuration is feasible') if feas else print('Actuator configuration is not feasible')
@@ -256,10 +266,16 @@ def find_good_colocated(feeder, act_locs, node_index_map, substation_name, depth
 
     for test in test_nodes:
         print('evaluating act and perf colocated at ',[test]) 
-        indicMat = updateStateSpace(feeder, n, [test] + act_locs, [test] + act_locs, node_index_map) # (n,act,perf,dictionary)
-        feas, maxError, numfeas = computeFeas_v1(feeder, [test] + act_locs, A, B, indicMat,substation_name,[test] + act_locs, depths, node_index_map,Vbase_ll, Sbase, load_data, headerpath, modelpath,printCurves,file_name) # pass in potential actual loc
-        lzn_error_dic[test] = maxError
-        markFeas(numfeas, test, graph)
+        indicMat,phase_loop_check = updateStateSpace(feeder, n, [test] + act_locs, [test] + act_locs, node_index_map) # (n,act,perf,dictionary)
+        if phase_loop_check:  # disallow configs in which the act and perf node phases are not aligned
+            feas, maxError, numfeas = computeFeas_v1(feeder, [test] + act_locs, A, B, indicMat,substation_name,[test] + act_locs, depths, node_index_map,Vbase_ll, Sbase, load_data, headerpath, modelpath,printCurves,file_name) # pass in potential actual loc
+            lzn_error_dic[test] = maxError
+        else:
+            feas=False
+            maxError=1
+            numfeas=0
+            
+        markFeas(numfeas, test, graph,phase_loop_check)
         if feas:
             feas_dic = {}
             feas_dic['act'] = [test]
@@ -305,14 +321,18 @@ def runHeatMapProcess(feeder, set_acts, set_perfs, all_act_locs, perf_nodes, nod
                 test_nodes.append(node)
         
         for test in test_nodes: #inner loop
-            # heatmap color indicates good places to place actuator given chosen loc of perf node (not necessarily colocated)
-            indicMat = updateStateSpace(feeder, n, [test] + cur_act_locs, [perf_nodes[a]] + cur_perf_nodes, node_index_map)
+            feas=False # default
+            # heatmap color indicates good places to place actuator given chosen loc of perf node (not necessarily colocated)          
             print('evaluating actuator node at ', [test] + cur_act_locs,',\n performance node at ', [perf_nodes[a]] + cur_perf_nodes)
-          
-            feas, maxError, numfeas = computeFeas_v1(feeder, [test] + cur_act_locs, A, B, indicMat, substation_name,[perf_nodes[a]] + cur_perf_nodes, depths, node_index_map, Vbase_ll, Sbase, load_data, headerpath, modelpath, False,file_name) # false for printing PV curves
-            lzn_error_dic[test] = maxError
-            markFeas(numfeas, test, graph)
+            indicMat,phase_loop_check = updateStateSpace(feeder, n, [test] + cur_act_locs, [perf_nodes[a]] + cur_perf_nodes, node_index_map)
+            if phase_loop_check:  # disallow configs in which the act and perf node phases are not aligned
+                feas, maxError, numfeas = computeFeas_v1(feeder, [test] + cur_act_locs, A, B, indicMat, substation_name,[perf_nodes[a]] + cur_perf_nodes, depths, node_index_map, Vbase_ll, Sbase, load_data, headerpath, modelpath, False,file_name) # false for printing PV curves
+                lzn_error_dic[test] = maxError
+            else:
+                maxError=1
+                numfeas=0
             
+            markFeas(numfeas, test, graph,phase_loop_check)
             if feas:
                 feas_dic = {}
                 feas_dic['act'] = [test] + cur_act_locs
@@ -357,8 +377,13 @@ def placeMaxColocActs_stopAtInfeas(feeder, file_name, node_index_map, depths, su
     while test_nodes:       
         rand_test = random.choice(test_nodes)
         print('evaluating actuator and performance node colocated at ',[rand_test] + act_locs) 
-        indicMat = updateStateSpace(feeder, n, [rand_test] + act_locs, [rand_test] + act_locs, node_index_map)
-        feas, maxError, numfeas = computeFeas_v1(feeder, [rand_test] + act_locs, A, B, indicMat, substation_name, [rand_test] + act_locs, depths, node_index_map,Vbase_ll, Sbase, load_data, headerpath, modelpath,printCurves, file_name)
+        indicMat,phase_loop_check = updateStateSpace(feeder, n, [rand_test] + act_locs, [rand_test] + act_locs, node_index_map)
+        if phase_loop_check:  # disallow configs in which the act and perf node phases are not aligned
+            feas, maxError, numfeas = computeFeas_v1(feeder, [rand_test] + act_locs, A, B, indicMat, substation_name, [rand_test] + act_locs, depths, node_index_map,Vbase_ll, Sbase, load_data, headerpath, modelpath,printCurves, file_name)
+        else:
+            feas=False
+            maxError=1
+            numfeas=0
 
         if feas:
             act_locs += [rand_test]
@@ -396,8 +421,14 @@ def place_max_coloc_acts(seedkey,feeder, file_name, node_index_map, depths, subs
     while test_nodes:       
         rand_test = random.choice(test_nodes)
         print('evaluating actuator and performance node colocated at ',[rand_test] + act_locs) 
-        indicMat = updateStateSpace(feeder, n, [rand_test] + act_locs, [rand_test] + act_locs, node_index_map)
-        feas, maxError, numfeas = computeFeas_v1(feeder, [rand_test] + act_locs, A, B, indicMat, substation_name, [rand_test] + act_locs, depths, node_index_map,Vbase_ll, Sbase, load_data, headerpath, modelpath,printCurves, file_name)
+        indicMat,phase_loop_check = updateStateSpace(feeder, n, [rand_test] + act_locs, [rand_test] + act_locs, node_index_map)
+        if phase_loop_check:  # disallow configs in which the act and perf node phases are not aligned
+            feas, maxError, numfeas = computeFeas_v1(feeder, [rand_test] + act_locs, A, B, indicMat, substation_name, [rand_test] + act_locs, depths, node_index_map,Vbase_ll, Sbase, load_data, headerpath, modelpath,printCurves, file_name)
+        
+        else:
+            feas=False
+            maxError=1
+            numfeas=0
 
         if feas:
             act_locs += [rand_test]
