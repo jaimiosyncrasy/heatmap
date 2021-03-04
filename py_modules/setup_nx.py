@@ -209,8 +209,8 @@ class switch(connector):
     def __init__(self,desig,timesteps):
         connector.__init__(self,timesteps)
         self.name = 'switch_' + str(desig)
-        self.phases_from = list()
-        self.phases_to = list()
+        self.from_phases = list()
+        self.to_phases = list()
         self.from_node = None
         self.to_node = None
         self.status = list()
@@ -903,13 +903,13 @@ def switchbuilder(modeldata, busdict, timesteps):
             indkey = indkeyfrom + 'to' + indkeyto
 
             if indkey in switchdict.keys(): # if already in switch list
-                switchdict[indkey].phases_from.append(indphasefrom)
-                switchdict[indkey].phases_to.append(indphaseto)
+                switchdict[indkey].from_phases.append(indphasefrom)
+                switchdict[indkey].to_phases.append(indphaseto)
 
             else:
                 switchdict[indkey] = switch(indkey, timesteps)
-                switchdict[indkey].phases_from.append(indphasefrom)
-                switchdict[indkey].phases_to.append(indphaseto)
+                switchdict[indkey].from_phases.append(indphasefrom)
+                switchdict[indkey].to_phases.append(indphaseto)
 
                 switchdict[indkey].from_node = busdict[indkeyfrom]
                 switchdict[indkey].to_node = busdict[indkeyto]
@@ -920,8 +920,8 @@ def switchbuilder(modeldata, busdict, timesteps):
         
     # This next loop is ugly, but it works (it's the result of fixing a bug)
     for indkey, entry in switchdict.items():
-        for idx in range(0,len(switchdict[indkey].phases_to)):
-            switchdict[indkey].phasevec = switchdict[indkey].phasevec + phase2vec(switchdict[indkey].phases_to[idx])
+        for idx in range(0,len(switchdict[indkey].to_phases)):
+            switchdict[indkey].phasevec = switchdict[indkey].phasevec + phase2vec(switchdict[indkey].to_phases[idx])
             
         # Build Z, Y matrices (per unit)
         assert(switchdict[indkey].from_node.Zbase == switchdict[indkey].to_node.Zbase)
@@ -930,8 +930,8 @@ def switchbuilder(modeldata, busdict, timesteps):
         tempz = (1e-4)/Zbase # Based off of the DSS switch approximation: r1=r0=1e-4
         tempy = 1/tempz
 
-        from_ph_lst = list(map(string.ascii_lowercase.index,switchdict[indkey].phases_from))
-        to_ph_lst = list(map(string.ascii_lowercase.index,switchdict[indkey].phases_to))
+        from_ph_lst = list(map(string.ascii_lowercase.index,switchdict[indkey].from_phases))
+        to_ph_lst = list(map(string.ascii_lowercase.index,switchdict[indkey].to_phases))
 
         for idx in range(0, len(from_ph_lst)): # set impedance over switch to be tiny value, not zero
             switchdict[indkey].Z[from_ph_lst[idx], to_ph_lst[idx]] = 1e-4

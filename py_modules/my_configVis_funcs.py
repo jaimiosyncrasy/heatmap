@@ -235,11 +235,11 @@ def find_good_branches(lst_feas_configs, branch_lst, num_good_branches, placed):
             branch_dic_gray[branch_head]+=1 # increment the gray property for branch those placed actuators is on
             break # found which branch the act is on
             
-     # Compute (green+yellow)/(green+red+yellow)   
+     # Compute (green+yellow)/(green+red+yellow+firebrick)   
     for branch in branch_lst:
         branch_head = branch[0]
         gy=branch_dic_unique[branch_head]
-        gry_gray=len(branch)*(num_hm) # gives us green+red+yellow+gray
+        gry_gray=len(branch)*(num_hm) # gives us green+red+yellow+gray+firebrick
         gray=branch_dic_gray[branch_head]
         if (gy/(gry_gray-gray)<0):
             print('problem at branch ',branch)
@@ -300,7 +300,27 @@ def determine_good_or_bad_branch(branch, lst_feas_configs, num_configs_for_good_
     print('\nNumber of configurations that use the branch: ' + str(len(configs_with_branch)))
     return configs_with_branch          
 
+def getPhases(branch,feeder): # create list of phases A/B/C, one for each node of branch
+    #    branch_heads = [branch[0] for branch in branch_lst]
+    phase_list = []
+    print(branch)
 
+    for node in branch:
+        pred_list = list(feeder.network.predecessors(node))
+        try:
+            edge = feeder.network.get_edge_data(pred_list[0], node, default=None)['connector']
+        except:
+            print("pred_list was empty")
+        
+        try:
+            phase_list+=[edge.to_phases]
+        except:
+            print("Node is not a line or shunt")
+    
+        #print('nodes phases are=',impedance.to_phases)
+    return phase_list          
+
+    
 def find_branch_in_branch_list(node_in_branch, branch_lst):
     #node_in_branch = a node in the branch you want to select
     #branch_lst = list of branches in a network
