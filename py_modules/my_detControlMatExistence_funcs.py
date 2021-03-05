@@ -22,25 +22,30 @@ import my_detLznRange_funcs as lzn
 import my_heatmapSetup_funcs as hm
 
 
-def assignF(ver,Fp,Fq,indicMat): # algo similar to updateStateSpace
-    n=int(len(indicMat)/6) # indicMat is 6n x 6n
-    
-    # Make indicMat and F have the same sparsity structure, but different nonzero values
+def assignF(parmObj,Fp,Fq,indicMat): # algo similar to updateStateSpace
+    n=int(len(indicMat)/6) # indicMat has 6n rows for all versions
     Hblock1=np.zeros((3*n,3*n))   
     ridx,colidx=np.nonzero(indicMat[0:3*n,0:3*n]) # python indexing goes first to (last-1)          
     for k in range(len(ridx)):
             Hblock1[ridx[k]][colidx[k]] = Fq
-
-    Hblock2=np.zeros((3*n,3*n))   
-    ridx,colidx=np.nonzero(indicMat[0:3*n,0:3*n]) 
-    for k in range(len(ridx)):
-            Hblock2[ridx[k]][colidx[k]] = Fp
-  
-    upper=np.concatenate((Hblock1, np.zeros((3*n,3*n))),axis=1)
-    lower=np.concatenate((np.zeros((3*n,3*n)),Hblock2),axis=1)
-    F=np.concatenate((upper,lower))
     
-    #print(F)
+    Hblock2=np.zeros((3*n,3*n))   
+
+    if parmObj.get_version()==1: # PBC       
+        ridx,colidx=np.nonzero(indicMat[0:3*n,0:3*n]) 
+        for k in range(len(ridx)):
+                Hblock2[ridx[k]][colidx[k]] = Fp
+
+        upper=np.concatenate((Hblock1, np.zeros((3*n,3*n))),axis=1)
+        lower=np.concatenate((np.zeros((3*n,3*n)),Hblock2),axis=1)
+        F=np.concatenate((upper,lower))  # indicMat is 6n x 6n, [Fq 0 ; 0 Fp]
+    
+    else: # Droop:        
+        ridx,colidx=np.nonzero(indicMat[3*n+1:,0:3*n]) 
+        for k in range(len(ridx)):
+                Hblock2[ridx[k]][colidx[k]] = Fp
+        F=np.concatenate(Hblock1,Hblock2,axis=0) # indicMat is now 6n x 3n, [Fq Fp]'
+
     #print("Size of F=",F.shape)
     return F
 
@@ -131,7 +136,7 @@ def computeFParamSpace_v2(feeder, act_locs, perf_nodes,R,X,depths,node_index_Map
     return Fq_ub,Fp_ub
 
               
-def detControlMatExistence(ver,feeder, act_locs, A, B, indicMat,substation_name,perf_nodes,depths,node_index_map,file_name):
+def detControlMatExistence(parmObj,feeder, act_locs, A, B, indicMat,substation_name,perf_nodes,depths,node_index_map,file_name):
 #def detControlMatExistence(feeder, act_locs, perf_nodes,A,B,R,X,indicMat):
     n=int(len(indicMat)/6) # indicMat is 6n x 6n
 
@@ -159,7 +164,8 @@ def detControlMatExistence(ver,feeder, act_locs, A, B, indicMat,substation_name,
                 if np.isnan(Fp) or np.isnan(Fq):
                     sys.exit('Error: Fq or Fp are NaN')
 
-                F=assignF(ver,Fp,Fq,indicMat)
+                F=assignF(parmObj,Fp,Fq,indicMat)
+                #print('sizeA=',B.shape)
                 CLmat=A-np.dot(B,F) # CLmat=A-BF
                 eigs,evecs=LA.eig(CLmat) # closed loop eigenvalues
                 eigMags=np.absolute(eigs)

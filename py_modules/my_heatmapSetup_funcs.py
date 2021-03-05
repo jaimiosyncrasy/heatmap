@@ -95,27 +95,33 @@ def getKey(dictionary, value):
     return key 
 
 
-def setupStateSpace(ver,n, feeder, node_index_map, depths):
+def setupStateSpace(parmObj,n, feeder, node_index_map, depths):
     #initializes state space matrices A and B
     #n = number of nodes in network
     #feeder = initiaized feeder object
     #node_index_map = dictionary of node indices with node names as keys
-    A = np.identity(6*n)
     R, X = createRXmatrices_3ph(feeder, node_index_map,depths)
-    concat_XR = np.concatenate((X, R), axis = 1)
-    concat_XR_halfs = np.concatenate(((-1/2) * R, (1/2) * X), axis = 1)
-    B = np.concatenate((concat_XR, concat_XR_halfs))
+    concat_XR=np.concatenate((X, R), axis = 1)
+    
+    if parmObj.get_version()==1: # PBC       
+        A = np.identity(6*n)
+        concat_XR_halfs = np.concatenate(((-1/2) * R, (1/2) * X), axis = 1)
+        B = np.concatenate((concat_XR, concat_XR_halfs))
+    else: # volt-watt and volt-var
+        A = np.identity(3*n)
+        B = concat_XR # (6n*3n) matrix
+    
     return A, B
 
 
 # correct version
-def computeFeas_v1(ver,feeder, act_locs, A, B, indicMat, substation_name, perf_nodes, depths, node_index_map, Vbase_ll, Sbase, load_data, headerpath, modelpath, printCurves,file_name):
+def computeFeas_v1(parmObj,feeder, act_locs, A, B, indicMat, substation_name, perf_nodes, depths, node_index_map, Vbase_ll, Sbase, load_data, headerpath, modelpath, printCurves,file_name):
     node_0 = list(feeder.network.successors(substation_name))
     node_1 = list(feeder.network.successors(node_0[0]))
     z12 = imp.get_total_impedance_from_substation(feeder, node_1[0],depths) # 3 phase, not pu
     B12=np.zeros((3,3)) # TEMPORARY, line susceptance, Yshunt=G+jB
 
-    MYfeas,MYfeasFs,MYnumfeas,MYnumTried,MYnumact = ctrl.detControlMatExistence(ver,feeder, act_locs, A, B, indicMat,substation_name,perf_nodes,depths,node_index_map,file_name)
+    MYfeas,MYfeasFs,MYnumfeas,MYnumTried,MYnumact = ctrl.detControlMatExistence(parmObj,feeder, act_locs, A, B, indicMat,substation_name,perf_nodes,depths,node_index_map,file_name)
     print('num feas=',MYnumfeas)
     print('num tried=',MYnumTried)
 
@@ -134,22 +140,44 @@ def computeFeas_v2(feeder, act_locs, perf_nodes, A, B, indicMat):
     maxError = 10
     return feas, maxError
 
-
-def updateStateSpace(ver,feeder, n, act_locs, perf_nodes, node_index_map):
-    #creates (6n*6n) matrix with 1 at (3i+ph)(3j+ph) and (3i+3n+ph)(3j+3n+ph) if there is an actuator at index i tracking a performance node at index j, and 0 otherwise
+class configParms: # used by updateStateSpace to determine whether each act is PBC, VVC, or VWC
+    def __init__(self, default = {}): 
+        self.ctrlTypeList = default 
+        self.version=-1
+    def get_ctrlTypes(self): 
+        return self.ctrlTypeList 
+    def set_ctrlTypes(self, list): 
+        self.ctrlTypeList = list
+    def get_version(self): 
+        return self.version 
+    def set_version(self, ver): 
+        self.version = ver
+        
+def updateStateSpace(parmObj,feeder, n, act_locs, perf_nodes, node_index_map):
+    #creates (6n*3n) matrix with 1 at (3i+ph)(3j+ph) for volt-watt control, and (3i+3n+ph)(3j+ph) for volt-var control
     #in the above description, ph is the integer representation (a=0, b=1, c=2) of the phase intersection between the actuator and performance nodes
     #if an actuator and performance node have no phases in common, a warning is printed
     #n = number of nodes in network
     #act_locs = list of actuators locations in network (list of strings)
     #perf_nodes = list of performance nodes 
     #node_index_map = dictionary of node indices for indicMat and F matrix
-    indicMat = np.zeros((6*n,6*n))
+    if parmObj.get_version()==1: # PBC
+        indicMat = np.zeros((6*n,6*n))
+    else: # volt-watt and volt-var
+        indicMat = np.zeros((6*n,3*n))
+    
+    ctrlTypeList=parmObj.get_ctrlTypes()
+    print('ctrlTypes=',ctrlTypeList)
     for i in range(len(act_locs)): 
         act = act_locs[i]
         perf = perf_nodes[i]
-        act_phases = feeder.busdict[act[4:]].phases
+        ctrlType=ctrlTypeList[i]
+        if not(ctrlType=='PBC' or ctrlType=='VVC' or ctrlType=='VWC'):
+            raise Exception('Actuator node first 3 chars should be PBC, VVC, or VWC')
+            
+        act_phases = feeder.busdict[act[4:]].phases # [7:] extracts the YYY bus number from 'XXXbus_YYY'
         perf_phases = feeder.busdict[perf[4:]].phases
-        act_index = node_index_map[act]
+        act_index = node_index_map[act] # skip first 3 chars, which is ctrlType
         perf_index = node_index_map[perf]
         
         phase_intrsct = [ph for ph in act_phases if ph in perf_phases]
@@ -167,9 +195,16 @@ def updateStateSpace(ver,feeder, n, act_locs, perf_nodes, node_index_map):
                 elif phase_intrsct[i] == 'c':
                     phase_intrsct[i] = 2
 
+        if ctrlType=='PBC':
             for ph in phase_intrsct:
                 indicMat[(act_index*3)+ph][(perf_index*3)+ph] = 1
-                indicMat[(act_index*3)+(3*n)+ph][(perf_index*3)+(3*n)+ph] = 1   
+                indicMat[(act_index*3)+(3*n)+ph][(perf_index*3)+(3*n)+ph] = 1  
+        elif ctrlType=='VVC':
+            for ph in phase_intrsct:
+                indicMat[(act_index*3)+ph][(perf_index*3)+ph] = 1
+        elif ctrlType=='VWC': #volt-watt control
+            for ph in phase_intrsct:
+                indicMat[(act_index*3)+(3*n)+ph][(perf_index*3)+ph] = 1   
             
     return indicMat,phase_loop_check
 
@@ -205,7 +240,7 @@ def markFeas(numfeas, test_act_loc, graph,phase_loop_check):
     return
 
 
-def eval_config(ver,feeder, all_act_locs, perf_nodes, node_index_map, substation_name, depths, file_name, Vbase_ll, Sbase, load_data, headerpath, modelpath):
+def eval_config(parmObj,feeder, all_act_locs, perf_nodes, node_index_map, substation_name, depths, file_name, Vbase_ll, Sbase, load_data, headerpath, modelpath):
     #returns whether controllability can be achieved for a given actuator performance node configuration
     #also returns the linearization error associated with the feasibility calculation
     #all_act_locs and perf_nodes = lists of node names as strings
@@ -213,10 +248,10 @@ def eval_config(ver,feeder, all_act_locs, perf_nodes, node_index_map, substation
     
     graph = feeder.network
     n = len(graph.nodes) #number of nodes in network
-    A, B = setupStateSpace(ver,n, feeder, node_index_map,depths)
-    indicMat,phase_loop_check = updateStateSpace(ver,feeder, n, all_act_locs, perf_nodes, node_index_map)
+    A, B = setupStateSpace(parmObj,n, feeder, node_index_map,depths)
+    indicMat,phase_loop_check = updateStateSpace(parmObj,feeder, n, all_act_locs, perf_nodes, node_index_map)
     if phase_loop_check:  # disallow configs in which the act and perf node phases are not aligned
-        feas, maxError, numfeas = computeFeas_v1(ver,feeder, all_act_locs, A, B, indicMat, substation_name, perf_nodes, depths, node_index_map, Vbase_ll, Sbase, load_data, headerpath, modelpath, printCurves,file_name)
+        feas, maxError, numfeas = computeFeas_v1(parmObj,feeder, all_act_locs, A, B, indicMat, substation_name, perf_nodes, depths, node_index_map, Vbase_ll, Sbase, load_data, headerpath, modelpath, printCurves,file_name)
     else:
         feas=False
         maxError=1
@@ -241,7 +276,7 @@ def remove_subst_nodes(feeder, file_name):
     return graphNodes_nosub
 
     
-def find_good_colocated(ver,feeder, act_locs, node_index_map, substation_name, depths, file_name, Vbase_ll, Sbase, load_data, headerpath, modelpath):
+def find_good_colocated(parmObj,feeder, act_locs, node_index_map, substation_name, depths, file_name, Vbase_ll, Sbase, load_data, headerpath, modelpath):
     #almost the same as runheatmap process, but only runs once and shows one heatmap indicating which nodes are good to place a co-located act/perf node
     #return list of all "green" configs and the associated lzn errors
     #act_locs == a list of pre-set colocated act/perf locations --> to evaluate an empty network, pass in act_locs == []
@@ -250,7 +285,7 @@ def find_good_colocated(ver,feeder, act_locs, node_index_map, substation_name, d
     graph = feeder.network
     heatMapNames = [] # collect heat map names as list of strings
     n = len(graph.nodes) #number of nodes in network
-    A, B = setupStateSpace(ver,n, feeder, node_index_map, depths)
+    A, B = setupStateSpace(parmObj,n, feeder, node_index_map, depths)
     feas_configs = [] 
     lzn_error_dic = {} #contains maxLznError for each choice of actuator location with node name as key  
     test_nodes = []
@@ -266,9 +301,9 @@ def find_good_colocated(ver,feeder, act_locs, node_index_map, substation_name, d
 
     for test in test_nodes:
         print('evaluating act and perf colocated at ',[test]) 
-        indicMat,phase_loop_check = updateStateSpace(ver,feeder, n, [test] + act_locs, [test] + act_locs, node_index_map) # (n,act,perf,dictionary)
+        indicMat,phase_loop_check = updateStateSpace(parmObj,feeder, n, [test] + act_locs, [test] + act_locs, node_index_map) # (n,act,perf,dictionary)
         if phase_loop_check:  # disallow configs in which the act and perf node phases are not aligned
-            feas, maxError, numfeas = computeFeas_v1(ver,feeder, [test] + act_locs, A, B, indicMat,substation_name,[test] + act_locs, depths, node_index_map,Vbase_ll, Sbase, load_data, headerpath, modelpath,printCurves,file_name) # pass in potential actual loc
+            feas, maxError, numfeas = computeFeas_v1(parmObj,feeder, [test] + act_locs, A, B, indicMat,substation_name,[test] + act_locs, depths, node_index_map,Vbase_ll, Sbase, load_data, headerpath, modelpath,printCurves,file_name) # pass in potential actual loc
             lzn_error_dic[test] = maxError
         else:
             feas=False
@@ -292,7 +327,7 @@ def find_good_colocated(ver,feeder, act_locs, node_index_map, substation_name, d
     return feas_configs, heatMapNames
 
 
-def runHeatMapProcess(ver,feeder, set_acts, set_perfs, all_act_locs, perf_nodes, node_index_map, substation_name, depths, file_name, Vbase_ll, Sbase, load_data, headerpath, modelpath):
+def runHeatMapProcess(parmObj,feeder, set_acts, set_perfs, all_act_locs, perf_nodes, node_index_map, substation_name, depths, file_name, Vbase_ll, Sbase, load_data, headerpath, modelpath):
     #compute heatmap (assess feas and lzn error on every node of the feeder, color each red/green on diagram)
     #Then for each act-perf node pair, compute heatmap
     #return list of all "green" configs and the associated lzn errors
@@ -304,7 +339,7 @@ def runHeatMapProcess(ver,feeder, set_acts, set_perfs, all_act_locs, perf_nodes,
     cur_perf_nodes = set_perfs
     heatMapNames = [] # collect heat map names as list of strings
     n = len(graph.nodes) #number of nodes in network
-    A, B = setupStateSpace(ver,n, feeder, node_index_map, depths)
+    A, B = setupStateSpace(parmObj,n, feeder, node_index_map, depths)
     lzn_error_run_sum = 0
     feas_configs = []
     
@@ -324,9 +359,9 @@ def runHeatMapProcess(ver,feeder, set_acts, set_perfs, all_act_locs, perf_nodes,
             feas=False # default
             # heatmap color indicates good places to place actuator given chosen loc of perf node (not necessarily colocated)          
             print('evaluating actuator node at ', [test] + cur_act_locs,',\n performance node at ', [perf_nodes[a]] + cur_perf_nodes)
-            indicMat,phase_loop_check = updateStateSpace(ver,feeder, n, [test] + cur_act_locs, [perf_nodes[a]] + cur_perf_nodes, node_index_map)
+            indicMat,phase_loop_check = updateStateSpace(parmObj,feeder, n, [test] + cur_act_locs, [perf_nodes[a]] + cur_perf_nodes, node_index_map)
             if phase_loop_check:  # disallow configs in which the act and perf node phases are not aligned
-                feas, maxError, numfeas = computeFeas_v1(ver,feeder, [test] + cur_act_locs, A, B, indicMat, substation_name,[perf_nodes[a]] + cur_perf_nodes, depths, node_index_map, Vbase_ll, Sbase, load_data, headerpath, modelpath, False,file_name) # false for printing PV curves
+                feas, maxError, numfeas = computeFeas_v1(parmObj,feeder, [test] + cur_act_locs, A, B, indicMat, substation_name,[perf_nodes[a]] + cur_perf_nodes, depths, node_index_map, Vbase_ll, Sbase, load_data, headerpath, modelpath, False,file_name) # false for printing PV curves
                 lzn_error_dic[test] = maxError
             else:
                 maxError=1
@@ -359,11 +394,11 @@ def runHeatMapProcess(ver,feeder, set_acts, set_perfs, all_act_locs, perf_nodes,
     return feas_configs, lzn_error_run_sum, heatMapNames
 
 
-def placeMaxColocActs_stopAtInfeas(ver,feeder, file_name, node_index_map, depths, substation_name,Vbase_ll, Sbase, load_data, headerpath, modelpath):
+def placeMaxColocActs_stopAtInfeas(parmObj,feeder, file_name, node_index_map, depths, substation_name,Vbase_ll, Sbase, load_data, headerpath, modelpath):
     #place colocated actuators until an infeasible loc is tested, then call find_good_colocated and return 
     graph = feeder.network
     n = len(graph.nodes) #number of nodes in network
-    A, B = setupStateSpace(ver,n, feeder, node_index_map, depths)
+    A, B = setupStateSpace(parmObj,n, feeder, node_index_map, depths)
     test_nodes = []
     act_locs = []
     printCurves=False # your choice on whether to print PVcurves
@@ -377,9 +412,9 @@ def placeMaxColocActs_stopAtInfeas(ver,feeder, file_name, node_index_map, depths
     while test_nodes:       
         rand_test = random.choice(test_nodes)
         print('evaluating actuator and performance node colocated at ',[rand_test] + act_locs) 
-        indicMat,phase_loop_check = updateStateSpace(ver,feeder, n, [rand_test] + act_locs, [rand_test] + act_locs, node_index_map)
+        indicMat,phase_loop_check = updateStateSpace(parmObj,feeder, n, [rand_test] + act_locs, [rand_test] + act_locs, node_index_map)
         if phase_loop_check:  # disallow configs in which the act and perf node phases are not aligned
-            feas, maxError, numfeas = computeFeas_v1(ver,feeder, [rand_test] + act_locs, A, B, indicMat, substation_name, [rand_test] + act_locs, depths, node_index_map,Vbase_ll, Sbase, load_data, headerpath, modelpath,printCurves, file_name)
+            feas, maxError, numfeas = computeFeas_v1(parmObj,feeder, [rand_test] + act_locs, A, B, indicMat, substation_name, [rand_test] + act_locs, depths, node_index_map,Vbase_ll, Sbase, load_data, headerpath, modelpath,printCurves, file_name)
         else:
             feas=False
             maxError=1
@@ -390,7 +425,7 @@ def placeMaxColocActs_stopAtInfeas(ver,feeder, file_name, node_index_map, depths
             test_nodes.remove(rand_test)
         else:
             print('Random choice of co-located APNP yields unstable  configuration. Generating heatmap by checking all remaining feeder nodes...')
-            feas_configs, heatMapNames = find_good_colocated(ver,feeder, act_locs, node_index_map, substation_name, depths,file_name, Vbase_ll, Sbase, load_data, headerpath, modelpath) # makes a heatmap
+            feas_configs, heatMapNames = find_good_colocated(parmObj,feeder, act_locs, node_index_map, substation_name, depths,file_name, Vbase_ll, Sbase, load_data, headerpath, modelpath) # makes a heatmap
 
             # Believe this img below is redundant as find_good_colocated makes a heatmap already
             #nx.nx_pydot.write_dot(graph, 'CPP_heatmap'+ '_' + file_name)
@@ -402,12 +437,12 @@ def placeMaxColocActs_stopAtInfeas(ver,feeder, file_name, node_index_map, depths
     return act_locs
 
 
-def place_max_coloc_acts(ver,seedkey,feeder, file_name, node_index_map, depths, substation_name,Vbase_ll, Sbase, load_data, headerpath, modelpath):
+def place_max_coloc_acts(parmObj,seedkey,feeder, file_name, node_index_map, depths, substation_name,Vbase_ll, Sbase, load_data, headerpath, modelpath):
     #place maximum number of colocated actuators
     #if infeas loc tested, randomly select another test node and continue function run
     graph = feeder.network
     n = len(graph.nodes) #number of nodes in network
-    A, B = setupStateSpace(ver,n, feeder, node_index_map, depths)
+    A, B = setupStateSpace(parmObj,n, feeder, node_index_map, depths)
     test_nodes = []
     act_locs = []
     printCurves = False # your choice on whether to print PVcurves
@@ -421,9 +456,9 @@ def place_max_coloc_acts(ver,seedkey,feeder, file_name, node_index_map, depths, 
     while test_nodes:       
         rand_test = random.choice(test_nodes)
         print('evaluating actuator and performance node colocated at ',[rand_test] + act_locs) 
-        indicMat,phase_loop_check = updateStateSpace(ver,feeder, n, [rand_test] + act_locs, [rand_test] + act_locs, node_index_map)
+        indicMat,phase_loop_check = updateStateSpace(parmObj,feeder, n, [rand_test] + act_locs, [rand_test] + act_locs, node_index_map)
         if phase_loop_check:  # disallow configs in which the act and perf node phases are not aligned
-            feas, maxError, numfeas = computeFeas_v1(ver,feeder, [rand_test] + act_locs, A, B, indicMat, substation_name, [rand_test] + act_locs, depths, node_index_map,Vbase_ll, Sbase, load_data, headerpath, modelpath,printCurves, file_name)
+            feas, maxError, numfeas = computeFeas_v1(parmObj,feeder, [rand_test] + act_locs, A, B, indicMat, substation_name, [rand_test] + act_locs, depths, node_index_map,Vbase_ll, Sbase, load_data, headerpath, modelpath,printCurves, file_name)
         
         else:
             feas=False
