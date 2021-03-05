@@ -108,7 +108,7 @@ def setupStateSpace(parmObj,n, feeder, node_index_map, depths):
         concat_XR_halfs = np.concatenate(((-1/2) * R, (1/2) * X), axis = 1)
         B = np.concatenate((concat_XR, concat_XR_halfs))
     else: # volt-watt and volt-var
-        A = np.identity(3*n)
+        A = np.zeros((3*n,3*n))
         B = concat_XR # (6n*3n) matrix
     
     return A, B

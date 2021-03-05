@@ -44,7 +44,7 @@ def assignF(parmObj,Fp,Fq,indicMat): # algo similar to updateStateSpace
         ridx,colidx=np.nonzero(indicMat[3*n+1:,0:3*n]) 
         for k in range(len(ridx)):
                 Hblock2[ridx[k]][colidx[k]] = Fp
-        F=np.concatenate(Hblock1,Hblock2,axis=0) # indicMat is now 6n x 3n, [Fq Fp]'
+        F=np.concatenate((Hblock1,Hblock2),axis=0) # indicMat is now 6n x 3n, [Fq Fp]'
 
     #print("Size of F=",F.shape)
     return F
