@@ -22,7 +22,7 @@ import my_detLznRange_funcs as lzn
 import my_heatmapSetup_funcs as hm
 
 
-def assignF(Fp,Fq,indicMat): # algo similar to updateStateSpace
+def assignF(ver,Fp,Fq,indicMat): # algo similar to updateStateSpace
     n=int(len(indicMat)/6) # indicMat is 6n x 6n
     
     # Make indicMat and F have the same sparsity structure, but different nonzero values
@@ -131,7 +131,7 @@ def computeFParamSpace_v2(feeder, act_locs, perf_nodes,R,X,depths,node_index_Map
     return Fq_ub,Fp_ub
 
               
-def detControlMatExistence(feeder, act_locs, A, B, indicMat,substation_name,perf_nodes,depths,node_index_map,file_name):
+def detControlMatExistence(ver,feeder, act_locs, A, B, indicMat,substation_name,perf_nodes,depths,node_index_map,file_name):
 #def detControlMatExistence(feeder, act_locs, perf_nodes,A,B,R,X,indicMat):
     n=int(len(indicMat)/6) # indicMat is 6n x 6n
 
@@ -159,7 +159,7 @@ def detControlMatExistence(feeder, act_locs, A, B, indicMat,substation_name,perf
                 if np.isnan(Fp) or np.isnan(Fq):
                     sys.exit('Error: Fq or Fp are NaN')
 
-                F=assignF(Fp,Fq,indicMat)
+                F=assignF(ver,Fp,Fq,indicMat)
                 CLmat=A-np.dot(B,F) # CLmat=A-BF
                 eigs,evecs=LA.eig(CLmat) # closed loop eigenvalues
                 eigMags=np.absolute(eigs)
