@@ -167,7 +167,6 @@ def updateStateSpace(parmObj,feeder, n, act_locs, perf_nodes, node_index_map):
         indicMat = np.zeros((6*n,3*n))
     
     ctrlTypeList=parmObj.get_ctrlTypes()
-    print('ctrlTypes=',ctrlTypeList)
     for i in range(len(act_locs)): 
         act = act_locs[i]
         perf = perf_nodes[i]
@@ -401,8 +400,13 @@ def placeMaxColocActs_stopAtInfeas(parmObj,feeder, file_name, node_index_map, de
     A, B = setupStateSpace(parmObj,n, feeder, node_index_map, depths)
     test_nodes = []
     act_locs = []
+    ctrlTypes=[]
     printCurves=False # your choice on whether to print PVcurves
     graphNodes_nosub = remove_subst_nodes(feeder, file_name) # dont consider substation nodes, node 650 and 651 for 13NF
+    if parmObj.get_version==1:
+        ctrlTypes_choosefrom=['PBC','PBC']
+    else:
+        ctrlTypes_choosefrom=['VWC','VVC']
         
     for node in graphNodes_nosub:
         if node not in act_locs:
@@ -411,6 +415,10 @@ def placeMaxColocActs_stopAtInfeas(parmObj,feeder, file_name, node_index_map, de
     random.seed(3)  # initialize random num generator so results are reproducable
     while test_nodes:       
         rand_test = random.choice(test_nodes)
+        rand_ctrlType=random.choice(ctrlTypes_choosefrom)
+        ctrlTypes.append(rand_ctrlType) # save into list of control types
+        parmObj.set_ctrlTypes(ctrlTypes)
+        print('control types=',ctrlTypes)
         print('evaluating actuator and performance node colocated at ',[rand_test] + act_locs) 
         indicMat,phase_loop_check = updateStateSpace(parmObj,feeder, n, [rand_test] + act_locs, [rand_test] + act_locs, node_index_map)
         if phase_loop_check:  # disallow configs in which the act and perf node phases are not aligned

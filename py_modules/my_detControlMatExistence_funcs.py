@@ -63,7 +63,7 @@ def computeFParamSpace_v1(feeder, act_locs, perf_nodes):
     return Fq_lb,Fp_lb
 
 #version 2, correct
-def computeFParamSpace_v2(feeder, act_locs, perf_nodes,R,X,depths,node_index_Map, file_name):
+def computeFParamSpace_v2(parmObj,feeder, act_locs, perf_nodes,R,X,depths,node_index_Map, file_name):
     # Compute (Fq,Fp) ranges as a func of impedance paths between act nodes, perf nodes, and substation
     if file_name=='13NFbalanced':
         c=np.array([0.412,0.857]) # (q,p) tuned for 13NF based on data from feas configs
@@ -123,10 +123,14 @@ def computeFParamSpace_v2(feeder, act_locs, perf_nodes,R,X,depths,node_index_Map
         
     numact=len(act_locs)
     # avgSens_dvdq is list of scalar complex vals
-    q=np.mean(np.absolute(avgSens_dvdq))*numact # take avg across abs value of perf-act pair sensitivities
-    p=np.mean(np.absolute(avgSens_ddeldp))*numact
-    #print('q=',q) # print when tuning c1 and c2
-    #print('(1/q)*c[0]=',(1/q)*c[0])
+    if parmObj.get_version()==1:  
+        q=np.mean(np.absolute(avgSens_dvdq))*numact # take avg across abs value of perf-act pair sensitivities
+        p=np.mean(np.absolute(avgSens_ddeldp))*numact
+        #print('q=',q) # print when tuning c1 and c2
+        #print('(1/q)*c[0]=',(1/q)*c[0])
+    else: # in droop case, dont reduce Fq and Fp by number of actuators
+        q=np.mean(np.absolute(avgSens_dvdq)) # take avg across abs value of perf-act pair sensitivities
+        p=np.mean(np.absolute(avgSens_ddeldp))
     try: 
         Fq_ub=(1/q)*c[0]
         Fp_ub=(1/p)*c[1]
@@ -142,13 +146,12 @@ def detControlMatExistence(parmObj,feeder, act_locs, A, B, indicMat,substation_n
 
 # Compute good (Fp,Fq) sample space
     R,X=hm.createRXmatrices_3ph(feeder, node_index_map,depths)
-    Fq_ub,Fp_ub=computeFParamSpace_v2(feeder, act_locs, perf_nodes,R,X,depths,node_index_map,file_name)
+    Fq_ub,Fp_ub=computeFParamSpace_v2(parmObj,feeder, act_locs, perf_nodes,R,X,depths,node_index_map,file_name)
 
     numsamp=15 # temporary, should really do at least 15
     Fq_range=np.linspace(0.0001, Fq_ub, numsamp)
     Fp_range=np.linspace(0.0001, Fp_ub, numsamp)
-    #print('Fp_range=',Fp_ub)
-    #print('Fq_range=',Fq_ub)
+    print('Fp_range=',Fp_ub,' and Fq_range=',Fq_ub)
 
 # Initialize arrays, will be populated in loops
     feas=False # boolean
@@ -173,7 +176,11 @@ def detControlMatExistence(parmObj,feeder, act_locs, A, B, indicMat,substation_n
 #                # For debugging
 #                 if (Fp==0.06 and Fq==0.1):
 #                     np.savetxt('F.csv', F, delimiter=',')
-
+                
+    # MODIFY: for version 2 (droop), check that evals are within unit circle,
+    # AND vss for vdbc1 and vdbc2 are in 5% range
+    # vss=LA.inv([1-CLmat])*vdbc
+    
                 if all(np.around(eigMags,decimals=6)<=1): 
                     # require that all evals=1 have null space full of base
                     # evecs (no generalized evecs)
@@ -206,7 +213,8 @@ def detControlMatExistence(parmObj,feeder, act_locs, A, B, indicMat,substation_n
 
     threshold=1 # your choice, define because if only found 1 feas config too borderline to count as feas
     numfeas=np.append(numfeas,[[len(feasFs)]],axis=0) # number of rows
-
+    #print('feasFs=',np.around(feasFs,3))
+    
    # if feas==True:
     if len(feasFs)>=threshold:
         print("Config good!")
