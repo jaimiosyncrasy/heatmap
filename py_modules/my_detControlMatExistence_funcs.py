@@ -23,6 +23,7 @@ import my_heatmapSetup_funcs as hm
 
 
 def assignF(parmObj,Fp,Fq,indicMat): # algo similar to updateStateSpace
+
     n=int(len(indicMat)/6) # indicMat has 6n rows for all versions
     Hblock1=np.zeros((3*n,3*n))   
     ridx,colidx=np.nonzero(indicMat[0:3*n,0:3*n]) # python indexing goes first to (last-1)          
@@ -70,8 +71,10 @@ def computeFParamSpace_v2(parmObj,feeder, act_locs, perf_nodes,R,X,depths,node_i
     elif file_name=='123NF':
         #c=np.array([0.3,0.45])  # setting on 9/2/20
         #c=np.array([0.5,0.7]) # place_max_coloc getting not-great results from this
-        c=np.array([0.3,0.45])  # setting back to this on 2/28/21
-
+        if parmObj.get_version()==1:  
+            c=np.array([0.3,0.45])  # setting back to this on 2/28/21
+        else: # droop case
+            c=np.array([0.7,1.1])  # setting this on 3/7/21
     elif file_name=='PL0001': 
         c=np.array([0.32,0.65])
     else:
@@ -172,16 +175,34 @@ def detControlMatExistence(parmObj,feeder, act_locs, A, B, indicMat,substation_n
                 CLmat=A-np.dot(B,F) # CLmat=A-BF
                 eigs,evecs=LA.eig(CLmat) # closed loop eigenvalues
                 eigMags=np.absolute(eigs)
-                
-#                # For debugging
-#                 if (Fp==0.06 and Fq==0.1):
-#                     np.savetxt('F.csv', F, delimiter=',')
-                
-    # MODIFY: for version 2 (droop), check that evals are within unit circle,
-    # AND vss for vdbc1 and vdbc2 are in 5% range
-    # vss=LA.inv([1-CLmat])*vdbc
-    
-                if all(np.around(eigMags,decimals=6)<=1): 
+                bool1=all(np.around(eigMags,decimals=6)<=1)
+
+            #     MODIFY: for version 2 (droop), check that evals are within unit circle,
+            #     AND vss for vdbc1 and vdbc2 are in 5% range
+                if parmObj.get_version()==2: # volt-var and volt-watt control      
+                    delV=0.055 # if dbc causes this change in v, want to ensure that all new steady states are within 0.05
+                    dbc_vec1=delV*np.ones((len(CLmat), 1)) 
+                    delvss1=np.dot(LA.inv(np.identity(len(CLmat))-CLmat),dbc_vec1) # inv(I-BF)*dbc_vec
+    #                 print('vss1=',vss1[:4])
+    #                 print('vss1=',vss1[-4:])
+
+                    # identify which nodes have delvss=dbc_vec, and throw those out
+                    counter=0
+                    delvss1_cleaned=[]
+                    for v in delvss1:
+                        if delV!=v: # basically only substation node voltages are unaffected by kgains, so we throw those out
+                            delvss1_cleaned.append(v)
+                        else:
+                            counter+=1
+
+                    #print('delvss1 (min,max,median)=(',np.around(np.amin(delvss1_cleaned),5),',',np.around(np.amax(delvss1_cleaned),5),',',np.around(np.median(delvss1_cleaned),5),')')
+                    #print('num of immovable 3-ph nodes voltages=',counter/3)
+                    bool2=all(item <0.05 for item in delvss1_cleaned) # check that the remaining are all under 0.05
+                else:
+                    bool2=True # PBC case
+                          
+                        
+                if (bool1 and bool2): 
                     # require that all evals=1 have null space full of base
                     # evecs (no generalized evecs)
                     tol=0.0001
@@ -207,10 +228,14 @@ def detControlMatExistence(parmObj,feeder, act_locs, A, B, indicMat,substation_n
                         else:
                             mag_domeig=eigs[0] # just pick any of them
                         domeig_mags=np.append(domeig_mags,mag_domeig)
+                        
+                else: # if F not feas, print in which way it is
+                    print('F not feas because eigs_in_circle=',bool1,' and dvvc_ssError_check=',bool2)
+                    
                 val=np.sum(eigMags[np.where(eigMags > 1)])
                 myCosts=np.append(myCosts,[[val]],axis=0) # temp
                 myFbases=np.append(myFbases,[[Fp, Fq]],axis=0) # save all Fs tried
-
+                       
     threshold=1 # your choice, define because if only found 1 feas config too borderline to count as feas
     numfeas=np.append(numfeas,[[len(feasFs)]],axis=0) # number of rows
     #print('feasFs=',np.around(feasFs,3))
