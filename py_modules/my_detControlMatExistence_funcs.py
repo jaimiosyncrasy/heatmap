@@ -163,6 +163,8 @@ def detControlMatExistence(parmObj,feeder, act_locs, A, B, indicMat,substation_n
     dataFull, data_zero = (np.array([]) for i in range(2)) # for each config
     CLmat=np.empty((6*n,6*n))
 
+    ssError_no_contract,eigs_outside_circle=0,0 # will save which checks on F fail
+    
     for Fq in Fq_range:
         for Fp in Fp_range:
             if not(Fq==0 or Fp==0): # skip iteration if either zero
@@ -230,7 +232,10 @@ def detControlMatExistence(parmObj,feeder, act_locs, A, B, indicMat,substation_n
                         domeig_mags=np.append(domeig_mags,mag_domeig)
                         
                 else: # if F not feas, print in which way it is
-                    print('F not feas because eigs_in_circle=',bool1,' and dvvc_ssError_check=',bool2)
+                    if not bool1: # save which check failed
+                        eigs_outside_circle+=1
+                    else:
+                        ssError_no_contract+=1
                     
                 val=np.sum(eigMags[np.where(eigMags > 1)])
                 myCosts=np.append(myCosts,[[val]],axis=0) # temp
@@ -244,11 +249,12 @@ def detControlMatExistence(parmObj,feeder, act_locs, A, B, indicMat,substation_n
     if len(feasFs)>=threshold:
         print("Config good!")
         bestF=feasFs[np.argmin(domeig_mags)][:] # the F that results in the most stable dominant eval
-        print("Best F is (Fp Fq)=",bestF)
+        #print("Best F is (Fp Fq)=",bestF) # typically really tiny, not interesting to print
         feas=True
     else:
         feas=False
         print("No F found for config --> bad config")
+        print("Unit circle fails=",eigs_outside_circle,', ss_error contraction fails=',ssError_no_contract)
 
     dataFull=np.concatenate((myFbases,myCosts),axis=1) # [Fp Fq myCost]  
     #print("[Fp,Fq,myCost]=\n",dataFull) # print useful data

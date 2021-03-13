@@ -173,7 +173,7 @@ def updateStateSpace(parmObj,feeder, n, act_locs, perf_nodes, node_index_map):
         ctrlType=ctrlTypeList[i]
         if not(ctrlType=='PBC' or ctrlType=='VVC' or ctrlType=='VWC'):
             raise Exception('Actuator node first 3 chars should be PBC, VVC, or VWC')
-            
+        
         act_phases = feeder.busdict[act[4:]].phases # [7:] extracts the YYY bus number from 'XXXbus_YYY'
         perf_phases = feeder.busdict[perf[4:]].phases
         act_index = node_index_map[act] # skip first 3 chars, which is ctrlType
@@ -194,6 +194,7 @@ def updateStateSpace(parmObj,feeder, n, act_locs, perf_nodes, node_index_map):
                 elif phase_intrsct[i] == 'c':
                     phase_intrsct[i] = 2
 
+        #print('act=',act,', perf=',perf,', ctrlType=',ctrlType,', phaseItrsct=',phase_intrsct)
         if ctrlType=='PBC':
             for ph in phase_intrsct:
                 indicMat[(act_index*3)+ph][(perf_index*3)+ph] = 1
@@ -453,8 +454,13 @@ def place_max_coloc_acts(parmObj,seedkey,feeder, file_name, node_index_map, dept
     A, B = setupStateSpace(parmObj,n, feeder, node_index_map, depths)
     test_nodes = []
     act_locs = []
+    ctrlTypes=[]
     printCurves = False # your choice on whether to print PVcurves
     graphNodes_nosub = remove_subst_nodes(feeder, file_name) # dont consider substation nodes, node 650 and 651 for 13NF
+    if parmObj.get_version==1:
+        ctrlTypes_choosefrom=['PBC','PBC']
+    else:
+        ctrlTypes_choosefrom=['VWC','VVC']
         
     for node in graphNodes_nosub:
         if node not in act_locs:
@@ -463,6 +469,11 @@ def place_max_coloc_acts(parmObj,seedkey,feeder, file_name, node_index_map, dept
     random.seed(seedkey)  # random num generator seed so results are reproducable
     while test_nodes:       
         rand_test = random.choice(test_nodes)
+        rand_ctrlType=random.choice(ctrlTypes_choosefrom)
+        ctrlTypes.append(rand_ctrlType) # save into list of control types
+        parmObj.set_ctrlTypes(ctrlTypes)
+        print('control types=',ctrlTypes)
+        
         print('evaluating actuator and performance node colocated at ',[rand_test] + act_locs) 
         indicMat,phase_loop_check = updateStateSpace(parmObj,feeder, n, [rand_test] + act_locs, [rand_test] + act_locs, node_index_map)
         if phase_loop_check:  # disallow configs in which the act and perf node phases are not aligned
