@@ -95,7 +95,7 @@ def getKey(dictionary, value):
     return key 
 
 
-def setupStateSpace(parmObj,n, feeder, node_index_map, depths):
+def setupStateSpace(parmObj,feeder, n,node_index_map, depths):
     #initializes state space matrices A and B
     #n = number of nodes in network
     #feeder = initiaized feeder object
@@ -170,7 +170,9 @@ def updateStateSpace(parmObj,feeder, n, act_locs, perf_nodes, node_index_map):
     for i in range(len(act_locs)): 
         act = act_locs[i]
         perf = perf_nodes[i]
-        ctrlType=ctrlTypeList[i]
+        #print('act_locs=',act_locs[i])
+
+        ctrlType=ctrlTypeList[i] # need to have 5 control types, 4 for existing and 1 for the test
         if not(ctrlType=='PBC' or ctrlType=='VVC' or ctrlType=='VWC'):
             raise Exception('Actuator node first 3 chars should be PBC, VVC, or VWC')
         
@@ -248,7 +250,7 @@ def eval_config(parmObj,feeder, all_act_locs, perf_nodes, node_index_map, substa
     
     graph = feeder.network
     n = len(graph.nodes) #number of nodes in network
-    A, B = setupStateSpace(parmObj,n, feeder, node_index_map,depths)
+    A, B = setupStateSpace(parmObj,feeder,n,node_index_map,depths)
     indicMat,phase_loop_check = updateStateSpace(parmObj,feeder, n, all_act_locs, perf_nodes, node_index_map)
     if phase_loop_check:  # disallow configs in which the act and perf node phases are not aligned
         feas, maxError, numfeas = computeFeas_v1(parmObj,feeder, all_act_locs, A, B, indicMat, substation_name, perf_nodes, depths, node_index_map, Vbase_ll, Sbase, load_data, headerpath, modelpath, printCurves,file_name)
@@ -285,12 +287,17 @@ def find_good_colocated(parmObj,feeder, act_locs, node_index_map, substation_nam
     graph = feeder.network
     heatMapNames = [] # collect heat map names as list of strings
     n = len(graph.nodes) #number of nodes in network
-    A, B = setupStateSpace(parmObj,n, feeder, node_index_map, depths)
+    A, B = setupStateSpace(parmObj,feeder,n,node_index_map, depths)
     feas_configs = [] 
     lzn_error_dic = {} #contains maxLznError for each choice of actuator location with node name as key  
     test_nodes = []
     printCurves=False # your choice on whether to print PVcurves
     graphNodes_nosub = remove_subst_nodes(feeder, file_name) # dont consider co-located at substation nodes, node 650 and 651
+    
+    cand_ctrlType=['VVC'] # all candidate APNPs will be of this type
+    foo=parmObj.get_ctrlTypes()
+    parmObj.set_ctrlTypes(cand_ctrlType+foo) #append this control type to front of controlTypes list, to be used in updateStateSpace
+    
     
     for node in graphNodes_nosub: # try placing act/perf at all nodes of the network
         if node not in act_locs:
@@ -317,7 +324,7 @@ def find_good_colocated(parmObj,feeder, act_locs, node_index_map, substation_nam
             feas_dic['perf'] = [test]
             feas_dic['lznErr'] = [lzn_error_dic[test]]
             feas_dic['numfeas'] = [numfeas]
-            feas_configs += [feas_dic]        
+            feas_configs += [feas_dic]
 
     heatMapName='heatmap_colocated' + '_' + file_name
     heatMapNames.append(heatMapName)
@@ -339,7 +346,7 @@ def runHeatMapProcess(parmObj,feeder, set_acts, set_perfs, all_act_locs, perf_no
     cur_perf_nodes = set_perfs
     heatMapNames = [] # collect heat map names as list of strings
     n = len(graph.nodes) #number of nodes in network
-    A, B = setupStateSpace(parmObj,n, feeder, node_index_map, depths)
+    A, B = setupStateSpace(parmObj,feeder,n, node_index_map, depths)
     lzn_error_run_sum = 0
     feas_configs = []
     
@@ -398,7 +405,7 @@ def placeMaxColocActs_stopAtInfeas(parmObj,feeder, file_name, node_index_map, de
     #place colocated actuators until an infeasible loc is tested, then call find_good_colocated and return 
     graph = feeder.network
     n = len(graph.nodes) #number of nodes in network
-    A, B = setupStateSpace(parmObj,n, feeder, node_index_map, depths)
+    A, B = setupStateSpace(parmObj,feeder,n, node_index_map, depths)
     test_nodes = []
     act_locs = []
     ctrlTypes=[]
@@ -408,7 +415,9 @@ def placeMaxColocActs_stopAtInfeas(parmObj,feeder, file_name, node_index_map, de
         ctrlTypes_choosefrom=['PBC','PBC']
     else:
         ctrlTypes_choosefrom=['VWC','VVC']
-        
+    rand_ctrlType=random.choice(ctrlTypes_choosefrom)
+    ctrlTypes.append(rand_ctrlType) # save into list of control types
+    
     for node in graphNodes_nosub:
         if node not in act_locs:
             test_nodes.append(node)
@@ -416,8 +425,6 @@ def placeMaxColocActs_stopAtInfeas(parmObj,feeder, file_name, node_index_map, de
     random.seed(3)  # initialize random num generator so results are reproducable
     while test_nodes:       
         rand_test = random.choice(test_nodes)
-        rand_ctrlType=random.choice(ctrlTypes_choosefrom)
-        ctrlTypes.append(rand_ctrlType) # save into list of control types
         parmObj.set_ctrlTypes(ctrlTypes)
         print('control types=',ctrlTypes)
         print('evaluating actuator and performance node colocated at ',[rand_test] + act_locs) 
@@ -432,6 +439,8 @@ def placeMaxColocActs_stopAtInfeas(parmObj,feeder, file_name, node_index_map, de
         if feas:
             act_locs += [rand_test]
             test_nodes.remove(rand_test)
+            rand_ctrlType=random.choice(ctrlTypes_choosefrom)  # choose control for next candidate APNP 
+            ctrlTypes.append(rand_ctrlType) # save into list of control types
         else:
             print('Random choice of co-located APNP yields unstable  configuration. Generating heatmap by checking all remaining feeder nodes...')
             feas_configs, heatMapNames = find_good_colocated(parmObj,feeder, act_locs, node_index_map, substation_name, depths,file_name, Vbase_ll, Sbase, load_data, headerpath, modelpath) # makes a heatmap
@@ -451,7 +460,7 @@ def place_max_coloc_acts(parmObj,seedkey,feeder, file_name, node_index_map, dept
     #if infeas loc tested, randomly select another test node and continue function run
     graph = feeder.network
     n = len(graph.nodes) #number of nodes in network
-    A, B = setupStateSpace(parmObj,n, feeder, node_index_map, depths)
+    A, B = setupStateSpace(parmObj,feeder,n, node_index_map, depths)
     test_nodes = []
     act_locs = []
     ctrlTypes=[]
@@ -461,7 +470,9 @@ def place_max_coloc_acts(parmObj,seedkey,feeder, file_name, node_index_map, dept
         ctrlTypes_choosefrom=['PBC','PBC']
     else:
         ctrlTypes_choosefrom=['VWC','VVC']
-        
+    rand_ctrlType=random.choice(ctrlTypes_choosefrom)
+    ctrlTypes.append(rand_ctrlType) # save into list of control types
+
     for node in graphNodes_nosub:
         if node not in act_locs:
             test_nodes.append(node)
@@ -469,8 +480,6 @@ def place_max_coloc_acts(parmObj,seedkey,feeder, file_name, node_index_map, dept
     random.seed(seedkey)  # random num generator seed so results are reproducable
     while test_nodes:       
         rand_test = random.choice(test_nodes)
-        rand_ctrlType=random.choice(ctrlTypes_choosefrom)
-        ctrlTypes.append(rand_ctrlType) # save into list of control types
         parmObj.set_ctrlTypes(ctrlTypes)
         print('control types=',ctrlTypes)
         
@@ -487,6 +496,8 @@ def place_max_coloc_acts(parmObj,seedkey,feeder, file_name, node_index_map, dept
         if feas:
             act_locs += [rand_test]
             test_nodes = []
+            rand_ctrlType=random.choice(ctrlTypes_choosefrom) # choose control for next candidate APNP 
+            ctrlTypes.append(rand_ctrlType) # save into list of control types
             for node in graphNodes_nosub:
                 if node not in act_locs:
                     test_nodes.append(node)

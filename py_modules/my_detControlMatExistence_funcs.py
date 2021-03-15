@@ -132,8 +132,8 @@ def computeFParamSpace_v2(parmObj,feeder, act_locs, perf_nodes,R,X,depths,node_i
         #print('q=',q) # print when tuning c1 and c2
         #print('(1/q)*c[0]=',(1/q)*c[0])
     else: # in droop case, dont reduce Fq and Fp by number of actuators
-        q=np.mean(np.absolute(avgSens_dvdq)) # take avg across abs value of perf-act pair sensitivities
-        p=np.mean(np.absolute(avgSens_ddeldp))
+        q=np.mean(np.absolute(avgSens_dvdq))*numact # take avg across abs value of perf-act pair sensitivities
+        p=np.mean(np.absolute(avgSens_ddeldp))*numact
     try: 
         Fq_ub=(1/q)*c[0]
         Fp_ub=(1/p)*c[1]
@@ -177,12 +177,11 @@ def detControlMatExistence(parmObj,feeder, act_locs, A, B, indicMat,substation_n
                 CLmat=A-np.dot(B,F) # CLmat=A-BF
                 eigs,evecs=LA.eig(CLmat) # closed loop eigenvalues
                 eigMags=np.absolute(eigs)
-                bool1=all(np.around(eigMags,decimals=6)<=1)
 
             #     MODIFY: for version 2 (droop), check that evals are within unit circle,
             #     AND vss for vdbc1 and vdbc2 are in 5% range
                 if parmObj.get_version()==2: # volt-var and volt-watt control      
-                    delV=0.055 # if dbc causes this change in v, want to ensure that all new steady states are within 0.05
+                    delV=0.0535 # if dbc causes this change in v, want to ensure that all new steady states are within 0.05
                     dbc_vec1=delV*np.ones((len(CLmat), 1)) 
                     delvss1=np.dot(LA.inv(np.identity(len(CLmat))-CLmat),dbc_vec1) # inv(I-BF)*dbc_vec
     #                 print('vss1=',vss1[:4])
@@ -202,9 +201,8 @@ def detControlMatExistence(parmObj,feeder, act_locs, A, B, indicMat,substation_n
                     bool2=all(item <0.05 for item in delvss1_cleaned) # check that the remaining are all under 0.05
                 else:
                     bool2=True # PBC case
-                          
-                        
-                if (bool1 and bool2): 
+                                        
+                if all(np.around(eigMags,decimals=6)<=1):
                     # require that all evals=1 have null space full of base
                     # evecs (no generalized evecs)
                     tol=0.0001
@@ -217,7 +215,7 @@ def detControlMatExistence(parmObj,feeder, act_locs, A, B, indicMat,substation_n
                     #print('eigs are in/on unit circle..')
                     #print('num1evals=',num1evals)
                     #print('dimNull=',dimNull)
-                    if dimNull==num1evals:                    
+                    if bool2 and (dimNull==num1evals):                    
                         #print('Found feas F')
                         feasFs=np.append(feasFs,[[Fp, Fq]],axis=0)
                         
@@ -231,11 +229,13 @@ def detControlMatExistence(parmObj,feeder, act_locs, A, B, indicMat,substation_n
                             mag_domeig=eigs[0] # just pick any of them
                         domeig_mags=np.append(domeig_mags,mag_domeig)
                         
-                else: # if F not feas, print in which way it is
-                    if not bool1: # save which check failed
-                        eigs_outside_circle+=1
-                    else:
-                        ssError_no_contract+=1
+                    else: # if F not feas, print in which way it is
+                        if not bool2: # save which check failed
+                            ssError_no_contract+=1
+
+                        else:
+                            eigs_outside_circle+=1
+
                     
                 val=np.sum(eigMags[np.where(eigMags > 1)])
                 myCosts=np.append(myCosts,[[val]],axis=0) # temp
