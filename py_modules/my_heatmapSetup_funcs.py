@@ -278,68 +278,78 @@ def remove_subst_nodes(feeder, file_name):
     return graphNodes_nosub
 
     
-def find_good_colocated(parmObj,feeder, act_locs, node_index_map, substation_name, depths, file_name, Vbase_ll, Sbase, load_data, headerpath, modelpath):
+def find_good_colocated(parmObj,feeder, set_acts, addon_acts, node_index_map,substation_name, depths, file_name, Vbase_ll, Sbase, load_data, headerpath, modelpath):
     #almost the same as runheatmap process, but only runs once and shows one heatmap indicating which nodes are good to place a co-located act/perf node
     #return list of all "green" configs and the associated lzn errors
     #act_locs == a list of pre-set colocated act/perf locations --> to evaluate an empty network, pass in act_locs == []
-    a = 0
+    a = 0 # counter for adding new APNPs
     ff.clear_graph(feeder) # clear any previous modifictions made to graph
     graph = feeder.network
+    cur_act_locs = set_acts
     heatMapNames = [] # collect heat map names as list of strings
     n = len(graph.nodes) #number of nodes in network
     A, B = setupStateSpace(parmObj,feeder,n,node_index_map, depths)
     feas_configs = [] 
-    lzn_error_dic = {} #contains maxLznError for each choice of actuator location with node name as key  
-    test_nodes = []
     printCurves=False # your choice on whether to print PVcurves
-    graphNodes_nosub = remove_subst_nodes(feeder, file_name) # dont consider co-located at substation nodes, node 650 and 651
-    
-    cand_ctrlType=['VVC'] # all candidate APNPs will be of this type
-    foo=parmObj.get_ctrlTypes()
-    parmObj.set_ctrlTypes(cand_ctrlType+foo) #append this control type to front of controlTypes list, to be used in updateStateSpace
-    
-    
-    for node in graphNodes_nosub: # try placing act/perf at all nodes of the network
-        if node not in act_locs:
-            test_nodes.append(node)
-    
-    for act in act_locs: 
-        markActLoc(graph, act)
 
-    for test in test_nodes:
-        print('evaluating act and perf colocated at ',[test]) 
-        indicMat,phase_loop_check = updateStateSpace(parmObj,feeder, n, [test] + act_locs, [test] + act_locs, node_index_map) # (n,act,perf,dictionary)
-        if phase_loop_check:  # disallow configs in which the act and perf node phases are not aligned
-            feas, maxError, numfeas = computeFeas_v1(parmObj,feeder, [test] + act_locs, A, B, indicMat,substation_name,[test] + act_locs, depths, node_index_map,Vbase_ll, Sbase, load_data, headerpath, modelpath,printCurves,file_name) # pass in potential actual loc
-            lzn_error_dic[test] = maxError
-        else:
-            feas=False
-            maxError=1
-            numfeas=0
+    all_ctrlTypes=parmObj.get_ctrlTypes() # format is ctrl types of [set_acts addon_acts]
+    set_ctrlTypes=all_ctrlTypes[:len(set_acts)] # get control types of set_acts
+    cand_ctrlTypes=all_ctrlTypes[len(set_acts):] # get control types of addon_acts
+    
+    while a < len(addon_acts): #outer loop, a = number of actuators to place        
+        lzn_error_dic = {} #contains maxLznError for each choice of actuator location with node name as key  
+        test_nodes = []
+        graphNodes_nosub = remove_subst_nodes(feeder, file_name) # dont consider co-located at substation nodes, node 650 and 651
+    
+        cand_ctrlType=cand_ctrlTypes[a] # for each step all candidate APNPs will be of this type
+        parmObj.set_ctrlTypes([cand_ctrlType]+set_ctrlTypes) # to be used in updateStateSpace
+        
+        for act in cur_act_locs: # mark placed acts in grey
+            markActLoc(graph, act)
             
-        markFeas(numfeas, test, graph,phase_loop_check)
-        if feas:
-            feas_dic = {}
-            feas_dic['act'] = [test]
-            feas_dic['perf'] = [test]
-            feas_dic['lznErr'] = [lzn_error_dic[test]]
-            feas_dic['numfeas'] = [numfeas]
-            feas_configs += [feas_dic]
+        for node in graphNodes_nosub: # try placing act/perf at all nodes of the network
+            if node not in cur_act_locs:
+                test_nodes.append(node)
 
-    heatMapName='heatmap_colocated' + '_' + file_name
-    heatMapNames.append(heatMapName)
-    nx.nx_pydot.write_dot(graph, 'generated_figs/'+heatMapName)
-    render('dot', 'png', 'generated_figs/'+heatMapName)
+        for test in test_nodes:
+            feas=False # default
+            print('evaluating act and perf colocated at ',[test] + cur_act_locs) 
+            indicMat,phase_loop_check = updateStateSpace(parmObj,feeder, n, [test] + cur_act_locs, [test] + cur_act_locs, node_index_map) # (n,act,perf,dictionary)
+            if phase_loop_check:  # disallow configs in which the act and perf node phases are not aligned
+                feas, maxError, numfeas = computeFeas_v1(parmObj,feeder, [test] + cur_act_locs, A, B, indicMat,substation_name,[test] + cur_act_locs, depths, node_index_map,Vbase_ll, Sbase, load_data, headerpath, modelpath,printCurves,file_name) # pass in potential actual loc
+                lzn_error_dic[test] = maxError
+            else:
+                maxError=1
+                numfeas=0
 
-    return feas_configs, heatMapNames
+            markFeas(numfeas, test, graph,phase_loop_check)
+            if feas:
+                feas_dic = {}
+                feas_dic['act'] = [test]+cur_act_locs
+                feas_dic['perf'] = [test]+cur_act_locs
+                feas_dic['lznErr'] = [lzn_error_dic[test]]
+                feas_dic['numfeas'] = [numfeas]
+                feas_configs += [feas_dic]
+
+        heatMapName='CPP_heatmap_step' + str(a+1) + '_' + file_name
+        heatMapNames.append(heatMapName)
+        nx.nx_pydot.write_dot(graph, 'generated_figs/'+heatMapName)
+        render('dot', 'png', 'generated_figs/'+heatMapName)
+        a += 1 # place actuator
+        
+        if a <= len(addon_acts): # choose actuator and finalize assoc perf node
+            cur_act_locs = addon_acts[0:a] # populate cur_act_locs with subset of all_act_locs                
+            lzn_error_run_sum += lzn_error_dic[cur_act_locs[-1]][0]            
+            
+    return feas_configs, lzn_error_run_sum, heatMapNames
 
 
-def runHeatMapProcess(parmObj,feeder, set_acts, set_perfs, all_act_locs, perf_nodes, node_index_map, substation_name, depths, file_name, Vbase_ll, Sbase, load_data, headerpath, modelpath):
+def runHeatMapProcess(parmObj,feeder, set_acts, set_perfs, addon_acts, addon_perfs, node_index_map, substation_name, depths, file_name, Vbase_ll, Sbase, load_data, headerpath, modelpath):
     #compute heatmap (assess feas and lzn error on every node of the feeder, color each red/green on diagram)
     #Then for each act-perf node pair, compute heatmap
     #return list of all "green" configs and the associated lzn errors
     #heatmap shows good places to placed act wrt given perf node, NOT good places to place colocated act-perf node
-    #all_act_locs and perf_nodes = lists of node names as strings
+    #addon_acts and addon_perfs = lists of node names as strings
     a = 0
     graph = feeder.network
     cur_act_locs = set_acts
@@ -350,7 +360,7 @@ def runHeatMapProcess(parmObj,feeder, set_acts, set_perfs, all_act_locs, perf_no
     lzn_error_run_sum = 0
     feas_configs = []
     
-    while a < len(all_act_locs): #outer loop, a = number of actuators
+    while a < len(addon_acts): #outer loop, a = number of actuators
         for act in cur_act_locs: 
             markActLoc(graph, act)
             
@@ -365,10 +375,10 @@ def runHeatMapProcess(parmObj,feeder, set_acts, set_perfs, all_act_locs, perf_no
         for test in test_nodes: #inner loop
             feas=False # default
             # heatmap color indicates good places to place actuator given chosen loc of perf node (not necessarily colocated)          
-            print('evaluating actuator node at ', [test] + cur_act_locs,',\n performance node at ', [perf_nodes[a]] + cur_perf_nodes)
-            indicMat,phase_loop_check = updateStateSpace(parmObj,feeder, n, [test] + cur_act_locs, [perf_nodes[a]] + cur_perf_nodes, node_index_map)
+            print('evaluating actuator node at ', [test] + cur_act_locs,',\n performance node at ', [addon_perfs[a]] + cur_perf_nodes)
+            indicMat,phase_loop_check = updateStateSpace(parmObj,feeder, n, [test] + cur_act_locs, [addon_perfs[a]] + cur_perf_nodes, node_index_map)
             if phase_loop_check:  # disallow configs in which the act and perf node phases are not aligned
-                feas, maxError, numfeas = computeFeas_v1(parmObj,feeder, [test] + cur_act_locs, A, B, indicMat, substation_name,[perf_nodes[a]] + cur_perf_nodes, depths, node_index_map, Vbase_ll, Sbase, load_data, headerpath, modelpath, False,file_name) # false for printing PV curves
+                feas, maxError, numfeas = computeFeas_v1(parmObj,feeder, [test] + cur_act_locs, A, B, indicMat, substation_name,[addon_perfs[a]] + cur_perf_nodes, depths, node_index_map, Vbase_ll, Sbase, load_data, headerpath, modelpath, False,file_name) # false for printing PV curves
                 lzn_error_dic[test] = maxError
             else:
                 maxError=1
@@ -383,19 +393,19 @@ def runHeatMapProcess(parmObj,feeder, set_acts, set_perfs, all_act_locs, perf_no
                 feas_dic['numfeas']=[numfeas]
                 feas_configs += [feas_dic]        
         
-        graph.nodes[perf_nodes[a]]['shape'] = 'square'
+        graph.nodes[addon_perfs[a]]['shape'] = 'square'
         # after generate data for heatmap..
-        heatMapName = 'NPP_heatmap_step' + str(a) + '_' + file_name
+        heatMapName = 'NPP_heatmap_step' + str(a+1) + '_' + file_name
         heatMapNames.append(heatMapName)
         nx.nx_pydot.write_dot(graph, 'generated_figs/'+heatMapName)
         render('dot', 'png', 'generated_figs/'+heatMapName)
         a += 1 # place actuator
         
-        if a <= len(all_act_locs): # choose actuator and finalize assoc perf node
-            cur_act_locs = all_act_locs[0:a] # populate cur_act_locs with subset of all_act_locs
-            cur_perf_nodes = perf_nodes[0:a] 
+        if a <= len(addon_acts): # choose actuator and finalize assoc perf node
+            cur_act_locs = addon_acts[0:a] # populate cur_act_locs with subset of addon_acts
+            cur_perf_nodes = addon_perfs[0:a] 
             lzn_error_run_sum += lzn_error_dic[cur_act_locs[-1]][0]
-            print('The total max linearization error after '+ str(a) +' actuators have been placed = '+ str(lzn_error_run_sum))
+            #print('The total max linearization error after '+ str(a) +' actuators have been placed = '+ str(lzn_error_run_sum))
             
         # end of while loop
     return feas_configs, lzn_error_run_sum, heatMapNames
