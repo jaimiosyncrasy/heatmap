@@ -178,6 +178,24 @@ def get_RX_ratio_between_two_buses(feeder, node_name_1, node_name_2, depths):
     
     return {'Phase 1': np.around(p1_rx,2), 'Phase 2': np.around(p2_rx,2), 'Phase 3': np.around(p3_rx,2)}
 
+def get_phase_ratio_between_two_buses(feeder, node_name_1, node_name_2, depths):
+    # this gives us total impedance, sum of z on each edge
+    impedance= get_total_impedance_between_two_buses(feeder, node_name_1, node_name_2,depths) # 3x3 mat, ztot
+    self_imped_A = impedance[0][0] 
+    self_imped_B = impedance[1][1]
+    self_imped_C = impedance[2][2]
+
+    mutual_imped_A = impedance[0][1] + impedance[0][2] 
+    mutual_imped_B = impedance[1][0] + impedance[1][2]
+    mutual_imped_C = impedance[2][0] + impedance[2][1]
+
+    rat_A = mutual_imped_A/self_imped_A if self_imped_A != 0 else 0
+    rat_B = mutual_imped_B/self_imped_B if self_imped_B != 0 else 0
+    rat_C = mutual_imped_C/self_imped_C if self_imped_C != 0 else 0
+
+    coupling_ratios_3ph= np.array([[rat_A, rat_B, rat_C]])
+    # returns 1x3 array
+    return coupling_ratios_3ph
 
 def plot_histogram_RX_ratios(feeder, leaves, slack_bus, depths, leaves_only = False):
     #generates histograms of the R/X ratios for all of the nodes or a specified set of nodes in a network to the substation

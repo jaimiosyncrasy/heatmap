@@ -127,10 +127,16 @@ def assign_network_branches(feeder, substation_name):
     
     while cur_child_node:
         branch_builder += [cur_child_node]
-        all_children = list(feeder.network.successors(cur_child_node))
+        all_children = list(feeder.network.successors(cur_child_node)) # get nodes below current node
         
-        if len(all_children) > 1:
-            cur_child_node = max(all_children)
+        if len(all_children) > 1: # if more than one node below
+            if 'bus_28' in all_children: # if children contains 28, want 28 to start its own branch
+                cur_child_node='bus_26'
+            elif 'bus_62' in all_children: # if children contains 62, want 28 to start its own branch
+                cur_child_node='bus_61'
+            else:
+                cur_child_node = max(all_children) # choose rightmost (max) branch
+                
             all_children.remove(cur_child_node)
             new_branch_heads = all_children
             
@@ -206,6 +212,7 @@ def find_good_branches(lst_feas_configs, branch_lst, num_good_branches, placed):
     
     branch_dic_unique,branch_dic_gray,percent_good = {},{},{}
     best_branches_unique,best_branches_percent = [],[]
+    worst_branches_unique,worst_branches_percent=[],[]
     
     for branch in branch_lst:
         branch_head = branch[0]
@@ -246,10 +253,12 @@ def find_good_branches(lst_feas_configs, branch_lst, num_good_branches, placed):
             print('gry+gray=',gry_gray)
             print('gray=',gray)
         if len(branch)<4: # don't count branches that are too short (i.e. <4 nodes)
-            percent_good[branch_head]=-111 # bogus number, should never show up as a best branch
+            percent_good.pop(branch_head) # remove
+            #branch_dic_unique.pop(branch_head)
         else:
             percent_good[branch_head]=gy/(gry_gray-gray)
         
+    print('number of branches with len>3: ',len(percent_good),'\n')
     print('percent good dictionary is=',percent_good,'\n')
 
     # common_branches = branches that have at least one actuator placed on them in every feas config
@@ -257,13 +266,25 @@ def find_good_branches(lst_feas_configs, branch_lst, num_good_branches, placed):
     
     counter = num_good_branches
     while counter > 0:
+
         max_unique = max(branch_dic_unique, key = branch_dic_unique.get)
         max_percent = max(percent_good, key = percent_good.get)
+        min_unique = min(branch_dic_unique, key = branch_dic_unique.get)
+        min_percent = min(percent_good, key = percent_good.get)
         
         best_branches_unique += [max_unique + ' = ' + str(branch_dic_unique[max_unique]) + ' actuators']
         best_branches_percent += [max_percent + ' = ' + str(100*percent_good[max_percent]) + ' percent']
-        branch_dic_unique.pop(max_unique)
+        worst_branches_unique += [min_unique + ' = ' + str(branch_dic_unique[min_unique]) + ' actuators']
+        worst_branches_percent += [min_percent + ' = ' + str(100*percent_good[min_percent]) + ' percent']
+      
+        
+        branch_dic_unique.pop(max_unique) # remove these branches for next run because already labeled as good/bad
         percent_good.pop(max_percent)
+        if min_unique in branch_dic_unique: # need has_key check in case max and min are same branch
+            branch_dic_unique.pop(min_unique)
+        if min_percent in percent_good:
+            percent_good.pop(min_percent)
+        
         counter -= 1
     
     print('Branches are represented by their first node (the node closest to the substation).')
@@ -273,14 +294,17 @@ def find_good_branches(lst_feas_configs, branch_lst, num_good_branches, placed):
     print(best_branches_unique) # "upvoted" once when a feas config contains at least one act on that branch
     print('\nThe ' + str(num_good_branches) + ' best branches by percentage of green/yellow (excluding <=3 len branches):')            
     print(best_branches_percent)
+    print('\nThe ' + str(num_good_branches) + ' worst branches when each actuator configuration is only considered once:')
+    print(worst_branches_unique) # "upvoted" once when a feas config contains at least one act on that branch
+    print('\nThe ' + str(num_good_branches) + ' worst branches by percentage of green/yellow (excluding <=3 len branches):')            
+    print(worst_branches_percent)
     return
-
 
 def determine_good_or_bad_branch(branch, lst_feas_configs, num_configs_for_good_branch):
     # branch = list of nodes in a branch
     # lst_feas_configs = list of feasible actuator configurations
     # num_configs_for_good_branch = the minimum number of configurations that must use a branch for the branch to be 'good' (argument should be an integer)
-    # a configuration 'uses' a branch if the configuration includes an actuator that is placed on one of the nodes within the branch
+    # a feas configuration 'uses' a branch if the configuration includes an actuator that is placed on one of the nodes within the branch
     configs_with_branch = []
     
     for config in lst_feas_configs:
@@ -298,12 +322,13 @@ def determine_good_or_bad_branch(branch, lst_feas_configs, num_configs_for_good_
         print('Branch ' + str(branch) + ' is bad.')
     
     print('\nNumber of configurations that use the branch: ' + str(len(configs_with_branch)))
-    return configs_with_branch          
+    return configs_with_branch      
+
 
 def getPhases(branch,feeder): # create list of phases A/B/C, one for each node of branch
     #    branch_heads = [branch[0] for branch in branch_lst]
     phase_list = []
-    print(branch)
+    #print(branch)
 
     for node in branch:
         pred_list = list(feeder.network.predecessors(node))
@@ -367,7 +392,7 @@ def phaseCouplingPerNode(feeder, depths, file_name):
 
 
 def createColorMap(feeder, values_dic, file_name):
-    #takes in a dictionary of values with node names as keys and devides the nodes into 8 color bins based on their values
+    #takes in a dictionary of real values with node names as keys and devides the nodes into 8 color bins based on their values
     #generates png file with feeder nodes colored based on which bin they fall into
     graph = feeder.network
     ff.clear_graph(feeder)
