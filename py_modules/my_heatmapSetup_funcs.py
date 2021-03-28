@@ -289,13 +289,16 @@ def find_good_colocated(parmObj,feeder, set_acts, addon_acts, node_index_map,sub
     heatMapNames = [] # collect heat map names as list of strings
     n = len(graph.nodes) #number of nodes in network
     A, B = setupStateSpace(parmObj,feeder,n,node_index_map, depths)
+    lzn_error_run_sum = 0
     feas_configs = [] 
     printCurves=False # your choice on whether to print PVcurves
 
     all_ctrlTypes=parmObj.get_ctrlTypes() # format is ctrl types of [set_acts addon_acts]
     set_ctrlTypes=all_ctrlTypes[:len(set_acts)] # get control types of set_acts
     cand_ctrlTypes=all_ctrlTypes[len(set_acts):] # get control types of addon_acts
-    
+    #print('set control types=',set_ctrlTypes)
+    #print('cand control types=',cand_ctrlTypes)
+
     while a < len(addon_acts): #outer loop, a = number of actuators to place        
         lzn_error_dic = {} #contains maxLznError for each choice of actuator location with node name as key  
         test_nodes = []
@@ -338,8 +341,9 @@ def find_good_colocated(parmObj,feeder, set_acts, addon_acts, node_index_map,sub
         a += 1 # place actuator
         
         if a <= len(addon_acts): # choose actuator and finalize assoc perf node
-            cur_act_locs = addon_acts[0:a] # populate cur_act_locs with subset of all_act_locs                
-            lzn_error_run_sum += lzn_error_dic[cur_act_locs[-1]][0]            
+            cur_act_locs = addon_acts[0:a]+set_acts # populate cur_act_locs with subset of all_act_locs                
+            lzn_error_run_sum += lzn_error_dic[cur_act_locs[-1]][0]         
+            set_ctrlTypes=[cand_ctrlType]+set_ctrlTypes # update control types for next step
             
     return feas_configs, lzn_error_run_sum, heatMapNames
 
@@ -402,8 +406,8 @@ def runHeatMapProcess(parmObj,feeder, set_acts, set_perfs, addon_acts, addon_per
         a += 1 # place actuator
         
         if a <= len(addon_acts): # choose actuator and finalize assoc perf node
-            cur_act_locs = addon_acts[0:a] # populate cur_act_locs with subset of addon_acts
-            cur_perf_nodes = addon_perfs[0:a] 
+            cur_act_locs = addon_acts[0:a]+set_acts # populate cur_act_locs with subset of addon_acts
+            cur_perf_nodes = addon_perfs[0:a]+set_acts
             lzn_error_run_sum += lzn_error_dic[cur_act_locs[-1]][0]
             #print('The total max linearization error after '+ str(a) +' actuators have been placed = '+ str(lzn_error_run_sum))
             

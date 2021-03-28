@@ -367,10 +367,14 @@ def phaseCouplingPerNode(feeder, depths, file_name):
     for node in graphNodes_nosub:
         edge_path = hm.get_path_to_substation(feeder, node, depths)
         couplingRatio_runSum = np.zeros((1, 3), dtype = complex)
-      
+        #print('---------------new path-----------------')
+
+        phA_count,phB_count,phC_count=0,0,0 # keep track of number of lines in each phase along path to subst
         for edge in edge_path:
+            rat_A,rat_B,rat_C=0,0,0
             impedance_test = graph.get_edge_data(edge[1], edge[0], default=None)['connector']
             impedance = impedance_test.Z if isinstance(impedance_test, setup_nx.line) else np.zeros((3,3))
+            #print('Z=',impedance)
             self_imped_A = impedance[0][0] 
             self_imped_B = impedance[1][1]
             self_imped_C = impedance[2][2]
@@ -379,13 +383,27 @@ def phaseCouplingPerNode(feeder, depths, file_name):
             mutual_imped_B = impedance[1][0] + impedance[1][2]
             mutual_imped_C = impedance[2][0] + impedance[2][1]
             
-            rat_A = mutual_imped_A/self_imped_A if self_imped_A != 0 else 0
-            rat_B = mutual_imped_B/self_imped_B if self_imped_B != 0 else 0
-            rat_C = mutual_imped_C/self_imped_C if self_imped_C != 0 else 0
+            if self_imped_A != 0:
+                rat_A = mutual_imped_A/self_imped_A
+                phA_count+=1
+            else:
+                ratA=0
+            if self_imped_B != 0:
+                rat_B = mutual_imped_B/self_imped_B
+                phB_count+=1
+            else:
+                ratB=0
+            if self_imped_C != 0:
+                rat_C = mutual_imped_C/self_imped_C
+                phC_count+=1
+            else:
+                ratC=0
             
-            couplingRatio_runSum += np.array([[rat_A, rat_B, rat_C]])
+            couplingRatio_runSum += np.array([[rat_A, rat_B, rat_C]]) # 3x1 vec of complex
+            #print('3ph_rat=',couplingRatio_runSum)
 
-        coupling_ratios_3ph[node] = couplingRatio_runSum/len(edge_path) # take average of coupling ratios across edges to sub.
+        #print('[phA_count,phB_count,phC_count]=',[phA_count,phB_count,phC_count])
+        coupling_ratios_3ph[node] = np.divide(couplingRatio_runSum,[phA_count,phB_count,phC_count]) # take average of coupling ratios across edges to substation.
             
     #coupling ratios is a dictionary with node names as keys and phase coupling ratios per node as values
     return coupling_ratios_3ph
@@ -409,7 +427,7 @@ def createColorMap(feeder, values_dic, file_name):
     # color reference: https://stackoverflow.com/questions/22408237/named-colors-in-matplotlib
     colors = ['darkgreen','limegreen', 'yellowgreen','yellow','gold', 'orange','tomato','firebrick']
     bins_with_clrs = [bin_edges[i] + [colors[i]] for i in range(8)]
-    print('Color Bin Key')
+    print('Color Bin Key for',file_name)
     for b in bins_with_clrs:
         print(str(b[2]) + ': (' + str(b[0]) + ' --> ' + str(b[1]) +')')
         
