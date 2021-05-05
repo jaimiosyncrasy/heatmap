@@ -216,7 +216,7 @@ def markActLoc(graph, act_loc):
     #graph = networkx graph object (feeder.network)
     #act_loc = node name as string where actuator is placed
     graph.nodes[act_loc]['style'] = 'filled'
-    graph.nodes[act_loc]['fillcolor'] = 'gray'
+    graph.nodes[act_loc]['fillcolor'] = 'indigo'
     graph.nodes[act_loc]['shape'] = 'circle'
     return
         
@@ -336,8 +336,8 @@ def find_good_colocated(parmObj,feeder, set_acts, addon_acts, node_index_map,sub
 
         heatMapName='CPP_heatmap_step' + str(a+1) + '_' + file_name
         heatMapNames.append(heatMapName)
-        nx.nx_pydot.write_dot(graph, 'generated_figs/'+heatMapName)
-        render('dot', 'png', 'generated_figs/'+heatMapName)
+        vis.write_formatted_dot(graph, heatMapName)
+
         a += 1 # place actuator
         
         if a <= len(addon_acts): # choose actuator and finalize assoc perf node
@@ -401,8 +401,8 @@ def runHeatMapProcess(parmObj,feeder, set_acts, set_perfs, addon_acts, addon_per
         # after generate data for heatmap..
         heatMapName = 'NPP_heatmap_step' + str(a+1) + '_' + file_name
         heatMapNames.append(heatMapName)
-        nx.nx_pydot.write_dot(graph, 'generated_figs/'+heatMapName)
-        render('dot', 'png', 'generated_figs/'+heatMapName)
+        write_formatted_dot(graph, heatMapName)
+
         a += 1 # place actuator
         
         if a <= len(addon_acts): # choose actuator and finalize assoc perf node
@@ -459,9 +459,6 @@ def placeMaxColocActs_stopAtInfeas(parmObj,feeder, file_name, node_index_map, de
             print('Random choice of co-located APNP yields unstable  configuration. Generating heatmap by checking all remaining feeder nodes...')
             feas_configs, heatMapNames = find_good_colocated(parmObj,feeder, act_locs, node_index_map, substation_name, depths,file_name, Vbase_ll, Sbase, load_data, headerpath, modelpath) # makes a heatmap
 
-            # Believe this img below is redundant as find_good_colocated makes a heatmap already
-            #nx.nx_pydot.write_dot(graph, 'CPP_heatmap'+ '_' + file_name)
-            #render('dot', 'png', 'CPP_heatmap'+ '_' + file_name)
             break
     
     ff.clear_graph(feeder)

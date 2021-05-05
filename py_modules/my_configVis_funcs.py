@@ -31,9 +31,31 @@ def markActuatorConfig(lst_act_locs, feeder, file_name):
     
     for loc in lst_act_locs:
         graph.nodes[loc]['style'] = 'filled'
-        graph.nodes[loc]['fillcolor'] = 'gray'
-    nx.nx_pydot.write_dot(graph, 'generated_figs/'+'actConfig_'+ file_name)
-    render('dot', 'png', 'generated_figs/'+'actConfig_'+ file_name)
+        graph.nodes[loc]['fillcolor'] = 'indigo'
+        
+    write_formatted_dot(graph, 'actConfig_'+ file_name)
+
+    return
+
+def write_formatted_dot(graph, file_name):
+    # fix fontsize to 20
+    for node in graph.nodes:
+        graph.nodes[node]['fontsize'] = 20
+       
+    # specify node separation (horiz) and rank separation (vertical)
+    nx.nx_pydot.write_dot(graph, 'generated_figs/'+file_name)
+    f_old = open('generated_figs/'+file_name)
+    f_new = open('generated_figs/'+file_name+'wide', "w")
+    for line in f_old:
+        f_new.write(line)
+        if 'strict digraph  {' in line:
+            f_new.write("nodesep=0.45;\nranksep=0.5;\n")
+    f_old.close()
+    f_new.close()        
+    
+    # convert .dot to .png
+    render('dot', 'png', 'generated_figs/'+file_name+'wide')
+    
     return
 
 
@@ -54,10 +76,10 @@ def markCommonFeasNodes(lst_feas_configs, feeder, file_name):
     
     for act_loc in shared_locs:
         graph.nodes[act_loc]['style'] = 'filled'
-        graph.nodes[act_loc]['fillcolor'] = 'gray'
+        graph.nodes[act_loc]['fillcolor'] = 'indigo'
         
-    nx.nx_pydot.write_dot(graph, 'generated_figs/'+'shared_act_locs_' + file_name)
-    render('dot', 'png', 'generated_figs/'+'shared_act_locs_' + file_name)
+    write_formatted_dot(graph, 'shared_act_locs_'+ file_name)
+
     return shared_locs
 
 
@@ -195,8 +217,9 @@ def mark_network_branches(feeder, branch_lst, file_name, substation_name, depths
         graph.nodes[node]['style'] = 'filled'
         graph.nodes[node]['fillcolor'] = node_colors[node]
     
-    nx.nx_pydot.write_dot(graph, 'generated_figs/'+'branch_key:' + file_name)
-    render('dot', 'png', 'generated_figs/'+'branch_key:' + file_name)
+    write_formatted_dot(graph, 'branch_key:'+ file_name)
+
+    
     return
         
 
@@ -448,8 +471,8 @@ def createColorMap(feeder, values_dic, file_name):
                 graph.nodes[node]['fillcolor'] = b[2]
                 break
   
-    nx.nx_pydot.write_dot(graph, 'generated_figs/'+'colorMap_' + file_name)
-    render('dot', 'png', 'generated_figs/'+'colorMap_' + file_name)
+    write_formatted_dot(graph, 'colorMap_'+ file_name)
+
     return
 
 
@@ -501,6 +524,9 @@ def find_main_branch(feeder, substation_name, file_name):
     for node in main_branch:
         graph.nodes[node]['fillcolor'] = 'orange'
     
-    nx.nx_pydot.write_dot(graph, 'generated_figs/'+'main_branch_' + file_name)
-    render('dot', 'png', 'generated_figs/'+'main_branch_' + file_name)            
+    write_formatted_dot(graph, 'main_branch_'+ file_name)
+
     return main_branch           
+
+
+
