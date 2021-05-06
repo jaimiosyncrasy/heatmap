@@ -66,16 +66,16 @@ def computeFParamSpace_v1(feeder, act_locs, perf_nodes):
 #version 2, correct
 def computeFParamSpace_v2(parmObj,feeder, act_locs, perf_nodes,R,X,depths,node_index_Map, file_name):
     # Compute (Fq,Fp) ranges as a func of impedance paths between act nodes, perf nodes, and substation
-    if file_name=='13NFbalanced':
+    if '13NFbalanced' in file_name:
         c=np.array([0.412,0.857]) # (q,p) tuned for 13NF based on data from feas configs
-    elif file_name=='123NF':
+    elif '123NF' in file_name:
         #c=np.array([0.3,0.45])  # setting on 9/2/20
         #c=np.array([0.5,0.7]) # place_max_coloc getting not-great results from this
         if parmObj.get_version()==1:  
             c=np.array([0.3,0.45])  # setting back to this on 2/28/21
         else: # droop case
             c=np.array([0.7,1.1])  # setting this on 3/7/21
-    elif file_name=='PL0001': 
+    elif 'PL0001' in filename: 
         c=np.array([0.32,0.65])
     else:
         print('error: c not assigned because couldnt find load file in folder')
@@ -142,7 +142,76 @@ def computeFParamSpace_v2(parmObj,feeder, act_locs, perf_nodes,R,X,depths,node_i
 
     return Fq_ub,Fp_ub
 
-              
+#-------------------------------------------------------------------------------------------------------------
+def eval_Fmat(parmObj,CLmat,Fp,Fq,
+              ssError_no_contract,eigs_outside_circle,domeig_mags,feasFs): # items we populate for each F tried
+
+    eigs,evecs=LA.eig(CLmat) # closed loop eigenvalues
+    eigMags=np.absolute(eigs)
+
+#     For version 2 (droop), check that evals are within unit circle,
+#     AND vss for vdbc1 and vdbc2 are in 5% range
+    if parmObj.get_version()==2: # volt-var and volt-watt control      
+        delV=0.0535 # if dbc causes this change in v, want to ensure that all new steady states are within 0.05
+        dbc_vec1=delV*np.ones((len(CLmat), 1)) 
+        delvss1=np.dot(LA.inv(np.identity(len(CLmat))-CLmat),dbc_vec1) # inv(I-BF)*dbc_vec
+
+        # identify which nodes have delvss=dbc_vec, and throw those out
+        counter=0
+        delvss1_cleaned=[]
+        for v in delvss1:
+            if delV!=v: # basically only substation node voltages are unaffected by kgains, so we throw those out
+                delvss1_cleaned.append(v)
+            else:
+                counter+=1
+
+        #print('delvss1 (min,max,median)=(',np.around(np.amin(delvss1_cleaned),5),',',np.around(np.amax(delvss1_cleaned),5),',',np.around(np.median(delvss1_cleaned),5),')')
+        #print('num of immovable 3-ph nodes voltages=',counter/3)
+        bool2=all(item <0.05 for item in delvss1_cleaned) # check that the remaining are all under 0.05
+    else:
+        bool2=True # PBC case
+
+    if all(np.around(eigMags,decimals=6)<=1):
+        # require that all evals=1 have null space full of base
+        # evecs (no generalized evecs)
+        tol=0.0001
+        eval=1
+        num1evals=sum(np.absolute(np.absolute(eigs)-1)<tol) # numel(find(abs(abs(eigs)-1)<tol))   
+        #num1evals=sum(np.absolute(eigs)==1) # numel(find(abs(abs(eigs)-1)<tol))   
+        Y = LA.null_space(CLmat-eval*np.eye(len(CLmat))) #null(CLmat-eval*eye(size(CLmat,1))); % Y is orthonorm basis matrix
+        dimNull=len(Y[0]) # number of cols
+
+        #print('eigs are in/on unit circle..')
+        #print('num1evals=',num1evals)
+        #print('dimNull=',dimNull)
+        if bool2 and (dimNull==num1evals):                    
+            #print('Found feas F')
+            feasFs=np.append(feasFs,[[Fp, Fq]],axis=0)
+
+            # find dominant eval
+            mylist = np.absolute(np.absolute(eigs)-1) # find evals not at 1
+            def condition(x): return x > tol # find evals not at 1
+            idx = [i for i, element in enumerate(mylist) if condition(element)] # find evals not at 1
+            if idx: # if nonempty
+                mag_domeig=np.amax(np.absolute(eigs[idx]))
+            else:
+                mag_domeig=eigs[0] # just pick any of them
+            domeig_mags=np.append(domeig_mags,mag_domeig)
+
+        else: # if F not feas, print in which way it is
+            if not bool2: # save which check failed
+                ssError_no_contract+=1
+
+            else: # nullity condition doesnt hold
+                eigs_outside_circle+=1
+
+    else: # outside unit circle
+        eigs_outside_circle+=1
+
+    val=np.sum(eigMags[np.where(eigMags > 1)])
+
+    return val,ssError_no_contract,eigs_outside_circle,domeig_mags,feasFs 
+    
 def detControlMatExistence(parmObj,feeder, act_locs, A, B, indicMat,substation_name,perf_nodes,depths,node_index_map,file_name):
 #def detControlMatExistence(feeder, act_locs, perf_nodes,A,B,R,X,indicMat):
     n=int(len(indicMat)/6) # indicMat is 6n x 6n
@@ -175,69 +244,9 @@ def detControlMatExistence(parmObj,feeder, act_locs, A, B, indicMat,substation_n
                 F=assignF(parmObj,Fp,Fq,indicMat)
                 #print('sizeA=',B.shape)
                 CLmat=A-np.dot(B,F) # CLmat=A-BF
-                eigs,evecs=LA.eig(CLmat) # closed loop eigenvalues
-                eigMags=np.absolute(eigs)
-
-            #     MODIFY: for version 2 (droop), check that evals are within unit circle,
-            #     AND vss for vdbc1 and vdbc2 are in 5% range
-                if parmObj.get_version()==2: # volt-var and volt-watt control      
-                    delV=0.0535 # if dbc causes this change in v, want to ensure that all new steady states are within 0.05
-                    dbc_vec1=delV*np.ones((len(CLmat), 1)) 
-                    delvss1=np.dot(LA.inv(np.identity(len(CLmat))-CLmat),dbc_vec1) # inv(I-BF)*dbc_vec
-    #                 print('vss1=',vss1[:4])
-    #                 print('vss1=',vss1[-4:])
-
-                    # identify which nodes have delvss=dbc_vec, and throw those out
-                    counter=0
-                    delvss1_cleaned=[]
-                    for v in delvss1:
-                        if delV!=v: # basically only substation node voltages are unaffected by kgains, so we throw those out
-                            delvss1_cleaned.append(v)
-                        else:
-                            counter+=1
-
-                    #print('delvss1 (min,max,median)=(',np.around(np.amin(delvss1_cleaned),5),',',np.around(np.amax(delvss1_cleaned),5),',',np.around(np.median(delvss1_cleaned),5),')')
-                    #print('num of immovable 3-ph nodes voltages=',counter/3)
-                    bool2=all(item <0.05 for item in delvss1_cleaned) # check that the remaining are all under 0.05
-                else:
-                    bool2=True # PBC case
-                                        
-                if all(np.around(eigMags,decimals=6)<=1):
-                    # require that all evals=1 have null space full of base
-                    # evecs (no generalized evecs)
-                    tol=0.0001
-                    eval=1
-                    num1evals=sum(np.absolute(np.absolute(eigs)-1)<tol) # numel(find(abs(abs(eigs)-1)<tol))   
-                    #num1evals=sum(np.absolute(eigs)==1) # numel(find(abs(abs(eigs)-1)<tol))   
-                    Y = LA.null_space(CLmat-eval*np.eye(len(CLmat))) #null(CLmat-eval*eye(size(CLmat,1))); % Y is orthonorm basis matrix
-                    dimNull=len(Y[0]) # number of cols
-                    
-                    #print('eigs are in/on unit circle..')
-                    #print('num1evals=',num1evals)
-                    #print('dimNull=',dimNull)
-                    if bool2 and (dimNull==num1evals):                    
-                        #print('Found feas F')
-                        feasFs=np.append(feasFs,[[Fp, Fq]],axis=0)
-                        
-                        # find dominant eval
-                        mylist = np.absolute(np.absolute(eigs)-1) # find evals not at 1
-                        def condition(x): return x > tol # find evals not at 1
-                        idx = [i for i, element in enumerate(mylist) if condition(element)] # find evals not at 1
-                        if idx: # if nonempty
-                            mag_domeig=np.amax(np.absolute(eigs[idx]))
-                        else:
-                            mag_domeig=eigs[0] # just pick any of them
-                        domeig_mags=np.append(domeig_mags,mag_domeig)
-                        
-                    else: # if F not feas, print in which way it is
-                        if not bool2: # save which check failed
-                            ssError_no_contract+=1
-
-                        else:
-                            eigs_outside_circle+=1
-
-                    
-                val=np.sum(eigMags[np.where(eigMags > 1)])
+                val,ssError_no_contract,eigs_outside_circle,domeig_mags,feasFs=eval_Fmat(parmObj,CLmat,Fp,Fq,
+              ssError_no_contract,eigs_outside_circle,domeig_mags,feasFs)
+                
                 myCosts=np.append(myCosts,[[val]],axis=0) # temp
                 myFbases=np.append(myFbases,[[Fp, Fq]],axis=0) # save all Fs tried
                        
@@ -252,6 +261,7 @@ def detControlMatExistence(parmObj,feeder, act_locs, A, B, indicMat,substation_n
         #print("Best F is (Fp Fq)=",bestF) # typically really tiny, not interesting to print
         feas=True
     else:
+        bestF=float("NaN")
         feas=False
         print("No F found for config --> bad config")
         print("Unit circle fails=",eigs_outside_circle,', ss_error contraction fails=',ssError_no_contract)
@@ -262,4 +272,4 @@ def detControlMatExistence(parmObj,feeder, act_locs, A, B, indicMat,substation_n
     num_act=np.count_nonzero(indicMat)/2
        
     # return feas,feasFs,num_act,numfeas,numTried
-    return feas,feasFs,numfeas,numTried,num_act
+    return feas,feasFs,numfeas,numTried,num_act,bestF
