@@ -186,7 +186,7 @@ def eval_Fmat(parmObj,CLmat,Fp,Fq,
         #print('dimNull=',dimNull)
         if bool2 and (dimNull==num1evals):                    
             #print('Found feas F')
-            feasFs=np.append(feasFs,[[Fp, Fq]],axis=0)
+            feasFs=np.append(feasFs,np.array([[Fp, Fq]]),axis=0)
 
             # find dominant eval
             mylist = np.absolute(np.absolute(eigs)-1) # find evals not at 1
@@ -209,7 +209,6 @@ def eval_Fmat(parmObj,CLmat,Fp,Fq,
         eigs_outside_circle+=1
 
     val=np.sum(eigMags[np.where(eigMags > 1)])
-
     return val,ssError_no_contract,eigs_outside_circle,domeig_mags,feasFs 
     
 def detControlMatExistence(parmObj,feeder, act_locs, A, B, indicMat,substation_name,perf_nodes,depths,node_index_map,file_name):
@@ -217,7 +216,7 @@ def detControlMatExistence(parmObj,feeder, act_locs, A, B, indicMat,substation_n
     n=int(len(indicMat)/6) # indicMat is 6n x 6n
 
 # Compute good (Fp,Fq) sample space
-    R,X=hm.createRXmatrices_3ph(feeder, node_index_map,depths)
+    R,X=hm.createRXmatrices_3ph(feeder, node_index_map,depths) # need for computing parm space ranges
     Fq_ub,Fp_ub=computeFParamSpace_v2(parmObj,feeder, act_locs, perf_nodes,R,X,depths,node_index_map,file_name)
 
     numsamp=15 # temporary, should really do at least 15
@@ -228,7 +227,8 @@ def detControlMatExistence(parmObj,feeder, act_locs, A, B, indicMat,substation_n
 # Initialize arrays, will be populated in loops
     feas=False # boolean
     numfeas,myCosts,domeig_mags= (np.empty((0,1)) for i in range(3))
-    feasFs,myFbases=(np.empty((0,2)) for i in range(2)) # 0 for dim to concatenate on, 2 for length of vectors being concatenated
+    feasFs=np.array([], dtype=np.int64).reshape(0,2)
+    myFbases=np.array([], dtype=np.int64).reshape(0,2)
     dataFull, data_zero = (np.array([]) for i in range(2)) # for each config
     CLmat=np.empty((6*n,6*n))
 
@@ -248,16 +248,16 @@ def detControlMatExistence(parmObj,feeder, act_locs, A, B, indicMat,substation_n
               ssError_no_contract,eigs_outside_circle,domeig_mags,feasFs)
                 
                 myCosts=np.append(myCosts,[[val]],axis=0) # temp
-                myFbases=np.append(myFbases,[[Fp, Fq]],axis=0) # save all Fs tried
+                myFbases=np.append(myFbases,np.array([[Fp, Fq]]),axis=0) # save all Fs tried
                        
-    threshold=1 # your choice, define because if only found 1 feas config too borderline to count as feas
+    threshold=15 # your choice, defines when node color is yellow vs. blue
     numfeas=np.append(numfeas,[[len(feasFs)]],axis=0) # number of rows
     #print('feasFs=',np.around(feasFs,3))
     
    # if feas==True:
     if len(feasFs)>=threshold:
         print("Config good!")
-        bestF=feasFs[np.argmin(domeig_mags)][:] # the F that results in the most stable dominant eval
+        bestF=feasFs[np.argmin(domeig_mags)][:] # the (Fp,Fq) that results in the most stable dominant eval
         #print("Best F is (Fp Fq)=",bestF) # typically really tiny, not interesting to print
         feas=True
     else:
@@ -272,4 +272,33 @@ def detControlMatExistence(parmObj,feeder, act_locs, A, B, indicMat,substation_n
     num_act=np.count_nonzero(indicMat)/2
        
     # return feas,feasFs,num_act,numfeas,numTried
-    return feas,feasFs,numfeas,numTried,num_act,bestF
+    return feas,feasFs,numfeas,numTried,num_act,bestF,indicMat
+
+def eval_config_F(parmObj,bestFparm,indicMat,feeder,depths,node_index_map):
+    # takes in particular F mat +indicMat and evaluates whether (A-BF) is stable; if so feas=True
+    Fp=bestFparm[0]
+    Fq=bestFparm[1]
+    F=assignF(parmObj,Fp,Fq,indicMat)
+    
+    n=int(len(F)/6) # indicMat and F is 6n x 6n
+    A, B = hm.setupStateSpace(parmObj,feeder,n,node_index_map,depths)
+
+    # simpler version of detControlMatExistence:
+    # Initialize arrays, will be populated by eval_Fmat function
+    domeig_mags= (np.empty((0,1)) for i in range(1))
+    feasFs=np.array([], dtype=np.int64).reshape(0,2)
+    ssError_no_contract,eigs_outside_circle=0,0 # will save which checks on F fail
+
+    CLmat=np.empty((6*n,6*n))
+    CLmat=A-np.dot(B,F) # CLmat=A-BF
+    val,ssError_no_contract,eigs_outside_circle,domeig_mags,feasFs=eval_Fmat(parmObj,CLmat,Fp,Fq,
+                                                                             ssError_no_contract,eigs_outside_circle,domeig_mags,feasFs)
+    # feasFs=0 if F unstable, feasFs=1 if F is stable
+    print('len feasFs=',len(feasFs))
+    if len(feasFs)>=1:
+        feas=True
+    else:
+        feas=False
+
+    print('Actuator configuration is feasible') if feas else print('Actuator configuration is not feasible')
+    return feas

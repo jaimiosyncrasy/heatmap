@@ -121,14 +121,14 @@ def computeFeas_v1(parmObj,feeder, act_locs, A, B, indicMat, substation_name, pe
     z12 = imp.get_total_impedance_from_substation(feeder, node_1[0],depths) # 3 phase, not pu
     B12=np.zeros((3,3)) # TEMPORARY, line susceptance, Yshunt=G+jB
 
-    MYfeas,MYfeasFs,MYnumfeas,MYnumTried,MYnumact,MYbestF = ctrl.detControlMatExistence(parmObj,feeder, act_locs, A, B, indicMat,substation_name,perf_nodes,depths,node_index_map,file_name)
+    MYfeas,MYfeasFs,MYnumfeas,MYnumTried,MYnumact,MYbestF,MYindicMat = ctrl.detControlMatExistence(parmObj,feeder, act_locs, A, B, indicMat,substation_name,perf_nodes,depths,node_index_map,file_name)
     print('num feas=',MYnumfeas)
     print('num tried=',MYnumTried)
 
     #lzn_err_max, slopes = lzn.detLznRange(feeder, Vbase_ll, Sbase, z12, B12, act_locs, load_data, headerpath, substation_name, modelpath, depths,printCurves) # usually called by computeFeas
     lzn_err_max=[-1, -1, -1, -1] # workaround, for [PV, QV, Pdel,Qdel] lzn errors
 
-    return MYfeas,lzn_err_max,MYnumfeas,MYbestF
+    return MYfeas,lzn_err_max,MYnumfeas,MYbestF,MYindicMat
 
 # workaround version
 def computeFeas_v2(feeder, act_locs, perf_nodes, A, B, indicMat):
@@ -253,7 +253,7 @@ def eval_config(parmObj,feeder, all_act_locs, perf_nodes, node_index_map, substa
     A, B = setupStateSpace(parmObj,feeder,n,node_index_map,depths)
     indicMat,phase_loop_check = updateStateSpace(parmObj,feeder, n, all_act_locs, perf_nodes, node_index_map)
     if phase_loop_check:  # disallow configs in which the act and perf node phases are not aligned
-        feas, maxError, numfeas,bestF = computeFeas_v1(parmObj,feeder, all_act_locs, A, B, indicMat, substation_name, perf_nodes, depths, node_index_map, Vbase_ll, Sbase, load_data, headerpath, modelpath, printCurves,file_name)
+        feas, maxError, numfeas,bestF,indicMat = computeFeas_v1(parmObj,feeder, all_act_locs, A, B, indicMat, substation_name, perf_nodes, depths, node_index_map, Vbase_ll, Sbase, load_data, headerpath, modelpath, printCurves,file_name)
     else:
         feas=False
         maxError=1
@@ -261,7 +261,7 @@ def eval_config(parmObj,feeder, all_act_locs, perf_nodes, node_index_map, substa
     vis.markActuatorConfig(all_act_locs, feeder, file_name) # create diagram with actuator locs marked
     
     print('Actuator configuration is feasible') if feas else print('Actuator configuration is not feasible')
-    return feas, maxError, numfeas,bestF
+    return feas, maxError, numfeas,bestF, indicMat
 
 
 def remove_subst_nodes(feeder, file_name):
@@ -319,7 +319,7 @@ def find_good_colocated(parmObj,feeder, set_acts, addon_acts, node_index_map,sub
             print('evaluating act and perf colocated at ',[test] + cur_act_locs) 
             indicMat,phase_loop_check = updateStateSpace(parmObj,feeder, n, [test] + cur_act_locs, [test] + cur_act_locs, node_index_map) # (n,act,perf,dictionary)
             if phase_loop_check:  # disallow configs in which the act and perf node phases are not aligned
-                feas, maxError, numfeas,bestF = computeFeas_v1(parmObj,feeder, [test] + cur_act_locs, A, B, indicMat,substation_name,[test] + cur_act_locs, depths, node_index_map,Vbase_ll, Sbase, load_data, headerpath, modelpath,printCurves,file_name) # pass in potential actual loc
+                feas, maxError, numfeas,bestF,indicMat = computeFeas_v1(parmObj,feeder, [test] + cur_act_locs, A, B, indicMat,substation_name,[test] + cur_act_locs, depths, node_index_map,Vbase_ll, Sbase, load_data, headerpath, modelpath,printCurves,file_name) # pass in potential actual loc
                 lzn_error_dic[test] = maxError
             else:
                 maxError=1
@@ -382,7 +382,7 @@ def runHeatMapProcess(parmObj,feeder, set_acts, set_perfs, addon_acts, addon_per
             print('evaluating actuator node at ', [test] + cur_act_locs,',\n performance node at ', [addon_perfs[a]] + cur_perf_nodes)
             indicMat,phase_loop_check = updateStateSpace(parmObj,feeder, n, [test] + cur_act_locs, [addon_perfs[a]] + cur_perf_nodes, node_index_map)
             if phase_loop_check:  # disallow configs in which the act and perf node phases are not aligned
-                feas, maxError, numfeas,bestF = computeFeas_v1(parmObj,feeder, [test] + cur_act_locs, A, B, indicMat, substation_name,[addon_perfs[a]] + cur_perf_nodes, depths, node_index_map, Vbase_ll, Sbase, load_data, headerpath, modelpath, False,file_name) # false for printing PV curves
+                feas, maxError, numfeas,bestF,indicMat = computeFeas_v1(parmObj,feeder, [test] + cur_act_locs, A, B, indicMat, substation_name,[addon_perfs[a]] + cur_perf_nodes, depths, node_index_map, Vbase_ll, Sbase, load_data, headerpath, modelpath, False,file_name) # false for printing PV curves
                 lzn_error_dic[test] = maxError
             else:
                 maxError=1
@@ -444,7 +444,7 @@ def placeMaxColocActs_stopAtInfeas(parmObj,feeder, file_name, node_index_map, de
         print('evaluating actuator and performance node colocated at ',[rand_test] + act_locs) 
         indicMat,phase_loop_check = updateStateSpace(parmObj,feeder, n, [rand_test] + act_locs, [rand_test] + act_locs, node_index_map)
         if phase_loop_check:  # disallow configs in which the act and perf node phases are not aligned
-            feas, maxError, numfeas,bestF = computeFeas_v1(parmObj,feeder, [rand_test] + act_locs, A, B, indicMat, substation_name, [rand_test] + act_locs, depths, node_index_map,Vbase_ll, Sbase, load_data, headerpath, modelpath,printCurves, file_name)
+            feas, maxError, numfeas,bestF,indicMat = computeFeas_v1(parmObj,feeder, [rand_test] + act_locs, A, B, indicMat, substation_name, [rand_test] + act_locs, depths, node_index_map,Vbase_ll, Sbase, load_data, headerpath, modelpath,printCurves, file_name)
         else:
             feas=False
             maxError=1
@@ -497,7 +497,7 @@ def place_max_coloc_acts(parmObj,seedkey,feeder, file_name, node_index_map, dept
         print('evaluating actuator and performance node colocated at ',[rand_test] + act_locs) 
         indicMat,phase_loop_check = updateStateSpace(parmObj,feeder, n, [rand_test] + act_locs, [rand_test] + act_locs, node_index_map)
         if phase_loop_check:  # disallow configs in which the act and perf node phases are not aligned
-            feas, maxError, numfeas,bestF = computeFeas_v1(parmObj,feeder, [rand_test] + act_locs, A, B, indicMat, substation_name, [rand_test] + act_locs, depths, node_index_map,Vbase_ll, Sbase, load_data, headerpath, modelpath,printCurves, file_name)
+            feas, maxError, numfeas,bestF,indicMat = computeFeas_v1(parmObj,feeder, [rand_test] + act_locs, A, B, indicMat, substation_name, [rand_test] + act_locs, depths, node_index_map,Vbase_ll, Sbase, load_data, headerpath, modelpath,printCurves, file_name)
         
         else:
             feas=False
