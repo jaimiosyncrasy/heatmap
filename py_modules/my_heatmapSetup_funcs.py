@@ -267,11 +267,11 @@ def eval_config(parmObj,feeder, all_act_locs, perf_nodes, node_index_map, substa
 def remove_subst_nodes(feeder, file_name):
     #remove the substation nodes/node from the network's node list
     graph = feeder.network
-    if file_name == '13NF':
+    if '13NFbalanced' in file_name:
         substIdx = [6, 7] # substation index --> Note: idx 6 & 7 are MANUALLY PICKED OUT FOR 13NF
-    elif file_name == '123NF':
+    elif '123NF' in file_name:
         substIdx = [22, 24]
-    elif file_name == 'PL0001':
+    elif 'PL0001' in file_name:
         substIdx = [340] 
     
     graphNodes_nosub = np.delete(graph.nodes, substIdx) # dont consider substation nodes, node 650 and 651 for 13NF
@@ -414,6 +414,45 @@ def runHeatMapProcess(parmObj,feeder, set_acts, set_perfs, addon_acts, addon_per
         # end of while loop
     return feas_configs, lzn_error_run_sum, heatMapNames
 
+def design_config(parmObj,seedkey,numAct,feeder, file_name, node_index_map, depths, substation_name,Vbase_ll, Sbase, load_data, headerpath, modelpath):
+    # randomly try groups of numAct actuators until find one that works 
+    test_nodes = []
+    ctrlTypes=[]
+
+    graphNodes_nosub = remove_subst_nodes(feeder, file_name) # dont consider substation nodes, node 650 and 651 for 13NF
+    
+    for node in graphNodes_nosub:
+        test_nodes.append(node)
+
+    random.seed(seedkey)  # initialize random num generator so results are reproducable 
+    numtry=0
+    while numtry<100: # try a max of 100 configs with numAct actuators
+        # choose random set of control types
+        if parmObj.get_version()==1:
+            ctrlTypes_choosefrom=['PBC','PBC']
+        else:
+            ctrlTypes_choosefrom=['VWC','VVC']    
+            
+        rand_ctrlType=random.choices(ctrlTypes_choosefrom,k=numAct)
+        ctrlTypes=rand_ctrlType # save into list of control types
+
+        # choose random set of collocated APNP locations
+        rand_test = random.sample(test_nodes,numAct) # Return a list of unique elements chosen from the population sequence or set. Used for random sampling without replacement.
+        parmObj.set_ctrlTypes(ctrlTypes)
+        print('control types=',ctrlTypes)
+        print('evaluating actuator and performance node colocated at ',rand_test) 
+        feas, maxError,numfeas,bestFparm,indicMat=eval_config(parmObj,feeder, rand_test, rand_test, node_index_map, substation_name, depths, file_name, Vbase_ll, Sbase, load_data, headerpath, modelpath)
+        
+        if feas:
+            break # break out of loop
+        else:
+            numtry+=1
+            
+    if not feas:
+        print('Algo failed: could not find config with ',numAct,' APNPs')
+    act_locs=rand_test
+    return parmObj,act_locs,bestFparm,indicMat
+
 
 def placeMaxColocActs_stopAtInfeas(parmObj,feeder, file_name, node_index_map, depths, substation_name,Vbase_ll, Sbase, load_data, headerpath, modelpath):
     #place colocated actuators until an infeasible loc is tested, then call find_good_colocated and return 
@@ -437,7 +476,7 @@ def placeMaxColocActs_stopAtInfeas(parmObj,feeder, file_name, node_index_map, de
             test_nodes.append(node)
             
     random.seed(3)  # initialize random num generator so results are reproducable
-    while test_nodes:       
+    while test_nodes:         
         rand_test = random.choice(test_nodes)
         parmObj.set_ctrlTypes(ctrlTypes)
         print('control types=',ctrlTypes)
@@ -463,7 +502,7 @@ def placeMaxColocActs_stopAtInfeas(parmObj,feeder, file_name, node_index_map, de
     
     ff.clear_graph(feeder)
     vis.markActuatorConfig(act_locs, feeder, 'nonauto-CPP')
-    return act_locs
+    return act_locs, parmObj
 
 
 def place_max_coloc_acts(parmObj,seedkey,feeder, file_name, node_index_map, depths, substation_name,Vbase_ll, Sbase, load_data, headerpath, modelpath):
@@ -489,7 +528,7 @@ def place_max_coloc_acts(parmObj,seedkey,feeder, file_name, node_index_map, dept
             test_nodes.append(node)
     
     random.seed(seedkey)  # random num generator seed so results are reproducable
-    while test_nodes:       
+    while test_nodes:      
         rand_test = random.choice(test_nodes)
         parmObj.set_ctrlTypes(ctrlTypes)
         print('control types=',ctrlTypes)
@@ -517,4 +556,4 @@ def place_max_coloc_acts(parmObj,seedkey,feeder, file_name, node_index_map, dept
     print('Randomly placed ',len(act_locs),' actuators, among n=',len(graphNodes_nosub),' nodes on feeder')
     ff.clear_graph(feeder)
     vis.markActuatorConfig(act_locs, feeder, 'auto-CPP_seed'+str(seedkey))
-    return act_locs
+    return act_locs, parmObj
