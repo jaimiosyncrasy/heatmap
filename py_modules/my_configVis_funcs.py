@@ -288,8 +288,7 @@ def find_good_branches(lst_feas_configs, branch_lst, num_good_branches, placed):
     common_branches = [k for k, v in branch_dic_unique.items() if v == len(lst_feas_configs)]
     
     counter = num_good_branches
-    while counter > 0:
-
+    while (counter > 0 and len(percent_good)>0): # break out of loop if percent_good is empty
         max_unique = max(branch_dic_unique, key = branch_dic_unique.get)
         max_percent = max(percent_good, key = percent_good.get)
         min_unique = min(branch_dic_unique, key = branch_dic_unique.get)

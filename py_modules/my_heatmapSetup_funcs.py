@@ -450,8 +450,45 @@ def design_config(parmObj,seedkey,numAct,feeder, file_name, node_index_map, dept
             
     if not feas:
         print('Algo failed: could not find config with ',numAct,' APNPs')
+        bestFparm=-1
     act_locs=rand_test
     return parmObj,act_locs,bestFparm,indicMat
+
+def eval_random_configs(parmObj, seedkey,numAct,numEval,feeder, file_name, node_index_map, depths, substation_name,Vbase_ll, Sbase, load_data, headerpath, modelpath):
+    # randomly try numEval groups of numAct actuators and returns vector indicating which are feas
+    test_nodes = []
+    ctrlTypes=[]
+
+    graphNodes_nosub = remove_subst_nodes(feeder, file_name) # dont consider substation nodes, node 650 and 651 for 13NF
+    
+    for node in graphNodes_nosub:
+        test_nodes.append(node)
+
+    random.seed(seedkey)  # initialize random num generator so results are reproducable 
+    if parmObj.get_version()==1:
+        ctrlTypes_choosefrom=['PBC','PBC']
+    else:
+        ctrlTypes_choosefrom=['VWC','VVC']  
+           
+    feas_vec=[] # hold 1 if feas, 0 if not
+    for i in range(1,numEval): # try a max of 100 configs with numAct actuators
+        # choose random set of control types  
+        rand_ctrlType=random.choices(ctrlTypes_choosefrom,k=numAct)
+        ctrlTypes=rand_ctrlType # save into list of control types
+
+        # choose random set of collocated APNP locations
+        rand_test = random.sample(test_nodes,numAct) # Return a list of unique elements chosen from the population sequence or set. Used for random sampling without replacement.
+        parmObj.set_ctrlTypes(ctrlTypes)
+        print('control types=',ctrlTypes)
+        print('evaluating actuator and performance node colocated at ',rand_test) 
+        feas, maxError,numfeas,bestFparm,indicMat=eval_config(parmObj,feeder, rand_test, rand_test, node_index_map, substation_name, depths, file_name, Vbase_ll, Sbase, load_data, headerpath, modelpath)
+        
+        if feas:
+            feas_vec.append(1)
+        else: 
+            feas_vec.append(0)
+
+    return feas_vec
 
 
 def placeMaxColocActs_stopAtInfeas(parmObj,feeder, file_name, node_index_map, depths, substation_name,Vbase_ll, Sbase, load_data, headerpath, modelpath):

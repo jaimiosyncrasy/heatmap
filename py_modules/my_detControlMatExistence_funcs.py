@@ -135,8 +135,9 @@ def computeFParamSpace_v2(parmObj,feeder, act_locs, perf_nodes,R,X,depths,node_i
         q=np.mean(np.absolute(avgSens_dvdq))*numact # take avg across abs value of perf-act pair sensitivities
         p=np.mean(np.absolute(avgSens_ddeldp))*numact
     try: 
-        Fq_ub=(1/q)*c[0]
-        Fp_ub=(1/p)*c[1]
+        # added a floor kgain of (0.05,0.1) due to realism of kgain settings. Result is all controllers will have a limit to # DERs they can place
+        Fq_ub=max((1/q)*c[0],0.05)
+        Fp_ub=max((1/p)*c[1],0.1)
     except: 
         print('error: q or p = 0, avgSens are=',avgSens_dvdq)
 
@@ -152,6 +153,8 @@ def eval_Fmat(parmObj,CLmat,Fp,Fq,
 #     For version 2 (droop), check that evals are within unit circle,
 #     AND vss for vdbc1 and vdbc2 are in 5% range
     if parmObj.get_version()==2: # volt-var and volt-watt control      
+      #  bool2=True # temporarily removing from droop
+        
         delV=0.0535 # if dbc causes this change in v, want to ensure that all new steady states are within 0.05
         dbc_vec1=delV*np.ones((len(CLmat), 1)) 
         delvss1=np.dot(LA.inv(np.identity(len(CLmat))-CLmat),dbc_vec1) # inv(I-BF)*dbc_vec
