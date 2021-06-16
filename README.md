@@ -40,13 +40,13 @@ The main file is "driver_code_forPaper.ipynb,". The main file calls functions in
   * contains functions which allow you to find the impedance between any two nodes on a network
 
 ***my_detControlMatExistence_funcs.py***
-  * contains the functions used to determine if a particular actuator configuration is stable
+  * contains the functions used to determine if a particular actuator configuration is stable, through eigenvalue analysis of the closed-loop system
 
 ***my_detLznRange_funcs.py***
   * contains functions that set up the linearized power flow model and use the model to solve for line losses. Not used in this version of the code
 
 ***my_heatmapSetup_funcs.py***
-  * contains the functions called to run the placement processed and produce majority of the heatmaps. "runHeatMapProcess" runs the NPP, "placeMaxColocActs_stopAtInfeas" runs the CPP, and "place_max_coloc_acts" runs the Auto-CPP. 
+  * contains the functions called to run the placement processed and produce majority of the heatmaps. "runHeatMapProcess" runs the NPP, "placeMaxColocActs_stopAtInfeas" runs the OCPP, and "place_max_coloc_acts" runs the Auto-OCPP. 
 
 ***my_configVis_funcs.py***
   * contains functions primarily dedicated to dividing a distribution network into branches, and analyzing which branches are the best for placing actuators
