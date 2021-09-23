@@ -55,7 +55,7 @@ def assignF_v2(f_ub_table,n): # algo similar to updateStateSpace
     # create one F matrix from parm space
     # indicMat has diagonal 3x3 blocks where an APNP is
     F=np.zeros((6*n,6*n)) # make numpy matrix that will hold values not symbolic var
-    candFset=np.zeros((1,len(f_ub_table)))
+    candFset,candFset_percentUB=np.zeros((1,len(f_ub_table))),np.zeros((1,len(f_ub_table)))
         
     for k in range(0,len(f_ub_table)): # for each actuator
         # fubtable has format [APNP_idx indicMat_row indicMat_col flb fub]
@@ -64,16 +64,18 @@ def assignF_v2(f_ub_table,n): # algo similar to updateStateSpace
         i=int(f_ub_table[k][1]) # i from nonzero Fij
         j=int(f_ub_table[k][2]) # j from nonzero Fij
         sigma=1 # arbitrary variance, may need to adjust
-        probs=[0.05, 0.1, 0.1, 0.25, 0.45, 0.05, 0.0, 0.0, 0.0, 0.0] # probability distr, elements must sum to 1
+        #probs=[0.05, 0.1, 0.1, 0.25, 0.45, 0.05, 0.0, 0.0, 0.0, 0.0] # probability distr, elements must sum to 1
+        probs=[0.1,0.1,0.1,0.1,0.1,0.1,0.1,0.1,0.1,0.1] # probability distr, elements must sum to 1
         #probs=[0, 0, 0, 0, 0.05, 0.1, 0.1, 0.25, 0.45, 0.05] # probability distr, elements must sum to 1
         fval=np.random.choice(np.linspace(0,fub,len(probs)), p=probs) # take sample from backwards weibul, 45% chance it's 90% of fub
         #print('fval=',fval)
         candFset[0][k]=fval # save fvals into vec
+        candFset_percentUB[0][k]=fval/fub 
         # assume all blocks are 3ph for now, will correct later in this funcc
         #print('(i,j)=',i,' and ',j)
         F[i,j]=fval
 
-    return F,candFset
+    return F,candFset,candFset_percentUB
 
 # version 1, workaround
 def computeFParamSpace_v1(feeder, act_locs, perf_nodes):
@@ -246,6 +248,7 @@ def det_Gdisc(c,r,myBF,nnz_idx,n):
         if c[i]!=0 and nnz_idx==0: 
             nnz_idx=i # should only ever be one because there is one f ele
         sum=0
+        
         for j in range(6*n): # for each col of F, F is axp
             #sum=sum+myBF_noD[i,j]
             if i!=j:
@@ -295,7 +298,6 @@ def eval_Fmat(parmObj,CLmat,candFset,domeig_mags): # items we populate for each 
 
     eigs,evecs=LA.eig(CLmat) # closed loop eigenvalues
     eigMags=np.absolute(eigs)
-    print('eval_Fmat: candFset=',candFset)
 
 #     For version 2 (droop), check that evals are within unit circle,
 #     AND vss for vdbc1 and vdbc2 are in 5% range
@@ -384,13 +386,12 @@ def detControlMatExistence(parmObj, A, B, indicMat,indicMat_table,act_locs,perf_
     print('evaluating kgains sampled from parm space...')
     
     for k in range(numsamp):
-        F,candFset=assignF_v2(f_ub_table,n) # design F matrix
+        F,candFset,candFset_percentUB=assignF_v2(f_ub_table,n) # design F matrix
         CLmat=A-np.dot(B,F) # CLmat=A-BF
-        val,ssErr_bool,ecirc_bool,domeig_mags,Fstable=eval_Fmat(parmObj,CLmat,candFset,
-      domeig_mags)
+        val,ssErr_bool,ecirc_bool,domeig_mags,Fstable=eval_Fmat(parmObj,CLmat,candFset,domeig_mags)
+        print('cand F set=',candFset)
         if Fstable:
-#            print('candFset=',candFset.shape)
-            print('this F works!')
+            print('F stable!')
             feasFs=np.append(feasFs,candFset,axis=0) # if Fstable, add Fset to new row of feasFs
         eigs_outside_circle+=ecirc_bool
         ssError_no_contract+=ssErr_bool
@@ -405,7 +406,6 @@ def detControlMatExistence(parmObj, A, B, indicMat,indicMat_table,act_locs,perf_
         print("Config good!")
         print('np.argmin(domeig_mags)=',np.argmin(domeig_mags))
         print('feasF shape=',feasFs.shape)
-        print('feasFs[1][1]=',feasFs[1][1])
         bestF=feasFs[np.argmin(domeig_mags)][:] # the (Fp,Fq) that results in the most stable dominant eval
         #print("Best F is (Fp Fq)=",bestF) # typically really tiny, not interesting to print
         feas=True
