@@ -42,15 +42,17 @@ warnings.showwarning = warn_with_traceback
 # In[26]:
 
 
+
 class feeder:
 # The main class. Creating this from an ePHASORsim model and set of loads stores all the information about your network
 # Buses, loads, lines, actuators, etc. are all stored as dictionaries within this object
     #[HIL] - added ICDI vars and phasor reference vars
     def __init__(self,modelpath,loadfolder,loadpath,actpath,timesteps,timestepcur,subkVbase_phg,subkVAbase,refphasor,Psat_nodes,Qsat_nodes,PVforecast, depth_dict, leaf_list):
+    #def __init__(self,modelpath,loadfolder,loadpath,timesteps,subkVbase_phg,subkVAbase,depth_dict,leaf_list):
         # import data
         self.modeldata = pd.ExcelFile(modelpath)
-        self.loadfolder = loadfolder
-        self.loadpath = loadpath
+ #       self.loadfolder = loadfolder
+ #       self.loadpath = loadpath
         self.actpath = actpath
         self.timesteps = timesteps
         self.timestepcur = timestepcur
@@ -66,8 +68,8 @@ class feeder:
         #self.Vsrcdict = Vsrcbuilder(self.modeldata, self.busdict)
         #****** NOTE: Uncomment this after formatting has been changed
         #self.shuntdict = shuntbuilder(self.modeldata, self.busdict,timesteps)
-        self.loaddict = loadbuilderPQ(self.modeldata, self.busdict, loadpath, timesteps, timestepcur)
-        self.actdict = actbuilder(self.modeldata, self.busdict, loadpath, timesteps, timestepcur)
+  #      self.loaddict = loadbuilderPQ(self.modeldata, self.busdict, loadpath, timesteps, timestepcur)
+  #      self.actdict = actbuilder(self.modeldata, self.busdict, loadpath, timesteps, timestepcur)
         self.linedict = linebuilder(self.modeldata, self.busdict, timesteps)
         self.transdict = transbuilder(self.modeldata, self.busdict, self.subkVAbase, timesteps)
         self.switchdict = switchbuilder(self.modeldata, self.busdict, timesteps)
