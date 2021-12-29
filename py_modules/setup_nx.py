@@ -1140,7 +1140,7 @@ def transbuilder(modeldata,busdict,subkVAbase,timesteps):
         transdict[indkey].taprangepct_low = row['Min Range (%)']
         
         # Build Z, Y matrices
-        assert(transdict[indkey].w1_kVAbase == transdict[indkey].w0_kVAbase) 
+        #assert(transdict[indkey].w1_kVAbase == transdict[indkey].w0_kVAbase)  # dont need this true
         tempz = (transdict[indkey].w0_rpu + transdict[indkey].w1_rpu + 1j*transdict[indkey].xpu)*subkVAbase/transdict[indkey].w0_kVAbase
         tempy = 1/tempz
 
