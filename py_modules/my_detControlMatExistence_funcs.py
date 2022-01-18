@@ -75,8 +75,10 @@ def computeFParamSpace_v2(parmObj,feeder, act_locs, perf_nodes,R,X,depths,node_i
             c=np.array([0.3,0.45])  # setting back to this on 2/28/21
         else: # droop case
             c=np.array([0.7,1.1])  # setting this on 3/7/21
-    elif 'PL0001' in filename: 
+    elif 'PL0001' in file_name: 
         c=np.array([0.32,0.65])
+    elif 'oaklandJ' in file_name:
+        c=np.array([0.3,0.45])
     else:
         print('error: c not assigned because couldnt find load file in folder')
 
@@ -126,17 +128,19 @@ def computeFParamSpace_v2(parmObj,feeder, act_locs, perf_nodes,R,X,depths,node_i
         
     numact=len(act_locs)
     # avgSens_dvdq is list of scalar complex vals
-    if parmObj.get_version()==1:  
-        q=np.mean(np.absolute(avgSens_dvdq))*numact # take avg across abs value of perf-act pair sensitivities
-        p=np.mean(np.absolute(avgSens_ddeldp))*numact
-        #print('q=',q) # print when tuning c1 and c2
-        #print('(1/q)*c[0]=',(1/q)*c[0])
-    else: # in droop case, dont reduce Fq and Fp by number of actuators
-        q=np.mean(np.absolute(avgSens_dvdq))*numact # take avg across abs value of perf-act pair sensitivities
-        p=np.mean(np.absolute(avgSens_ddeldp))*numact
+    zpath_var1=np.var(np.absolute(avgSens_dvdq)) # if z to sub varies a lot per act, more stable so dec p and q
+    zpath_var2=np.var(np.absolute(avgSens_ddeldp))
+    print('zpath_multiplier1=',np.around(zpath_var1,3))
+        
+    m=lambda var,nact: 1+(nact-1)*np.exp(-120*var) # lambda func, for high variance m=1, for small variance m=numact
+    q=np.mean(np.absolute(avgSens_dvdq))*m(numact,zpath_var1) # take avg across abs value of perf-act pair sensitivities
+    p=np.mean(np.absolute(avgSens_ddeldp))*m(numact,zpath_var1)
+    #print('q=',q) # print when tuning c1 and c2
+    #print('(1/q)*c[0]=',(1/q)*c[0])
+
     try: 
         # added a floor kgain of (0.05,0.1) due to realism of kgain settings. Result is all controllers will have a limit to # DERs they can place
-        Fq_ub=max((1/q)*c[0],0.05)
+        Fq_ub=max((1/q)*c[0],0.05) # lower bound on kgains to sample
         Fp_ub=max((1/p)*c[1],0.1)
     except: 
         print('error: q or p = 0, avgSens are=',avgSens_dvdq)
@@ -221,11 +225,11 @@ def detControlMatExistence(parmObj,feeder, act_locs, A, B, indicMat,substation_n
 # Compute good (Fp,Fq) sample space
     R,X=hm.createRXmatrices_3ph(feeder, node_index_map,depths) # need for computing parm space ranges
     Fq_ub,Fp_ub=computeFParamSpace_v2(parmObj,feeder, act_locs, perf_nodes,R,X,depths,node_index_map,file_name)
+    print('Fp_range=',Fp_ub,' and Fq_range=',Fq_ub)
 
-    numsamp=15 # temporary, should really do at least 15
+    numsamp=8 # temporary, should really do at least 15
     Fq_range=np.linspace(0.0001, Fq_ub, numsamp)
     Fp_range=np.linspace(0.0001, Fp_ub, numsamp)
-    print('Fp_range=',Fp_ub,' and Fq_range=',Fq_ub)
 
 # Initialize arrays, will be populated in loops
     feas=False # boolean
@@ -253,7 +257,8 @@ def detControlMatExistence(parmObj,feeder, act_locs, A, B, indicMat,substation_n
                 myCosts=np.append(myCosts,[[val]],axis=0) # temp
                 myFbases=np.append(myFbases,np.array([[Fp, Fq]]),axis=0) # save all Fs tried
                        
-    threshold=15 # your choice, defines when node color is yellow vs. blue
+    threshold=(0.1)*(numsamp**2) # your choice, defines when node color is yellow vs. blue; 20% of gain sets tried
+    threshold=1 # your choice, defines when node color is yellow vs. blue; 20% of gain sets tried
     numfeas=np.append(numfeas,[[len(feasFs)]],axis=0) # number of rows
     #print('feasFs=',np.around(feasFs,3))
     

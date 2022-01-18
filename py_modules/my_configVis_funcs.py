@@ -19,12 +19,11 @@ import my_impedance_funcs as imp
 import my_detControlMatExistence_funcs as ctrl
 import my_detLznRange_funcs as lzn
 import my_heatmapSetup_funcs as hm
-
+import re # regex
 
 def markActuatorConfig(lst_act_locs, feeder, file_name):
     #creates diagram of actuator-configuration (though leaves out performance nodes)
     #lst_act_locs = list of node names where actuators are placed
-    #feeder = initialized feeder object
     #file_name = string that will be used as the file name of the returned network graph
     ff.clear_graph(feeder)
     graph = feeder.network
@@ -35,6 +34,25 @@ def markActuatorConfig(lst_act_locs, feeder, file_name):
         
     write_formatted_dot(graph, 'actConfig_'+ file_name)
 
+    return
+
+def markTwoActatorConfig(lst1,lst2,feeder,file_name):
+    #creates diagram of actuator-configuration (though leaves out performance nodes)
+    # lst1 = actautors that will be colored first
+    # lst2 = actutors that will be colored in second 
+    #file_name = string that will be used as the file name of the returned network graph
+    ff.clear_graph(feeder)
+    graph = feeder.network
+    
+    for loc in lst1:
+        graph.nodes[loc]['style'] = 'filled'
+        graph.nodes[loc]['fillcolor'] = 'indigo'
+    
+    for loc in lst2:
+        graph.nodes[loc]['style'] = 'filled'
+        graph.nodes[loc]['fillcolor'] = 'tomato'
+        
+    write_formatted_dot2(graph, 'actConfig_'+ file_name)
     return
 
 def write_formatted_dot(graph, file_name):
@@ -49,7 +67,8 @@ def write_formatted_dot(graph, file_name):
     for line in f_old:
         f_new.write(line)
         if 'strict digraph  {' in line:
-            f_new.write("nodesep=0.45;\nranksep=0.5;\n")
+            f_new.write("nodesep=0.45;\nranksep=0.5;\n") # nodesep is horizontal separation, ranksep is vertical separation
+
     f_old.close()
     f_new.close()        
     
@@ -58,6 +77,29 @@ def write_formatted_dot(graph, file_name):
     
     return
 
+def write_formatted_dot2(graph, file_name): # special version, for ecoblock report
+    # remove node labels, widen graph
+    
+    # fix fontsize to 20
+    for node in graph.nodes:
+        graph.nodes[node]['fontsize'] = 20
+       
+    # specify node separation (horiz) and rank separation (vertical)
+    nx.nx_pydot.write_dot(graph, 'generated_figs/'+file_name)
+    f_old = open('generated_figs/'+file_name)
+    f_new = open('generated_figs/'+file_name+'wide', "w")
+    for line in f_old: # go through every line of dot file
+        f_new.write(re.sub("xlabel=n\d+", "",line)); # regex, remove node labels
+        if 'strict digraph  {' in line:
+            f_new.write("nodesep=0.7;\nranksep=0.2;\n") # nodesep is horizontal separation, ranksep is vertical separation
+            
+    f_old.close()
+    f_new.close()        
+    
+    # convert .dot to .png
+    render('dot', 'png', 'generated_figs/'+file_name+'wide')
+    
+    return
 
 def markCommonFeasNodes(lst_feas_configs, feeder, file_name):
     #input a list of feasible actuator configurations where each configuration is its own list (ie a list of lists)

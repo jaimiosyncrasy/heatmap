@@ -146,8 +146,8 @@ class configParms: # used by updateStateSpace to determine whether each act is P
         self.version=-1
     def get_ctrlTypes(self): 
         return self.ctrlTypeList 
-    def set_ctrlTypes(self, list): 
-        self.ctrlTypeList = list
+    def set_ctrlTypes(self, mylist): 
+        self.ctrlTypeList = mylist
     def get_version(self): 
         return self.version 
     def set_version(self, ver): 
@@ -265,7 +265,7 @@ def eval_config(parmObj,feeder, all_act_locs, perf_nodes, node_index_map, substa
 
 
 def remove_subst_nodes(feeder, file_name):
-    #remove the substation nodes/node from the network's node list
+    #remove the substation nodes/node from the network's node list, print(node_index_map) to determine the idx
     graph = feeder.network
     if '13NFbalanced' in file_name:
         substIdx = [6, 7] # substation index --> Note: idx 6 & 7 are MANUALLY PICKED OUT FOR 13NF
@@ -273,7 +273,10 @@ def remove_subst_nodes(feeder, file_name):
         substIdx = [22, 24]
     elif 'PL0001' in file_name:
         substIdx = [340] 
-    
+    elif 'oaklandJ' in file_name:
+        substIdx=[163]
+    else:
+        print('error in hm.remove_subst_nodes: do not recognize file_name')
     graphNodes_nosub = np.delete(graph.nodes, substIdx) # dont consider substation nodes, node 650 and 651 for 13NF
     return graphNodes_nosub
 
@@ -501,7 +504,7 @@ def placeMaxColocActs_stopAtInfeas(parmObj,feeder, file_name, node_index_map, de
     ctrlTypes=[]
     printCurves=False # your choice on whether to print PVcurves
     graphNodes_nosub = remove_subst_nodes(feeder, file_name) # dont consider substation nodes, node 650 and 651 for 13NF
-    if parmObj.get_version==1:
+    if parmObj.get_version()==1:
         ctrlTypes_choosefrom=['PBC','PBC']
     else:
         ctrlTypes_choosefrom=['VWC','VVC']
@@ -542,9 +545,11 @@ def placeMaxColocActs_stopAtInfeas(parmObj,feeder, file_name, node_index_map, de
     return act_locs, parmObj
 
 
-def place_max_coloc_acts(parmObj,seedkey,feeder, file_name, node_index_map, depths, substation_name,Vbase_ll, Sbase, load_data, headerpath, modelpath):
+def place_max_coloc_acts(parmObj,seedkey,feeder, file_name, node_index_map, depths, substation_name,Vbase_ll, Sbase, load_data, headerpath, modelpath,cby_cand=-1):
     #place maximum number of colocated actuators
     #if infeas loc tested, randomly select another test node and continue function run
+    # cby_cand is set of all nodes that we want to consider placing an actuator; default set is all nodes without the substation node(s)
+    
     graph = feeder.network
     n = len(graph.nodes) #number of nodes in network
     A, B = setupStateSpace(parmObj,feeder,n, node_index_map, depths)
@@ -552,21 +557,24 @@ def place_max_coloc_acts(parmObj,seedkey,feeder, file_name, node_index_map, dept
     act_locs = []
     ctrlTypes=[]
     printCurves = False # your choice on whether to print PVcurves
-    graphNodes_nosub = remove_subst_nodes(feeder, file_name) # dont consider substation nodes, node 650 and 651 for 13NF
-    if parmObj.get_version==1:
+    if cby_cand==-1:
+        cby_cand=remove_subst_nodes(feeder, file_name) #default set is all nodes without the substation node(s)
+        
+    print('parmObj.get_version=',parmObj.get_version())
+    if parmObj.get_version()==1:
         ctrlTypes_choosefrom=['PBC','PBC']
     else:
         ctrlTypes_choosefrom=['VWC','VVC']
     rand_ctrlType=random.choice(ctrlTypes_choosefrom)
     ctrlTypes.append(rand_ctrlType) # save into list of control types
 
-    for node in graphNodes_nosub:
+    for node in cby_cand:
         if node not in act_locs:
             test_nodes.append(node)
     
     random.seed(seedkey)  # random num generator seed so results are reproducable
-    while test_nodes:      
-        rand_test = random.choice(test_nodes)
+    while test_nodes:      # while non-empty
+        rand_test = random.choice(test_nodes) # choose node randomly among test_nodes
         parmObj.set_ctrlTypes(ctrlTypes)
         print('control types=',ctrlTypes)
         
@@ -581,16 +589,16 @@ def place_max_coloc_acts(parmObj,seedkey,feeder, file_name, node_index_map, dept
             numfeas=0
 
         if feas:
-            act_locs += [rand_test]
+            act_locs += [rand_test] # store feas act_loc
             test_nodes = []
             rand_ctrlType=random.choice(ctrlTypes_choosefrom) # choose control for next candidate APNP 
             ctrlTypes.append(rand_ctrlType) # save into list of control types
-            for node in graphNodes_nosub:
+            for node in cby_cand:
                 if node not in act_locs:
                     test_nodes.append(node)
         else:
             test_nodes.remove(rand_test)
-    print('Randomly placed ',len(act_locs),' actuators, among n=',len(graphNodes_nosub),' nodes on feeder')
+    print('Randomly placed ',len(act_locs),' actuators, among n=',len(cby_cand),' possible DER nodes of feeder')
     ff.clear_graph(feeder)
     vis.markActuatorConfig(act_locs, feeder, 'auto-CPP_seed'+str(seedkey))
     return act_locs, parmObj
