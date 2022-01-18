@@ -42,15 +42,17 @@ warnings.showwarning = warn_with_traceback
 # In[26]:
 
 
+
 class feeder:
 # The main class. Creating this from an ePHASORsim model and set of loads stores all the information about your network
 # Buses, loads, lines, actuators, etc. are all stored as dictionaries within this object
     #[HIL] - added ICDI vars and phasor reference vars
     def __init__(self,modelpath,loadfolder,loadpath,actpath,timesteps,timestepcur,subkVbase_phg,subkVAbase,refphasor,Psat_nodes,Qsat_nodes,PVforecast, depth_dict, leaf_list):
+    #def __init__(self,modelpath,loadfolder,loadpath,timesteps,subkVbase_phg,subkVAbase,depth_dict,leaf_list):
         # import data
         self.modeldata = pd.ExcelFile(modelpath)
-        self.loadfolder = loadfolder
-        self.loadpath = loadpath
+ #       self.loadfolder = loadfolder
+ #       self.loadpath = loadpath
         self.actpath = actpath
         self.timesteps = timesteps
         self.timestepcur = timestepcur
@@ -66,8 +68,8 @@ class feeder:
         #self.Vsrcdict = Vsrcbuilder(self.modeldata, self.busdict)
         #****** NOTE: Uncomment this after formatting has been changed
         #self.shuntdict = shuntbuilder(self.modeldata, self.busdict,timesteps)
-        self.loaddict = loadbuilderPQ(self.modeldata, self.busdict, loadpath, timesteps, timestepcur)
-        self.actdict = actbuilder(self.modeldata, self.busdict, loadpath, timesteps, timestepcur)
+  #      self.loaddict = loadbuilderPQ(self.modeldata, self.busdict, loadpath, timesteps, timestepcur)
+  #      self.actdict = actbuilder(self.modeldata, self.busdict, loadpath, timesteps, timestepcur)
         self.linedict = linebuilder(self.modeldata, self.busdict, timesteps)
         self.transdict = transbuilder(self.modeldata, self.busdict, self.subkVAbase, timesteps)
         self.switchdict = switchbuilder(self.modeldata, self.busdict, timesteps)
@@ -573,66 +575,69 @@ def loadbuilderPQ(modeldata, busdict, loadpath, timesteps, timestepcur):
     #loadfile = pd.read_csv(loadpath)
     #loaddf = loadfile.parse('Time_Series_data')
     #[HIL] - parse out current timestep
-    loaddf = pd.read_csv(loadpath)
-    loaddf = loaddf[timestepcur:timestepcur+timesteps]
+
+# jaimie removed these lines 10/19/21:
+#     loaddf = pd.read_csv(loadpath)
+#     loaddf = loaddf[timestepcur:timestepcur+timesteps]
     
-    loaddf.index -= timestepcur
+#     loaddf.index -= timestepcur
     
 
     # Populate the load dictionary's P and Q schedules with a Gridbright load file
     
 #JPEDIT START
     
-    multiph = ['1','2','3'] ##generalize to 1,2,3 instead of first second third
-    for key, iload in loaddict.items():
-        Pkey = []
-        Qkey = []
-        phkey = []
-        for header in loaddf.columns:
-            if key in header:
-                #for mph in multiph:
-                if '/P' in header:
-                    Pkey.append(header)
-                if '/Q' in header:
-                    Qkey.append(header)
-        for ph in iload.phases:
-            phkey.append(ph)
-        for idx in range(len(phkey)):
-            for ts in range(0,timesteps):  #write with dict??
-                if idx+1 > len(Pkey):
-                    kW = 0
-                    kVar = 0
-                else: 
-                    kW = loaddf[Pkey[idx]][ts]
-                    kVAR = loaddf[Qkey[idx]][ts]
+# Jaimie removed this 10/19/21
+#     multiph = ['1','2','3'] ##generalize to 1,2,3 instead of first second third
+#     for key, iload in loaddict.items():
+#         Pkey = []
+#         Qkey = []
+#         phkey = []
+#         for header in loaddf.columns:
+#             if key in header:
+#                 #for mph in multiph:
+#                 if '/P' in header:
+#                     Pkey.append(header)
+#                 if '/Q' in header:
+#                     Qkey.append(header)
+#         for ph in iload.phases:
+#             phkey.append(ph)
+#         for idx in range(len(phkey)):
+#             for ts in range(0,timesteps):  #write with dict??
+#                 if idx+1 > len(Pkey):
+#                     kW = 0
+#                     kVar = 0
+#                 else: 
+#                     kW = loaddf[Pkey[idx]][ts]
+#                     kVAR = loaddf[Qkey[idx]][ts]
                     
-                S = kW + 1j*kVAR
+#                 S = kW + 1j*kVAR
                     
-                if not (S==0):
-                    Z = np.conj(np.square(iload.node.kVbase_phg)*1000/S)
-                else:
-                    Z = 0
+#                 if not (S==0):
+#                     Z = np.conj(np.square(iload.node.kVbase_phg)*1000/S)
+#                 else:
+#                     Z = 0
                 
-                if phkey[idx] == 'a':
-                    iload.Psched[0,ts] = kW
-                    iload.Qsched[0,ts] = kVAR
+#                 if phkey[idx] == 'a':
+#                     iload.Psched[0,ts] = kW
+#                     iload.Qsched[0,ts] = kVAR
     
-                    iload.Rsched[0,ts] = np.real(Z)
-                    iload.Xsched[0,ts] = np.imag(Z)
+#                     iload.Rsched[0,ts] = np.real(Z)
+#                     iload.Xsched[0,ts] = np.imag(Z)
     
-                if phkey[idx] == 'b':
-                    iload.Psched[1,ts] = kW
-                    iload.Qsched[1,ts] = kVAR
+#                 if phkey[idx] == 'b':
+#                     iload.Psched[1,ts] = kW
+#                     iload.Qsched[1,ts] = kVAR
     
-                    iload.Rsched[1,ts] = np.real(Z)
-                    iload.Xsched[1,ts] = np.imag(Z)
+#                     iload.Rsched[1,ts] = np.real(Z)
+#                     iload.Xsched[1,ts] = np.imag(Z)
     
-                if phkey[idx] == 'c':
-                    iload.Psched[2,ts] = kW
-                    iload.Qsched[2,ts] = kVAR
+#                 if phkey[idx] == 'c':
+#                     iload.Psched[2,ts] = kW
+#                     iload.Qsched[2,ts] = kVAR
     
-                    iload.Rsched[2,ts] = np.real(Z)
-                    iload.Xsched[2,ts] = np.imag(Z)
+#                     iload.Rsched[2,ts] = np.real(Z)
+#                     iload.Xsched[2,ts] = np.imag(Z)
                 
 #JPEDIT END
 
@@ -713,45 +718,47 @@ def loadbuilderPQ(modeldata, busdict, loadpath, timesteps, timestepcur):
 def actbuilder(modeldata, busdict, actpath, timesteps, timestepcur):
     
     actdict = dict()
-    #actfile = pd.read_csv(actpath)
-    actdf = pd.read_csv(actpath)
-    #[HIL] - parse current timestep
-    actdf = actdf[timestepcur:timestepcur+timesteps]
-    actdf.index -= timestepcur
     
-    for key,ibus in busdict.items():
-        for ph in ibus.phases:
-            if 'act_kVA_' + key + '_' + ph in list(actdf.columns.values):
-                if not (key in actdict):
-                    actdict[key] = actuator(key, timesteps)
-                    actdict[key].node = busdict[key]
-                    ibus.actuators.append(actdict[key])
-                actdict[key].phases.append(ph)
+# Jaimie removing actuators on 10/19/21
+#     #actfile = pd.read_csv(actpath)
+#     actdf = pd.read_csv(actpath)
+#     #[HIL] - parse current timestep
+#     actdf = actdf[timestepcur:timestepcur+timesteps]
+#     actdf.index -= timestepcur
     
-    for key, iact in actdict.items():
-        for ph in iact.phases:
-            for ts in range(0,timesteps):
-                actname_kVA = 'act_kVA_' + key + '_' + ph
-                act = actdf[actname_kVA][ts]
+#     for key,ibus in busdict.items():
+#         for ph in ibus.phases:
+#             if 'act_kVA_' + key + '_' + ph in list(actdf.columns.values):
+#                 if not (key in actdict):
+#                     actdict[key] = actuator(key, timesteps)
+#                     actdict[key].node = busdict[key]
+#                     ibus.actuators.append(actdict[key])
+#                 actdict[key].phases.append(ph)
+    
+#     for key, iact in actdict.items():
+#         for ph in iact.phases:
+#             for ts in range(0,timesteps):
+#                 actname_kVA = 'act_kVA_' + key + '_' + ph
+#                 act = actdf[actname_kVA][ts]
 
-                if ph == 'a':
-                    iact.Psched[0,ts] = act
-                    iact.Ssched[0,ts] = act
-                if ph == 'b':
-                    iact.Psched[1,ts] = act
-                    iact.Ssched[1,ts] = act
-                if ph == 'c':
-                    iact.Psched[2,ts] = act
-                    iact.Ssched[2,ts] = act
+#                 if ph == 'a':
+#                     iact.Psched[0,ts] = act
+#                     iact.Ssched[0,ts] = act
+#                 if ph == 'b':
+#                     iact.Psched[1,ts] = act
+#                     iact.Ssched[1,ts] = act
+#                 if ph == 'c':
+#                     iact.Psched[2,ts] = act
+#                     iact.Ssched[2,ts] = act
         
-    for key, iact in actdict.items():
-        for idx in range(len(iact.phases)):
-            if iact.phases[idx] == 'a':
-                iact.phasevec = iact.phasevec + np.array([[1],[0],[0]])
-            elif iact.phases[idx] == 'b':
-                iact.phasevec = iact.phasevec + np.array([[0],[1],[0]])
-            elif iact.phases[idx] == 'c':
-                iact.phasevec = iact.phasevec + np.array([[0],[0],[1]])
+#     for key, iact in actdict.items():
+#         for idx in range(len(iact.phases)):
+#             if iact.phases[idx] == 'a':
+#                 iact.phasevec = iact.phasevec + np.array([[1],[0],[0]])
+#             elif iact.phases[idx] == 'b':
+#                 iact.phasevec = iact.phasevec + np.array([[0],[1],[0]])
+#             elif iact.phases[idx] == 'c':
+#                 iact.phasevec = iact.phasevec + np.array([[0],[0],[1]])
     
     return actdict
 
@@ -1026,10 +1033,10 @@ def trans_helper(indkeyw0, indkeyw1, transdict, busdict, timesteps, subkVAbase, 
 
 # Create transformer dictionary from dataframe
 def transbuilder(modeldata,busdict,subkVAbase,timesteps):
-    transsheet = modeldata.parse('Transformer 3-phase')
+    transsheet = modeldata.parse('Multiphase Transformer')
     #[HIL] - NEW CODE index misalignment during parse
     if transsheet.iloc[0][0] == 'ID':
-        transsheet = modeldata.parse('Transformer 3-phase', index_col=0)
+        transsheet = modeldata.parse('Multiphase Transformer', index_col=0)
     
     # Prep transformer column headers (This is built to handle a 2-winding transformer)
     w0_start = transsheet.columns.get_loc('winding 0')
@@ -1133,7 +1140,7 @@ def transbuilder(modeldata,busdict,subkVAbase,timesteps):
         transdict[indkey].taprangepct_low = row['Min Range (%)']
         
         # Build Z, Y matrices
-        assert(transdict[indkey].w1_kVAbase == transdict[indkey].w0_kVAbase) 
+        #assert(transdict[indkey].w1_kVAbase == transdict[indkey].w0_kVAbase)  # dont need this true
         tempz = (transdict[indkey].w0_rpu + transdict[indkey].w1_rpu + 1j*transdict[indkey].xpu)*subkVAbase/transdict[indkey].w0_kVAbase
         tempy = 1/tempz
 
