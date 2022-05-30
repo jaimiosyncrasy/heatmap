@@ -55,6 +55,35 @@ def markTwoActatorConfig(lst1,lst2,feeder,file_name):
     write_formatted_dot2(graph, 'actConfig_'+ file_name)
     return
 
+def markActLoc(graph, act_loc):
+    #changes color of nodes with set actuators to gray
+    #graph = networkx graph object (feeder.network)
+    #act_loc = node name as string where actuator is placed
+    graph.nodes[act_loc]['style'] = 'filled'
+    graph.nodes[act_loc]['fillcolor'] = 'indigo'
+    graph.nodes[act_loc]['shape'] = 'circle'
+    return
+
+def markFeas(numfeas, test_act_loc, graph,phase_loop_check):
+    #if controllability can be achieved with actuator at test_act_loc then mark green, if only a few controllable configurations (given by thresh_yellowgreen) exist mark yellow, otherwise mark red
+    #feas = True or False
+    #test_act_loc = node name as string
+    #graph = networkx graph object (feeder.network)
+    graph.nodes[test_act_loc]['style'] = 'filled'
+    graph.nodes[test_act_loc]['shape'] = 'circle'
+
+    thresh_yellowgreen = 15 # you choose
+    # for more colors see https://graphviz.org/doc/info/attrs.html
+    if not phase_loop_check:
+        graph.nodes[test_act_loc]['fillcolor'] = 'firebrick'
+    elif numfeas >= thresh_yellowgreen:
+        graph.nodes[test_act_loc]['fillcolor'] = 'turquoise'
+    elif numfeas >= 1:
+        graph.nodes[test_act_loc]['fillcolor'] = 'yellow'
+    else:
+        graph.nodes[test_act_loc]['fillcolor'] = 'red'
+    return
+
 def write_formatted_dot(graph, file_name):
     # fix fontsize to 20
     for node in graph.nodes:

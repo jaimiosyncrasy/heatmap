@@ -221,9 +221,10 @@ def eval_Fmat(parmObj,CLmat,Fp,Fq,
 def detControlMatExistence(parmObj,feeder, act_locs, A, B, indicMat,substation_name,perf_nodes,depths,node_index_map,file_name):
 #def detControlMatExistence(feeder, act_locs, perf_nodes,A,B,R,X,indicMat):
     n=int(len(indicMat)/6) # indicMat is 6n x 6n
-
+    print('indicMat size is ',n)
+    
 # Compute good (Fp,Fq) sample space
-    R,X=hm.createRXmatrices_3ph(feeder, node_index_map,depths) # need for computing parm space ranges
+    R,X=hm.createRXmatrices_3ph(feeder, node_index_map,depths,file_name) # need for computing parm space ranges
     Fq_ub,Fp_ub=computeFParamSpace_v2(parmObj,feeder, act_locs, perf_nodes,R,X,depths,node_index_map,file_name)
     print('Fp_range=',Fp_ub,' and Fq_range=',Fq_ub)
 
