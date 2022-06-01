@@ -375,7 +375,8 @@ def detControlMatExistence(parmObj, feeder, A, B, indicMat,indicMat_table,act_lo
     n=int(len(indicMat)/6) # indicMat is 6n x 6n
     print('indicMat size is ',n)
 
-    sample_way='heuristic' # you choose
+    #sample_way='heuristic' # you choose
+    sample_way='non-heuristic' # you choose
     
     # Initialize arrays, will be populated in loops
     feas=False # boolean
@@ -420,7 +421,7 @@ def detControlMatExistence(parmObj, feeder, A, B, indicMat,indicMat_table,act_lo
                     eigs_outside_circle+=ecirc_bool
                     ssError_no_contract+=ssErr_bool
                     myCosts=np.append(myCosts,[[val]],axis=0) # temp
-                    myFbases=np.append(myFbases,np.array([[Fp, Fq]]),axis=0) # save all Fs tried
+                    myFbases=np.append(myFbases,candFset,axis=0) # save all Fs tried, not just feas ones
    
     #-------------------------------------------------
     elif sample_way=='non-heuristic':
@@ -433,7 +434,9 @@ def detControlMatExistence(parmObj, feeder, A, B, indicMat,indicMat_table,act_lo
             str_arr=np.append(str_arr,[np.array([act_locs[int(idx)], perf_nodes[int(idx)]])],axis=0) # adds 2x1 col for each APNP pair
         print('parm space table=\n',np.append(str_arr,f_ub_table[:,1:],axis=1),' << formated as [act perf row col lb ub]')
         feasFs=np.array([], dtype=np.int64).reshape(0,len(f_ub_table)) # number of cols will be = number of nonzero F ele
+        myFbases=np.array([], dtype=np.int64).reshape(0,len(f_ub_table))
 
+            
         # non-heuristic iter
         for k in range(numsamp):
             F,candFset,candFset_percentUB=assignF_v2(f_ub_table,n) # design F matrix
@@ -446,8 +449,12 @@ def detControlMatExistence(parmObj, feeder, A, B, indicMat,indicMat_table,act_lo
             eigs_outside_circle+=ecirc_bool
             ssError_no_contract+=ssErr_bool
             myCosts=np.append(myCosts,[[val]],axis=0) # temp
-        #-------------------------------------------------
+            myFbases=np.append(myFbases,candFset,axis=0) # save all Fs tried, not just feas ones
 
+        #-------------------------------------------------
+    else:
+        raise Exception("unrecognized string value for sample_way")
+        
 # [for both heuristic and non-heuristic] gather result
     threshold=(0.1)*(numsamp) # your choice, defines when node color is yellow vs. blue
     numfeas=np.append(numfeas,[[len(feasFs)]],axis=0) # number of rows
@@ -466,7 +473,7 @@ def detControlMatExistence(parmObj, feeder, A, B, indicMat,indicMat_table,act_lo
         print("No F found for config --> bad config")
         print("Unit circle fails=",eigs_outside_circle,', ss_error contraction fails=',ssError_no_contract)
 
-    dataFull=np.concatenate((myFbases,myCosts),axis=1) # [Fp Fq myCost]  
+    dataFull=np.concatenate((myFbases,myCosts),axis=1) # [Fp Fq myCost]  for all tried Fs
     #print("[Fp,Fq,myCost]=\n",dataFull) # print useful data
     numTried=len(myCosts) # number of rows
     num_act=np.count_nonzero(indicMat)/2
