@@ -105,7 +105,6 @@ def createRXmatrices_3ph(feeder, node_index_map, depths,file_name):
     graph_noSub=remove_subst_nodes(feeder, file_name) # list of graph.nodes
 #    graph = feeder.network
 
-    print('graph_noSub=',graph_noSub)
     n = len(graph_noSub) #number of nodes
     print('n=',n)
     R = np.zeros((3*n, 3*n)) #initializing R matrix
@@ -140,6 +139,7 @@ def createRXmatrices_3ph(feeder, node_index_map, depths,file_name):
     return R, X
 
 
+
 def setupStateSpace(parmObj,feeder, node_index_map, depths,file_name):
     #initializes state space matrices A and B
     #n = number of nodes in network
@@ -148,7 +148,6 @@ def setupStateSpace(parmObj,feeder, node_index_map, depths,file_name):
     R, X = createRXmatrices_3ph(feeder, node_index_map,depths,file_name)
     n=round(len(R)/3)
     concat_XR=np.concatenate((X, R), axis = 1)
-    
     if parmObj.get_version()==1: # PBC       
         A = np.identity(6*n)
         concat_XR_halfs = np.concatenate(((-1/2) * R, (1/2) * X), axis = 1)
@@ -161,13 +160,13 @@ def setupStateSpace(parmObj,feeder, node_index_map, depths,file_name):
 
 
 # correct version
-def computeFeas_v1(parmObj,feeder, act_locs, A, B, indicMat, substation_name, perf_nodes, depths, node_index_map, Vbase_ll, Sbase, printCurves,file_name):
+def computeFeas_v1(parmObj,feeder, act_locs, A, B, indicMat, indicMat_table,substation_name, perf_nodes, depths, node_index_map, Vbase_ll, Sbase, printCurves,file_name):
     node_0 = list(feeder.network.successors(substation_name))
     node_1 = list(feeder.network.successors(node_0[0]))
     z12 = imp.get_total_impedance_from_substation(feeder, node_1[0],depths) # 3 phase, not pu
     B12=np.zeros((3,3)) # TEMPORARY, line susceptance, Yshunt=G+jB
 
-    MYfeas,MYfeasFs,MYnumfeas,MYnumTried,MYnumact,MYbestF,MYindicMat = ctrl.detControlMatExistence(parmObj,feeder, act_locs, A, B, indicMat,substation_name,perf_nodes,depths,node_index_map,file_name)
+    MYfeas,MYfeasFs,MYnumfeas,MYnumTried,MYnumact,MYbestF,MYindicMat = ctrl.detControlMatExistence(parmObj, feeder, A, B, indicMat,indicMat_table,act_locs,perf_nodes,node_index_map,depths,file_name)
     print('num feas=',MYnumfeas)
     print('num tried=',MYnumTried)
 
@@ -200,6 +199,7 @@ class configParms: # used by updateStateSpace to determine whether each act is P
         self.version = ver
         
 def updateStateSpace(parmObj,feeder, n, act_locs, perf_nodes, node_index_map):
+    # creates indicMatTable
     #creates (6n*3n) matrix with 1 at (3i+ph)(3j+ph) for volt-watt control, and (3i+3n+ph)(3j+ph) for volt-var control
     #in the above description, ph is the integer representation (a=0, b=1, c=2) of the phase intersection between the actuator and performance nodes
     #if an actuator and performance node have no phases in common, a warning is printed
@@ -211,14 +211,14 @@ def updateStateSpace(parmObj,feeder, n, act_locs, perf_nodes, node_index_map):
         indicMat = np.zeros((6*n,6*n))
     else: # volt-watt and volt-var
         indicMat = np.zeros((6*n,3*n))
-    
-    ctrlTypeList=parmObj.get_ctrlTypes()
-    for i in range(len(act_locs)): 
-        act = act_locs[i]
-        perf = perf_nodes[i]
-        #print('act_locs=',act_locs[i])
+    #print('act_locs=',act_locs)
 
-        ctrlType=ctrlTypeList[i] # need to have 5 control types, 4 for existing and 1 for the test
+    ctrlTypeList=parmObj.get_ctrlTypes()
+    indicMat_table=np.array([], dtype=np.int64).reshape(0,3)
+    for k in range(len(act_locs)): 
+        act = act_locs[k]
+        perf = perf_nodes[k]
+        ctrlType=ctrlTypeList[k] # need to have 5 control types, 4 for existing and 1 for the test
         if not(ctrlType=='PBC' or ctrlType=='VVC' or ctrlType=='VWC'):
             raise Exception('Actuator node first 3 chars should be PBC, VVC, or VWC')
         
@@ -226,7 +226,7 @@ def updateStateSpace(parmObj,feeder, n, act_locs, perf_nodes, node_index_map):
         perf_phases = feeder.busdict[perf[4:]].phases
         act_index = node_index_map[act] # skip first 3 chars, which is ctrlType
         perf_index = node_index_map[perf]
-        
+       
         phase_intrsct = [ph for ph in act_phases if ph in perf_phases]
         if phase_intrsct == []: # disallow configs in which the act and perf node phases are not aligned. Results in kgain=0.0001 and thinks it's feasible
             print('WARNING: act_node ' + act + ' can NOT track perf_node ' + perf + ' --> no common phases')
@@ -243,16 +243,24 @@ def updateStateSpace(parmObj,feeder, n, act_locs, perf_nodes, node_index_map):
                     phase_intrsct[i] = 2
 
         #print('act=',act,', perf=',perf,', ctrlType=',ctrlType,', phaseItrsct=',phase_intrsct)
-        if ctrlType=='PBC':
-            for ph in phase_intrsct:
-                indicMat[(act_index*3)+ph][(perf_index*3)+ph] = 1
-                indicMat[(act_index*3)+(3*n)+ph][(perf_index*3)+(3*n)+ph] = 1  
-        elif ctrlType=='VVC':
-            for ph in phase_intrsct:
-                indicMat[(act_index*3)+ph][(perf_index*3)+ph] = 1
-        elif ctrlType=='VWC': #volt-watt control
-            for ph in phase_intrsct:
-                indicMat[(act_index*3)+(3*n)+ph][(perf_index*3)+ph] = 1   
+        for ph in phase_intrsct:
+            row1=(act_index*3)+ph # row will mark in indicMat upper left block
+            col1=(perf_index*3)+ph # col will mark in indicMat upper left block
+            row2=(act_index*3)+(3*n)+ph # row will mark in indicMat lower right block
+            col2=(perf_index*3)+(3*n)+ph # col will mark in indicMat lower right block
+            if ctrlType=='PBC':
+                indicMat[row1][col1] = 1
+                indicMat[row2][col2] = 1 
+                indicMat_table=np.append(indicMat_table,np.array([[k,row1,col1]]),axis=0) 
+                indicMat_table=np.append(indicMat_table,np.array([[k,row2,col2]]),axis=0) 
+            elif ctrlType=='VVC':
+                indicMat[row1][col1] = 1
+                indicMat_table=np.append(indicMat_table,np.array([[k,row1,col1]]),axis=0) 
+            elif ctrlType=='VWC': #volt-watt control
+                indicMat[row2][col1] = 1 
+                indicMat_table=np.append(indicMat_table,np.array([[k,row2,col1]]),axis=0) 
             
-    return indicMat,phase_loop_check
+    print('[updateStateSpace] indicMat_table=\n',indicMat_table,'<< [bus indicMat_row indicMat_col], 3ph nodes should have 6 rows')
+            
+    return indicMat,indicMat_table,phase_loop_check
 
