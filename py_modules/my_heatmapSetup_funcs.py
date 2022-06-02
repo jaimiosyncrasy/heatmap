@@ -260,7 +260,7 @@ def updateStateSpace(parmObj,feeder, n, act_locs, perf_nodes, node_index_map):
                 indicMat[row2][col1] = 1 
                 indicMat_table=np.append(indicMat_table,np.array([[k,row2,col1]]),axis=0) 
             
-    print('[updateStateSpace] indicMat_table=\n',indicMat_table,'<< [bus indicMat_row indicMat_col], 3ph nodes should have 6 rows')
+    print('[updateStateSpace] indicMat_table=\n',indicMat_table,'<<  [APNP_number indicMat_row indicMat_col], 3ph nodes should have 6 rows')
             
     return indicMat,indicMat_table,phase_loop_check
 

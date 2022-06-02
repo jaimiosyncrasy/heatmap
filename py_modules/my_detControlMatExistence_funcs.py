@@ -12,6 +12,7 @@ importlib.reload(setup_nx)
 from setup_nx import *
 from graphviz import Source, render
 from sympy import * # includes Matrix object and solve function
+import scipy.io # need to load .mat
 
 import datetime
 import time
@@ -55,27 +56,42 @@ def assignF_v2(f_ub_table,n): # algo similar to updateStateSpace
     # create one F matrix from parm space
     # indicMat has diagonal 3x3 blocks where an APNP is
     F=np.zeros((6*n,6*n)) # make numpy matrix that will hold values not symbolic var
-    candFset,candFset_percentUB=np.zeros((1,len(f_ub_table))),np.zeros((1,len(f_ub_table)))
-        
+    candFset=np.zeros((1,len(f_ub_table)))
+    percentExplore=np.array([]) # number of cols will be = number of nonzero F ele
+
+    # load MATLAB .mat with chebyshev ball data
+    matfile = scipy.io.loadmat('mycheby.mat') # dict with var names as the keys
+    #print(matfile.keys())
+    chebyC=Matrix(matfile['chebyC'])
+    chebyR=Matrix(matfile['chebyR'])
+    #print('chebyC size is ',chebyC.shape)
+    assert(len(chebyC)==len(f_ub_table))
+    
     for k in range(0,len(f_ub_table)): # for each actuator
-        # fubtable has format [APNP_idx indicMat_row indicMat_col flb fub]
-        fub=f_ub_table[k][4] # 3 for 4th col, which has upper bound
+        # f_ub_table has format  [APNP_number indicMat_row indicMat_col f_lb f_ub]
+        fub=f_ub_table[k][4] # 4 for 5th col, which has upper bound
         #print('fub=',fub)
-        i=int(f_ub_table[k][1]) # i from nonzero Fij
-        j=int(f_ub_table[k][2]) # j from nonzero Fij
-        sigma=1 # arbitrary variance, may need to adjust
-        #probs=[0.05, 0.1, 0.1, 0.25, 0.45, 0.05, 0.0, 0.0, 0.0, 0.0] # probability distr, elements must sum to 1
-        probs=[0.1,0.1,0.1,0.1,0.1,0.1,0.1,0.1,0.1,0.1] # probability distr, elements must sum to 1
-        #probs=[0, 0, 0, 0, 0.05, 0.1, 0.1, 0.25, 0.45, 0.05] # probability distr, elements must sum to 1
-        fval=np.random.choice(np.linspace(0,fub,len(probs)), p=probs) # take sample from backwards weibul, 45% chance it's 90% of fub
-        #print('fval=',fval)
-        candFset[0][k]=fval # save fvals into vec
-        candFset_percentUB[0][k]=fval/fub 
+        i=int(f_ub_table[k][1]) # i from nonzero f_ij ele
+        j=int(f_ub_table[k][2]) # j from nonzero f_ij ele
+
+#         #probs=[0.05, 0.1, 0.1, 0.25, 0.45, 0.05, 0.0, 0.0, 0.0, 0.0] # probability distr, elements must sum to 1
+#         probs=[0.1,0.1,0.1,0.1,0.1,0.1,0.1,0.1,0.1,0.1] # probability distr, elements must sum to 1
+#         #probs=[0, 0, 0, 0, 0.05, 0.1, 0.1, 0.25, 0.45, 0.05] # probability distr, elements must sum to 1
+#         fval=np.random.choice(np.linspace(0,fub,len(probs)), p=probs) # take sample from backwards weibul, 45% chance it's 90% of fub
+#         #print('fval=',fval)
+                    
+       # sample according to gaussians around the chebyCenter
+        sigma=chebyR*2
+        fval=np.random.normal(chebyC[k], sigma,1) # mu,sigma,nsamp
+        percentExplore=np.append(percentExplore,100*(fval-chebyC[k])/chebyC[k]) # save how far sample is from chebyC
+        candFset[0,k]=max([fval, 0]) # save fvals into vec, replace with zero if negative
         # assume all blocks are 3ph for now, will correct later in this funcc
         #print('(i,j)=',i,' and ',j)
         F[i,j]=fval
+        
+    print('percentage change of chebyC=',percentExplore)
 
-    return F,candFset,candFset_percentUB
+    return F,candFset
     
 # version 1, workaround
 def computeFParamSpace_v1(feeder, act_locs, perf_nodes):
@@ -223,23 +239,23 @@ def det_Gdisc_Franges(indicMat_table, n, B, c, r):
  
     bigBox_range= np.concatenate((indicMat_table, np.zeros((len(indicMat_table),2))), axis=1) # add 2 columns to end
     
-    for k in range(num_fele): # apply gdisc conditions for each nonzero f ele, each iteration updates row of bigBox_range
-        print('working with ',k,'_th nonzero F ele')
-        Fsymb=zeros(6*n) # faster than creating array and converting to matrix object
-        #num_col_indicMat=len(indicMat[0]) # number of cols in indicMat
-        injNode=f_loc[k][0]
-        sensNode=f_loc[k][1]
-        if injNode<3*n and sensNode>3*n: 
-            raise Exception("cant choose f_loc in upper right of F, f_loc=["+str(injNode)+" "+str(sensNode)+"]")
-        else:
-            Fsymb[injNode,sensNode]=f
-            #c[k]=myBF[sensNode,sensNode] # f_ij has gdisc center at BF_{jj} because BF's jth col is nonzero
-        myBF=multBF(B,injNode,sensNode,n)
-        nnz_idx=0 # initialize index of nonzero center, should only have one because look at one f ele at a time
+#     for k in range(num_fele): # apply gdisc conditions for each nonzero f ele, each iteration updates row of bigBox_range
+#         print('working with ',k,'_th nonzero F ele')
+#         Fsymb=zeros(6*n) # faster than creating array and converting to matrix object
+#         #num_col_indicMat=len(indicMat[0]) # number of cols in indicMat
+#         injNode=f_loc[k][0]
+#         sensNode=f_loc[k][1]
+#         if injNode<3*n and sensNode>3*n: 
+#             raise Exception("cant choose f_loc in upper right of F, f_loc=["+str(injNode)+" "+str(sensNode)+"]")
+#         else:
+#             Fsymb[injNode,sensNode]=f
+#             #c[k]=myBF[sensNode,sensNode] # f_ij has gdisc center at BF_{jj} because BF's jth col is nonzero
+#         myBF=multBF(B,injNode,sensNode,n)
+#         nnz_idx=0 # initialize index of nonzero center, should only have one because look at one f ele at a time
 
-        c,r,nnz_idx=det_Gdisc(c,r,myBF,nnz_idx,n) 
-        print('solving Gdisc conditions...')
-        bigBox_range=solve_Gdisc_conds(c,r,nnz_idx,k,bigBox_range) # updates bigBox range with a new range
+#         c,r,nnz_idx=det_Gdisc(c,r,myBF,nnz_idx,n) 
+#         print('solving Gdisc conditions...')
+#         bigBox_range=solve_Gdisc_conds(c,r,nnz_idx,k,bigBox_range) # updates bigBox range with a new range
     
     # print('bigBox_range=',bigBox_range)
     return bigBox_range
@@ -263,37 +279,33 @@ def det_Gdisc(c,r,myBF,nnz_idx,n):
     return c,r,nnz_idx
 
 # helper func in computeFParamSpace_v3
-def solve_Gdisc_conds(c,r,nnz_idx,k,bigBox_range):
+def solve_Gdisc_conds(c,r,nnz_idx,k,bigBox_range): # for each Gdisc, update one row of bigBox_range
     # must pass in bixBox_range so can update it across calls of this func
     # modify indicMat_table by adding 2 columns to end, for [flb fub] computed from gdisc cond
                  
     #print('r=',r)
     #print('c=',c)
-    cond1=c[nnz_idx]+r[nnz_idx]-2 # =0, c+r<2
+    cond1=c[nnz_idx]+r[nnz_idx]-2 # <0, c+r<2
     print('cond1=',cond1)
-    cond2=c[nnz_idx]-r[nnz_idx] # =0, c-r>0
-    #print('cond2=',cond2)
+    cond2=-c[nnz_idx]+r[nnz_idx] # <0, c-r>0
+    print('cond2=',cond2)
     cond3=c[nnz_idx] # =0, c>0
     #print('cond3=',cond3)
 
-#     sol1=solve(cond1,dict=True) # eqn is set to zero and solved
-#     sol2=solve(cond2,dict=True) 
-#     if sol1 and sol2: # if both give solns
-#         if sol1[0][f]<sol2[0][f]:
-#             bigBox_range[k][3:5]=[sol1[0][f], sol2[0][f]] # row of bigBox_range
-#         else:
-#             bigBox_range[k][3:5]=[sol2[0][f], sol1[0][f]]
-#         #print('range=',bigBox_range[k][:])
-#         bigBox_range[k][0:3]=indicMat_table[k]
-#     else:
-#         print('No solution to conditions')
-     
-# only solve first condition because second condition is always cf>0 --> f>0
     sol1=solve(cond1,dict=True) # eqn is set to zero and solved
-    if sol1: # if both give solns
-        bigBox_range[k,3:5]=[0, sol1[0][f]] # last 2 cols
+    sol2=solve(cond2,dict=True) 
+    print('sol1=',sol1)
+    print('sol2=',sol2)
+    
+    if sol1 and sol2: # if both give solns
+        if sol1[0][f]<sol2[0][f]:
+            bigBox_range[k][3:5]=[sol1[0][f], sol2[0][f]] # row of bigBox_range
+        else:
+            bigBox_range[k][3:5]=[sol2[0][f], sol1[0][f]]
+        #print('range=',bigBox_range[k][:])
     else:
-        print('No solution to conditions') 
+        print('No solution to conditions')
+     
         
     return bigBox_range
 
@@ -424,22 +436,21 @@ def detControlMatExistence(parmObj, feeder, A, B, indicMat,indicMat_table,act_lo
                     myFbases=np.append(myFbases,candFset,axis=0) # save all Fs tried, not just feas ones
    
     #-------------------------------------------------
-    elif sample_way=='non-heuristic':
-
-        # Non-heuristic way to compute the sample space
-        f_ub_table=computeFParamSpace_v3(B, indicMat,indicMat_table) # format is [Frow Fcol f_lb f_ub]
+    elif sample_way=='non-heuristic':  # Non-heuristic way to compute the sample space
+        
+        # create f_ub_table, formatted as [act_name perf_name indicMat_row indicMat_col f_lb f_ub]
+        f_ub_table=computeFParamSpace_v3(B, indicMat,indicMat_table) # format is [APNP_number indicMat_row indicMat_col f_lb f_ub]
         str_arr=np.array([], dtype=np.int64).reshape(0,2)
         print('ex=',[act_locs[int(0)], perf_nodes[int(0)]])
         for idx in f_ub_table[:,0]: # pull APNP idx from first col of f_ub_table
             str_arr=np.append(str_arr,[np.array([act_locs[int(idx)], perf_nodes[int(idx)]])],axis=0) # adds 2x1 col for each APNP pair
-        print('parm space table=\n',np.append(str_arr,f_ub_table[:,1:],axis=1),' << formated as [act perf row col lb ub]')
+        print('parm space table =\n',np.append(str_arr,f_ub_table[:,1:],axis=1),' << formated as [act_name perf_name indicMat_row indicMat_col f_lb f_ub]')
+                
         feasFs=np.array([], dtype=np.int64).reshape(0,len(f_ub_table)) # number of cols will be = number of nonzero F ele
         myFbases=np.array([], dtype=np.int64).reshape(0,len(f_ub_table))
-
             
-        # non-heuristic iter
         for k in range(numsamp):
-            F,candFset,candFset_percentUB=assignF_v2(f_ub_table,n) # design F matrix
+            F,candFset=assignF_v2(f_ub_table,n) # design F matrix
             CLmat=A-np.dot(B,F) # CLmat=A-BF
             val,ssErr_bool,ecirc_bool,domeig_mags,Fstable=eval_Fmat(parmObj,CLmat,domeig_mags)
             print('cand F set=',candFset)
@@ -464,7 +475,8 @@ def detControlMatExistence(parmObj, feeder, A, B, indicMat,indicMat_table,act_lo
     if len(feasFs)>=threshold:
         print("Config good!")
         print('feasF shape=',feasFs.shape)
-        bestF=feasFs[np.argmin(domeig_mags)][:] # the (Fp,Fq) that results in the most stable dominant eval
+        print('smallest dom eig mag=',min(domeig_mags))
+        bestF=feasFs[np.argmin(domeig_mags)][:] # the set of F ele that results in the most stable dominant eval
         #print("Best F is (Fp Fq)=",bestF) # typically really tiny, not interesting to print
         feas=True
     else:
