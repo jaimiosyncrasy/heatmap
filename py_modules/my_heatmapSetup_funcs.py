@@ -74,19 +74,6 @@ def get_path_to_substation(feeder, node, depths):
         current_node = pred_node[0]
     return node_path
 
-def createNodeIndexMap(feeder):
-    #indexes assigned based on numerical value of node, not node's possition in the network
-    #for example, the node named with the lowest numerical value will map to 0, not the substation
-    #feeder = initiaized feeder object
-    graph = feeder.network
-    node_index_map = {} #node indices for indicMat and F matrix
-    t = 0 #initializing first index for node_index_map
-    
-    for node in graph.nodes: #populating node_idex_map
-        node_index_map[node] = t
-        t += 1
-    return node_index_map
-
 
 def getKey(dictionary, value):
     #use to retrieve node name from node_index_map using node index
@@ -96,11 +83,10 @@ def getKey(dictionary, value):
                 key = k
     return key 
 
-def createRXmatrices_3ph(feeder, node_index_map, depths,file_name):
+def createRXmatrices_3ph(feeder, depths,file_name):
     #returns 2 (3n)x(3n) matrices containing R and X values for the network 
     #includes all 3 phases
     #feeder = initiaized feeder object
-    #node_index_map = dictionary of node indices with node names as keys
     
     graph_noSub=remove_subst_nodes(feeder, file_name) # list of graph.nodes
 #    graph = feeder.network
@@ -140,12 +126,13 @@ def createRXmatrices_3ph(feeder, node_index_map, depths,file_name):
 
 
 
-def setupStateSpace(parmObj,feeder, node_index_map, depths,file_name):
+def setupStateSpace(parmObj,feeder, depths,file_name):
     #initializes state space matrices A and B
     #n = number of nodes in network
     #feeder = initiaized feeder object
     #node_index_map = dictionary of node indices with node names as keys
-    R, X = createRXmatrices_3ph(feeder, node_index_map,depths,file_name)
+    #^not used
+    R, X = createRXmatrices_3ph(feeder, depths,file_name)
     n=round(len(R)/3)
     concat_XR=np.concatenate((X, R), axis = 1)
     if parmObj.get_version()==1: # PBC       
@@ -198,20 +185,21 @@ class configParms: # used by updateStateSpace to determine whether each act is P
     def set_version(self, ver): 
         self.version = ver
         
-def updateStateSpace(parmObj,feeder, n, act_locs, perf_nodes, node_index_map):
-    # creates indicMatTable
+def updateStateSpace(parmObj,feeder, n, act_locs, perf_nodes):
+    # creates indicMat and indicMatTable
     #creates (6n*3n) matrix with 1 at (3i+ph)(3j+ph) for volt-watt control, and (3i+3n+ph)(3j+ph) for volt-var control
     #in the above description, ph is the integer representation (a=0, b=1, c=2) of the phase intersection between the actuator and performance nodes
     #if an actuator and performance node have no phases in common, a warning is printed
     #n = number of nodes in network
     #act_locs = list of actuators locations in network (list of strings)
     #perf_nodes = list of performance nodes 
-    #node_index_map = dictionary of node indices for indicMat and F matrix
+    #node_index_map = list of bus names in order for indicMat and F matrix
     if parmObj.get_version()==1: # PBC
         indicMat = np.zeros((6*n,6*n))
     else: # volt-watt and volt-var
         indicMat = np.zeros((6*n,3*n))
     #print('act_locs=',act_locs)
+    graph_noSub=remove_subst_nodes(feeder, file_name) # list of graph.nodes
 
     ctrlTypeList=parmObj.get_ctrlTypes()
     indicMat_table=np.array([], dtype=np.int64).reshape(0,3)
@@ -224,8 +212,8 @@ def updateStateSpace(parmObj,feeder, n, act_locs, perf_nodes, node_index_map):
         
         act_phases = feeder.busdict[act[4:]].phases # [7:] extracts the YYY bus number from 'XXXbus_YYY'
         perf_phases = feeder.busdict[perf[4:]].phases
-        act_index = node_index_map[act] # skip first 3 chars, which is ctrlType
-        perf_index = node_index_map[perf]
+        act_index = graph_noSub[act] # skip first 3 chars, which is ctrlType
+        perf_index = graph_noSub[perf]
        
         phase_intrsct = [ph for ph in act_phases if ph in perf_phases]
         if phase_intrsct == []: # disallow configs in which the act and perf node phases are not aligned. Results in kgain=0.0001 and thinks it's feasible
