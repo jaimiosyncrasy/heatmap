@@ -35,8 +35,8 @@ def remove_subst_nodes(feeder, file_name):
         substIdx=[0,36] # node 701 and node 799 respectively (701-799 is substation xfmr edge)
     else:
         print('error in hm.remove_subst_nodes: do not recognize file_name')
-    graphNodes_nosub = np.delete(graph.nodes, substIdx) # dont consider substation nodes, node 650 and 651 for 13NF
-    return graphNodes_nosub
+    graphNodes_nosub = list(np.delete(graph.nodes, substIdx)) # dont consider substation nodes, node 650 and 651 for 13NF
+    return graphNodes_nosub # list of buses ['bus_X','bus_Y',...]
     
 def createNodeIndexMap(feeder):
     #indexes assigned based on numerical value of node, not node's possition in the network
@@ -185,7 +185,7 @@ class configParms: # used by updateStateSpace to determine whether each act is P
     def set_version(self, ver): 
         self.version = ver
         
-def updateStateSpace(parmObj,feeder, n, act_locs, perf_nodes):
+def updateStateSpace(parmObj,feeder, n, act_locs, perf_nodes,file_name):
     # creates indicMat and indicMatTable
     #creates (6n*3n) matrix with 1 at (3i+ph)(3j+ph) for volt-watt control, and (3i+3n+ph)(3j+ph) for volt-var control
     #in the above description, ph is the integer representation (a=0, b=1, c=2) of the phase intersection between the actuator and performance nodes
@@ -212,8 +212,9 @@ def updateStateSpace(parmObj,feeder, n, act_locs, perf_nodes):
         
         act_phases = feeder.busdict[act[4:]].phases # [7:] extracts the YYY bus number from 'XXXbus_YYY'
         perf_phases = feeder.busdict[perf[4:]].phases
-        act_index = graph_noSub[act] # skip first 3 chars, which is ctrlType
-        perf_index = graph_noSub[perf]
+        
+        act_index=graph_noSub.index(act)
+        perf_index=graph_noSub.index(perf)
        
         phase_intrsct = [ph for ph in act_phases if ph in perf_phases]
         if phase_intrsct == []: # disallow configs in which the act and perf node phases are not aligned. Results in kgain=0.0001 and thinks it's feasible

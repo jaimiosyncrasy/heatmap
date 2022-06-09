@@ -29,7 +29,7 @@ def eval_config(parmObj,feeder, all_act_locs, perf_nodes, node_index_map, substa
     graph = feeder.network
     A, B,n = hm.setupStateSpace(parmObj,feeder,depths,file_name)
     assert A.shape==(6*n,6*n), "issue: A (from setupStateSpace) or n have incorrect dims"
-    indicMat,indicMat_table,phase_loop_check = hm.updateStateSpace(parmObj,feeder, n, all_act_locs, perf_nodes)
+    indicMat,indicMat_table,phase_loop_check = hm.updateStateSpace(parmObj,feeder, n, all_act_locs, perf_nodes,file_name)
     if phase_loop_check:  # disallow configs in which the act and perf node phases are not aligned
         feas, maxError, numfeas,bestF,indicMat = hm.computeFeas_v1(parmObj,feeder, all_act_locs, A, B, indicMat, indicMat_table, substation_name, perf_nodes, depths, node_index_map, Vbase_ll, Sbase,  printCurves,file_name)
     else:
@@ -81,7 +81,7 @@ def find_good_colocated(parmObj,feeder, set_acts, addon_acts, node_index_map,sub
         for test in test_nodes:
             feas=False # default
             print('evaluating act and perf colocated at ',[test] + cur_act_locs) 
-            indicMat,indicMat_table,phase_loop_check = hm.updateStateSpace(parmObj,feeder, n, [test] + cur_act_locs, [test] + cur_act_locs) # (n,act,perf,dictionary)
+            indicMat,indicMat_table,phase_loop_check = hm.updateStateSpace(parmObj,feeder, n, [test] + cur_act_locs, [test] + cur_act_locs,file_name) # (n,act,perf,dictionary)
             if phase_loop_check:  # disallow configs in which the act and perf node phases are not aligned
                 feas, maxError, numfeas,bestF,indicMat = hm.computeFeas_v1(parmObj,feeder, [test] + cur_act_locs, A, B, indicMat, indicMat_table,substation_name,[test] + cur_act_locs, depths, node_index_map,Vbase_ll, Sbase, printCurves,file_name) # pass in potential actual loc
                 lzn_error_dic[test] = maxError
@@ -144,7 +144,7 @@ def runHeatMapProcess(parmObj,feeder, set_acts, set_perfs, addon_acts, addon_per
             feas=False # default
             # heatmap color indicates good places to place actuator given chosen loc of perf node (not necessarily colocated)          
             print('evaluating actuator node at ', [test] + cur_act_locs,',\n performance node at ', [addon_perfs[a]] + cur_perf_nodes)
-            indicMat,indicMat_table,phase_loop_check = hm.updateStateSpace(parmObj,feeder, n, [test] + cur_act_locs, [addon_perfs[a]] + cur_perf_nodes)
+            indicMat,indicMat_table,phase_loop_check = hm.updateStateSpace(parmObj,feeder, n, [test] + cur_act_locs, [addon_perfs[a]] + cur_perf_nodes,file_name)
             if phase_loop_check:  # disallow configs in which the act and perf node phases are not aligned
                 feas, maxError, numfeas,bestF,indicMat = hm.computeFeas_v1(parmObj,feeder, [test] + cur_act_locs, A, B, indicMat, indicMat_table, substation_name,[addon_perfs[a]] + cur_perf_nodes, depths, node_index_map, Vbase_ll, Sbase, False,file_name) # false for printing PV curves
                 lzn_error_dic[test] = maxError
@@ -282,7 +282,7 @@ def placeMaxColocActs_stopAtInfeas(parmObj,feeder, file_name, node_index_map, de
         parmObj.set_ctrlTypes(ctrlTypes)
         print('control types=',ctrlTypes)
         print('evaluating actuator and performance node colocated at ',[rand_test] + act_locs) 
-        indicMat,phase_loop_check = hm.updateStateSpace(parmObj,feeder, n, [rand_test] + act_locs, [rand_test] + act_locs,)
+        indicMat,phase_loop_check = hm.updateStateSpace(parmObj,feeder, n, [rand_test] + act_locs, [rand_test] + act_locs,file_name)
         if phase_loop_check:  # disallow configs in which the act and perf node phases are not aligned
             feas, maxError, numfeas,bestF,indicMat = hm.computeFeas_v1(parmObj,feeder, [rand_test] + act_locs, A, B, indicMat, indicMat_table,substation_name, [rand_test] + act_locs, depths, node_index_map,Vbase_ll, Sbase, printCurves, file_name)
         else:
@@ -340,7 +340,7 @@ def place_max_coloc_acts(parmObj,seedkey,feeder, file_name, node_index_map, dept
         print('control types=',ctrlTypes)
         
         print('evaluating actuator and performance node colocated at ',[rand_test] + act_locs) 
-        indicMat,phase_loop_check = hm.updateStateSpace(parmObj,feeder, n, [rand_test] + act_locs, [rand_test] + act_locs)
+        indicMat,phase_loop_check = hm.updateStateSpace(parmObj,feeder, n, [rand_test] + act_locs, [rand_test] + act_locs,file_name)
         if phase_loop_check:  # disallow configs in which the act and perf node phases are not aligned
             feas, maxError, numfeas,bestF,indicMat = hm.computeFeas_v1(parmObj,feeder, [rand_test] + act_locs, A, B,indicMat, indicMat_table,substation_name, [rand_test] + act_locs, depths, node_index_map,Vbase_ll, Sbase, printCurves, file_name)
         
