@@ -282,14 +282,14 @@ def placeMaxColocActs_stopAtInfeas(parmObj,feeder, file_name, node_index_map, de
         parmObj.set_ctrlTypes(ctrlTypes)
         print('control types=',ctrlTypes)
         print('evaluating actuator and performance node colocated at ',[rand_test] + act_locs) 
-        indicMat,phase_loop_check = hm.updateStateSpace(parmObj,feeder, n, [rand_test] + act_locs, [rand_test] + act_locs,file_name)
+        indicMat,indicMat_table,phase_loop_check = hm.updateStateSpace(parmObj,feeder, n, [rand_test] + act_locs, [rand_test] + act_locs,file_name)
         if phase_loop_check:  # disallow configs in which the act and perf node phases are not aligned
             feas, maxError, numfeas,bestF,indicMat = hm.computeFeas_v1(parmObj,feeder, [rand_test] + act_locs, A, B, indicMat, indicMat_table,substation_name, [rand_test] + act_locs, depths, node_index_map,Vbase_ll, Sbase, printCurves, file_name)
         else:
             feas=False
             maxError=1
             numfeas=0
-
+                
         if feas:
             act_locs += [rand_test]
             test_nodes.remove(rand_test)
@@ -340,7 +340,7 @@ def place_max_coloc_acts(parmObj,seedkey,feeder, file_name, node_index_map, dept
         print('control types=',ctrlTypes)
         
         print('evaluating actuator and performance node colocated at ',[rand_test] + act_locs) 
-        indicMat,phase_loop_check = hm.updateStateSpace(parmObj,feeder, n, [rand_test] + act_locs, [rand_test] + act_locs,file_name)
+        indicMat,indicMat_table,phase_loop_check = hm.updateStateSpace(parmObj,feeder, n, [rand_test] + act_locs, [rand_test] + act_locs,file_name)
         if phase_loop_check:  # disallow configs in which the act and perf node phases are not aligned
             feas, maxError, numfeas,bestF,indicMat = hm.computeFeas_v1(parmObj,feeder, [rand_test] + act_locs, A, B,indicMat, indicMat_table,substation_name, [rand_test] + act_locs, depths, node_index_map,Vbase_ll, Sbase, printCurves, file_name)
         

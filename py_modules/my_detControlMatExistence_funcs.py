@@ -115,7 +115,7 @@ def assignF_v3(nzcol,sample_starts,std_devs,n): # algo similar to updateStateSpa
         mu=sample_starts[count]
         for j in nzcol[k]: # make all nz elements in each F col sampled from same distribution
             fval=np.random.normal(mu, sigma,1) # mu,sigma,nsamp
-            lb,ub=0,100
+            lb,ub=0.01,100
             fval=max([fval,lb]) # ensure greater than lb
             fval=min([fval,ub]) # ensure less than ub
             percentExplore=np.append(percentExplore,100*(fval-mu)/(mu+0.00001)) # save how far sample is from chebyC
@@ -126,7 +126,7 @@ def assignF_v3(nzcol,sample_starts,std_devs,n): # algo similar to updateStateSpa
             
         count+=1
 
-    print('percentage change from starting point =',percentExplore,flush=True)
+    #print('percentage change from starting point =',percentExplore,flush=True)
     return F,candFset
         
 # version 1, workaround
@@ -294,7 +294,7 @@ def det_sampleStart(nzcol,Brow,k): # runs for each Gdisc (each row of Hsub)
     
     assert mysum!=0,"issue: mysum=0"
     sample_start=1/mysum
-    std_dev=np.absolute(sample_start-1.2*1/xii)
+    std_dev=(np.absolute(sample_start-1.2*1/xii))/2 # distance to 1.2xii should be 2 standard deviations
 
     return sample_start,std_dev
 
@@ -425,29 +425,23 @@ def eval_Fmat(parmObj,CLmat,domeig_mags): # items we populate for each F tried
         # require that all evals=1 have null space full of base
         # evecs (no generalized evecs)
         tol=0.0001
-        eval=1
-        num1evals=sum(np.absolute(np.absolute(eigs)-1)<tol) # numel(find(abs(abs(eigs)-1)<tol))   
+        num1evals=sum(np.absolute(eigMags-1)<tol) # numel(find(abs(abs(eigs)-1)<tol))   
         #num1evals=sum(np.absolute(eigs)==1) # numel(find(abs(abs(eigs)-1)<tol))   
-        Y = LA.null_space(CLmat-eval*np.eye(len(CLmat))) #null(CLmat-eval*eye(size(CLmat,1))); % Y is orthonorm basis matrix
+        Y = LA.null_space(CLmat-1*np.eye(len(CLmat))) #null(CLmat-eval*eye(size(CLmat,1))); % Y is orthonorm basis matrix
         dimNull=len(Y[0]) # number of cols
-
-        #print('eigs are in/on unit circle..')
-        #print('num1evals=',num1evals)
-        #print('dimNull=',dimNull)
+        #print('dimNull=',dimNull,' and num1evals=',num1evals)
         if bool2 and (dimNull==num1evals):                    
             #print('Found feas F')
             Fstable=1 # means F is stabilizing 
 
             # find dominant eval
-            # need fix to remove the k largest eigs, where k=num1evals
-            mylist = np.absolute(np.absolute(eigs)-1) # find evals not at 1 # need remove
-            def condition(x): return x > tol # find evals not at 1 # need remove
-            idx = [i for i, element in enumerate(mylist) if condition(element)] # find eigs not at 1, need remove
+            eigMags_lst=eigMags.tolist()
+            eigMags_lst.sort() # convert to list, then sort vector from smallest to largest
+            #print('eigMags=',eigMags_lst[:5],',...,',eigMags_lst[-5:]) # print smallest and largest 5 eigMags
+            for i in range(num1evals): # remove the k largest eigs, where k=num1evals
+                eigMags_lst.pop() # removes last item
+            mag_domeig=max(eigMags_lst) 
             
-            if idx: # if nonempty
-                mag_domeig=np.amax(np.absolute(eigs[idx]))
-            else:
-                mag_domeig=eigs[0] # just pick any of them
             domeig_mags=np.append(domeig_mags,mag_domeig)
 
         else: # if F not feas, print in which way it is
@@ -479,7 +473,7 @@ def detControlMatExistence(parmObj, feeder, A, B, indicMat,indicMat_table,act_lo
     CLmat=np.empty((6*n,6*n))
     eigs_outside_circle,ssError_no_contract=0,0
     print('evaluating kgains sampled from parm space...',flush=True)
-    numsamp=225 # temporary, should really do at least 15
+    numsamp=50
 
     #-------------------------------------------------
     if sample_way=='old-heuristic':
@@ -537,7 +531,7 @@ def detControlMatExistence(parmObj, feeder, A, B, indicMat,indicMat_table,act_lo
             F,candFset=assignF_v3(nzcol,sample_starts,std_devs,n) # design F matrix
             CLmat=A-np.dot(B,F) # CLmat=A-BF
             val,ssErr_bool,ecirc_bool,domeig_mags,Fstable=eval_Fmat(parmObj,CLmat,domeig_mags)
-            print('cand F set=',candFset,flush=True)
+            #print('cand F set=',candFset,flush=True)
             if Fstable:
                 print('found stabilizing F!')
                 feasFs=np.append(feasFs,candFset,axis=0) # if Fstable, add Fset to new row of feasFs
@@ -563,6 +557,12 @@ def detControlMatExistence(parmObj, feeder, A, B, indicMat,indicMat_table,act_lo
         bestF=feasFs[np.argmin(domeig_mags)][:] # the set of F ele that results in the most stable dominant eval
         #print("Best F is (Fp Fq)=",bestF) # typically really tiny, not interesting to print
         feas=True
+        
+        # histogram(domeig_mags)
+        plt.hist(domeig_mags, density=True, bins=10)  # density=False would make counts
+        plt.ylabel('mag of dominant eig')
+        plt.xlabel('stable F');
+
     else:
         bestF=float("NaN")
         feas=False
