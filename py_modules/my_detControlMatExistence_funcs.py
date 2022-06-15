@@ -94,9 +94,9 @@ def assignF_v2(f_ub_table,n): # algo similar to updateStateSpace
 
     return F,candFset
    
-def assignF_v3(nzcol,sample_starts,std_devs,n): # algo similar to updateStateSpace
+def assignF_v3(nzrow,sample_starts,std_devs,n): # algo similar to updateStateSpace
     # create one F matrix from parm space
-    # nzcol is a dict whos keys are the nonzero cols of indicMat, and who's values are the nonzero elements of each nonzero col
+    # nzrow is a dict whos keys are the nonzero cols of indicMat, and who's values are the nonzero elements of each nonzero col
     # sample_starts is sx1 vector of starting values for f elements
     # std_dev is sx1 vector of standard deviations for gaussian sampling from the sample_starts
 
@@ -104,29 +104,36 @@ def assignF_v3(nzcol,sample_starts,std_devs,n): # algo similar to updateStateSpa
     #print('sample_starts=',sample_starts)
 
     F=np.zeros((6*n,6*n)) # make numpy matrix that will hold values not symbolic var
-    candFset=np.zeros((1,len(nzcol.keys())))
+    candFset=np.zeros((1,len(nzrow.keys())))
     percentExplore=np.array([]) # number of cols will be = number of nonzero F ele
     
     count=0 
-    #print('nzcol.keys()=',nzcol.keys(),flush=True)
-    for k in nzcol.keys(): # for each nonzero col of indicMat
+    #print('nzrow.keys()=',nzrow.keys(),flush=True)
+    for i in nzrow.keys(): # for each nonzero row of indicMat
         # sample according to gaussians around the sample_start
         sigma=std_devs[count]
         mu=sample_starts[count]
-        for j in nzcol[k]: # make all nz elements in each F col sampled from same distribution
-            fval=np.random.normal(mu, sigma,1) # mu,sigma,nsamp
-            lb,ub=0.01,100
-            fval=max([fval,lb]) # ensure greater than lb
-            fval=min([fval,ub]) # ensure less than ub
+        for j in nzrow[i]: # make all nz elements in each F row sampled from same distribution
+            
+            lb,ub=0.01,100 # sample until fval is in [lb ub] range
+            for k in range(100): # sample up to 100 times to get
+                fval=np.random.normal(mu, sigma,1) # mu,sigma,nsamp
+                if fval>lb and fval<ub:
+                    break
+                if k==99:
+                    raise Exception("could not sample a fval in [lb ub] range")
+            
             percentExplore=np.append(percentExplore,100*(fval-mu)/(mu+0.00001)) # save how far sample is from chebyC
             candFset[0,count]=max([fval, 0]) # save fvals into vec, replace with zero if negative
             # assume all blocks are 3ph for now, will correct later in this funcc
             #print('F(j,k)=',j,' and ',k)
-            F[j,k]=fval
+            F[i,j]=fval
             
         count+=1
-
-    #print('percentage change from starting point =',percentExplore,flush=True)
+        
+    mystr='gaussian variance making percentExplore too high; max='+str(max(np.absolute(percentExplore)))
+    assert max(np.absolute(percentExplore))<500,mystr
+    print('percentage change from starting point =',percentExplore,flush=True)
     return F,candFset
         
 # version 1, workaround
@@ -254,49 +261,52 @@ def computeFParamSpace_v3(B_nonmat,indicMat,indicMat_table):
     return bigBox_range
     
 def computeFParamSpace_v4(indicMat,indicMat_table,B):
-    nzcol={} 
+    
+    nzrow={} 
     print('len(indicMat[0]=',len(indicMat[0]))
-    for i in range(len(indicMat[0])): # across cols
-        if not (indicMat[:,i]==np.zeros((len(indicMat),1))).all(): # if not a col of zeros
-            foo=np.where(indicMat[:,i]!=0)
+    for i in range(indicMat.shape[0]): # across rows
+        if not (indicMat[i,:]==np.zeros((1,len(indicMat)))).all(): # if not a row of zeros
+            foo=np.where(indicMat[i,:]!=0)
             print('indices not zero are:',foo,flush=True)
-            nzcol[i]=foo # key=row of indicMat that is nz, value=indices that are nz
+            nzrow[i]=foo # key=row of indicMat that is nz, value=indices that are nz
          #   print(foo)
-    print('finished making nzcol dictionary in computeFParamSpace_v4...')
-    # nzcol is a dict whos keys are the nonzero cols of indicMat, and who's values are the nonzero elements of each nonzero col
+    print('finished making nzrow dictionary in computeFParamSpace_v4...')
+    # nzrow is a dict whos keys are the nonzero rows of indicMat, and who's values are the indices of the nonzero elements in each nonzero row
 
+    
+    y=np.count_nonzero(indicMat!=0) # number of nonzero f elements 
+    print('y=',y)
     sample_starts,std_devs=[],[]
     count=0
-    print('there are ',len(nzcol.keys()), ' print samples:')
-    for k in nzcol.keys():
+    print('there are ',len(nzrow.keys()), ' sets of gaussian parameters:')
+    for j in nzrow.keys(): # across cols of B that are assoc with nz rows of F
         count+=1
         print('making sample # ',count,'...',flush=True)
-        Brow=B[k,:]
-        sample_start,std_dev=det_sampleStart(nzcol,Brow,k)
+        Bcol=B[:,j]
+        sample_start,std_dev=det_sampleStart(Bcol,y)
         sample_starts.append(sample_start)            
         std_devs.append(std_dev)
-    
-
-        
         
     f_ub_table=indicMat_table # dont add anything to it
-    return nzcol,sample_starts,std_devs, f_ub_table
+    return nzrow,sample_starts,std_devs, f_ub_table
 
-def det_sampleStart(nzcol,Brow,k): # runs for each Gdisc (each row of Hsub)
-    mysum=0
-    for j in nzcol.keys(): # across cols
-        if j==k:
-            xii=Brow[k]
-            assert xii!=0,"issue: xii=0"
-        for i in nzcol[j]: # go down the ele of each col
-            #print('Brow[i]=',Brow[i])
-            mysum=mysum+sum(Brow[i]) # first sum is within each ele of Hsub, second sum is across Hsub elements to create radius
+def det_sampleStart(Bcol,y): # runs for each Gdisc (each row of Hsub)
+    # col_idx is index of Hsub that Bcol is in
+    # y is number of nonzero ele in Fsub
+
+    assert(np.count_nonzero(Bcol==0)==0) # make sure no elements of Bcol are zero, otherwise will get divide by zero error
+    bmax=max(np.absolute(Bcol))
+    mu=(2/y)*(1/bmax)
+    #sigma=(np.absolute(mu-1/bmax))/2 # distance to 1.2xii should be 2 standard deviations
+    sigma=0.01*math.log(math.log(y))
     
-    assert mysum!=0,"issue: mysum=0"
-    sample_start=1/mysum
-    std_dev=(np.absolute(sample_start-1.2*1/xii))/2 # distance to 1.2xii should be 2 standard deviations
+    print('bmax=',bmax)
+    print('mu=',mu)
+    print('2sigma=np.absolute(mu-1/bmax)=',np.absolute(mu-1.2*1/bmax))
+    print('sigma=',sigma)
 
-    return sample_start,std_dev
+    
+    return mu,sigma
 
 # helper func in computeFParamSpace_v3
 def multBF(B,i,j,n):
@@ -514,7 +524,7 @@ def detControlMatExistence(parmObj, feeder, A, B, indicMat,indicMat_table,act_lo
     #-------------------------------------------------
     elif sample_way=='new-heuristic':  # new-heuristic way to compute the sample space
         print('in new-heuristic route',flush=True)
-        nzcol,sample_starts,std_devs,f_ub_table=computeFParamSpace_v4(indicMat,indicMat_table,B) # format is [APNP_number indicMat_row indicMat_col f_lb f_ub]
+        nzrow,sample_starts,std_devs,f_ub_table=computeFParamSpace_v4(indicMat,indicMat_table,B) # format is [APNP_number indicMat_row indicMat_col f_lb f_ub]
         # create f_ub_table, formatted as [act_name perf_name indicMat_row indicMat_col f_lb f_ub]
  #       f_ub_table=computeFParamSpace_v3(B, indicMat,indicMat_table) # format is [APNP_number indicMat_row indicMat_col f_lb f_ub]
 
@@ -528,10 +538,10 @@ def detControlMatExistence(parmObj, feeder, A, B, indicMat,indicMat_table,act_lo
         myFbases=np.array([], dtype=np.int64).reshape(0,len(f_ub_table))
         for k in range(numsamp):
         #    F,candFset=assignF_v2(f_ub_table,n) # design F matrix
-            F,candFset=assignF_v3(nzcol,sample_starts,std_devs,n) # design F matrix
+            F,candFset=assignF_v3(nzrow,sample_starts,std_devs,n) # design F matrix
             CLmat=A-np.dot(B,F) # CLmat=A-BF
             val,ssErr_bool,ecirc_bool,domeig_mags,Fstable=eval_Fmat(parmObj,CLmat,domeig_mags)
-            #print('cand F set=',candFset,flush=True)
+            print('cand F set=',candFset,flush=True)
             if Fstable:
                 print('found stabilizing F!')
                 feasFs=np.append(feasFs,candFset,axis=0) # if Fstable, add Fset to new row of feasFs

@@ -33,6 +33,8 @@ def remove_subst_nodes(feeder, file_name):
         substIdx=[163]
     elif '37NF' in file_name:
         substIdx=[0,36] # node 701 and node 799 respectively (701-799 is substation xfmr edge)
+    elif '13NFunbalanced' in file_name:
+        substIdx = [6, 7]
     else:
         print('error in hm.remove_subst_nodes: do not recognize file_name')
     graphNodes_nosub = list(np.delete(graph.nodes, substIdx)) # dont consider substation nodes, node 650 and 651 for 13NF
