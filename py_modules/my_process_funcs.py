@@ -165,7 +165,7 @@ def runHeatMapProcess(parmObj,feeder, set_acts, set_perfs, addon_acts, addon_per
         # after generate data for heatmap..
         heatMapName = 'NPP_heatmap_step' + str(a+1) + '_' + file_name
         heatMapNames.append(heatMapName)
-        write_formatted_dot(graph, heatMapName)
+        vis.write_formatted_dot(graph, heatMapName)
 
         a += 1 # place actuator
         
@@ -297,8 +297,11 @@ def placeMaxColocActs_stopAtInfeas(parmObj,feeder, file_name, node_index_map, de
             ctrlTypes.append(rand_ctrlType) # save into list of control types
         else:
             print('Random choice of co-located APNP yields unstable  configuration. Generating heatmap by checking all remaining feeder nodes...')
-            feas_configs, heatMapNames = find_good_colocated(parmObj,feeder, act_locs, node_index_map, substation_name, depths,file_name, Vbase_ll, Sbase) # makes a heatmap
+            feas_configs, heatMapNames = find_good_colocated(parmObj,feeder,[],act_locs, node_index_map, substation_name, depths,file_name, Vbase_ll, Sbase) # makes a heatmap, assume set_acts=[]
 
+            
+            (parmObj,feeder, set_acts, addon_acts, node_index_map,substation_name, depths, file_name, Vbase_ll, Sbase)
+            
             break
     
     ff.clear_graph(feeder)

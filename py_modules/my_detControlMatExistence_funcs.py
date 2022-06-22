@@ -115,7 +115,7 @@ def assignF_v3(nzrow,sample_starts,std_devs,n): # algo similar to updateStateSpa
         mu=sample_starts[count]
         for j in nzrow[i]: # make all nz elements in each F row sampled from same distribution
             
-            lb,ub=0.01,100 # sample until fval is in [lb ub] range
+            lb,ub=0.01,10 # sample until fval is in [lb ub] range
             for k in range(100): # sample up to 100 times to get
                 fval=np.random.normal(mu, sigma,1) # mu,sigma,nsamp
                 if fval>lb and fval<ub:
@@ -131,9 +131,9 @@ def assignF_v3(nzrow,sample_starts,std_devs,n): # algo similar to updateStateSpa
             
         count+=1
         
-    mystr='gaussian variance making percentExplore too high; max='+str(max(np.absolute(percentExplore)))
-    assert max(np.absolute(percentExplore))<500,mystr
-    print('percentage change from starting point =',percentExplore,flush=True)
+#     mystr='gaussian variance making percentExplore too high; max='+str(max(np.absolute(percentExplore)))
+#     assert max(np.absolute(percentExplore))<1500,mystr
+    #print('percentage change from starting point =',percentExplore,flush=True)
     return F,candFset
         
 # version 1, workaround
@@ -298,11 +298,11 @@ def det_sampleStart(Bcol,y): # runs for each Gdisc (each row of Hsub)
     bmax=max(np.absolute(Bcol))
     mu=(2/y)*(1/bmax)
     #sigma=(np.absolute(mu-1/bmax))/2 # distance to 1.2xii should be 2 standard deviations
-    sigma=0.01*math.log(math.log(y))
+    rho=0.2 # parm for how widely to search for gains
+    sigma=max([rho*math.log(math.log(y)),0.0001]) # make positive
     
     print('bmax=',bmax)
     print('mu=',mu)
-    print('2sigma=np.absolute(mu-1/bmax)=',np.absolute(mu-1.2*1/bmax))
     print('sigma=',sigma)
 
     
@@ -541,7 +541,7 @@ def detControlMatExistence(parmObj, feeder, A, B, indicMat,indicMat_table,act_lo
             F,candFset=assignF_v3(nzrow,sample_starts,std_devs,n) # design F matrix
             CLmat=A-np.dot(B,F) # CLmat=A-BF
             val,ssErr_bool,ecirc_bool,domeig_mags,Fstable=eval_Fmat(parmObj,CLmat,domeig_mags)
-            print('cand F set=',candFset,flush=True)
+            #print('cand F set=',candFset,flush=True)
             if Fstable:
                 print('found stabilizing F!')
                 feasFs=np.append(feasFs,candFset,axis=0) # if Fstable, add Fset to new row of feasFs
