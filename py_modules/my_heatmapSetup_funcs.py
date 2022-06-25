@@ -155,14 +155,15 @@ def computeFeas_v1(parmObj,feeder, act_locs, A, B, indicMat, indicMat_table,subs
     z12 = imp.get_total_impedance_from_substation(feeder, node_1[0],depths) # 3 phase, not pu
     B12=np.zeros((3,3)) # TEMPORARY, line susceptance, Yshunt=G+jB
 
-    MYfeas,MYfeasFs,MYnumfeas,MYnumTried,MYnumact,MYbestF,MYindicMat = ctrl.detControlMatExistence(parmObj, feeder, A, B, indicMat,indicMat_table,act_locs,perf_nodes,node_index_map,depths,file_name)
+    MYfeas,MYfeasFs,MYnumfeas,MYnumTried,MYnumact,MYbestF,MYindicMat,min_domeig_mag = ctrl.detControlMatExistence(parmObj, feeder, A, B, indicMat,indicMat_table,act_locs,perf_nodes,node_index_map,depths,file_name)
     print('num feas=',MYnumfeas)
     print('num tried=',MYnumTried)
 
     #lzn_err_max, slopes = lzn.detLznRange(feeder, Vbase_ll, Sbase, z12, B12, act_locs, load_data, headerpath, substation_name, modelpath, depths,printCurves) # usually called by computeFeas
     lzn_err_max=[-1, -1, -1, -1] # workaround, for [PV, QV, Pdel,Qdel] lzn errors
 
-    return MYfeas,lzn_err_max,MYnumfeas,MYbestF,MYindicMat
+    return MYfeas,lzn_err_max,MYnumfeas,MYbestF,MYindicMat,min_domeig_mag
+
 
 # workaround version
 def computeFeas_v2(feeder, act_locs, perf_nodes, A, B, indicMat):

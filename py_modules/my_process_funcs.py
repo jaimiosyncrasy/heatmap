@@ -25,13 +25,14 @@ def eval_config(parmObj,feeder, all_act_locs, perf_nodes, node_index_map, substa
     #returns whether controllability can be achieved for a given actuator performance node configuration
     #also returns the linearization error associated with the feasibility calculation
     #all_act_locs and perf_nodes = lists of node names as strings
+    np.random.seed(2) # so that each time you run the whole code you get the same result
     printCurves = True # your choice on whether to print PVcurves
     graph = feeder.network
     A, B,n = hm.setupStateSpace(parmObj,feeder,depths,file_name)
     assert A.shape==(6*n,6*n), "issue: A (from setupStateSpace) or n have incorrect dims"
     indicMat,indicMat_table,phase_loop_check = hm.updateStateSpace(parmObj,feeder, n, all_act_locs, perf_nodes,file_name)
     if phase_loop_check:  # disallow configs in which the act and perf node phases are not aligned
-        feas, maxError, numfeas,bestF,indicMat = hm.computeFeas_v1(parmObj,feeder, all_act_locs, A, B, indicMat, indicMat_table, substation_name, perf_nodes, depths, node_index_map, Vbase_ll, Sbase,  printCurves,file_name)
+        feas, maxError, numfeas,bestF,indicMat,min_domeig_mag = hm.computeFeas_v1(parmObj,feeder, all_act_locs, A, B, indicMat, indicMat_table, substation_name, perf_nodes, depths, node_index_map, Vbase_ll, Sbase,  printCurves,file_name)
     else:
         feas=False
         maxError=1
@@ -78,18 +79,19 @@ def find_good_colocated(parmObj,feeder, set_acts, addon_acts, node_index_map,sub
             if node not in cur_act_locs:
                 test_nodes.append(node)
 
+        domest_lst=[]
         for test in test_nodes:
             feas=False # default
             print('evaluating act and perf colocated at ',[test] + cur_act_locs) 
             indicMat,indicMat_table,phase_loop_check = hm.updateStateSpace(parmObj,feeder, n, [test] + cur_act_locs, [test] + cur_act_locs,file_name) # (n,act,perf,dictionary)
             if phase_loop_check:  # disallow configs in which the act and perf node phases are not aligned
-                feas, maxError, numfeas,bestF,indicMat = hm.computeFeas_v1(parmObj,feeder, [test] + cur_act_locs, A, B, indicMat, indicMat_table,substation_name,[test] + cur_act_locs, depths, node_index_map,Vbase_ll, Sbase, printCurves,file_name) # pass in potential actual loc
+                feas, maxError, numfeas,bestF,indicMat,min_domeig_mag = hm.computeFeas_v1(parmObj,feeder, [test] + cur_act_locs, A, B, indicMat, indicMat_table,substation_name,[test] + cur_act_locs, depths, node_index_map,Vbase_ll, Sbase, printCurves,file_name) # pass in potential actual loc
                 lzn_error_dic[test] = maxError
+                domeig_lst.append(min_domeig_mag)
             else:
                 maxError=1
                 numfeas=0
-
-            vis.markFeas(numfeas, test, graph,phase_loop_check)
+            
             if feas:
                 feas_dic = {}
                 feas_dic['act'] = [test]+cur_act_locs
@@ -97,7 +99,16 @@ def find_good_colocated(parmObj,feeder, set_acts, addon_acts, node_index_map,sub
                 feas_dic['lznErr'] = [lzn_error_dic[test]]
                 feas_dic['numfeas'] = [numfeas]
                 feas_configs += [feas_dic]
-
+ 
+        plt.figure()
+        domeig_lst_less1=[x for x in domeig_lst if x<1]       
+        plt.hist(domeig_lst_less1, density=True, bins=15) # round to nearest hundredth
+        plt.xlabel('RHP: min domeig per config')
+        domeig_range=[max(domeig_lst_less1),min(domeig_lst_less1)]
+        for i in range(len(test_nodes)):
+            vis.markFeas(domeig_range,domeig_lst[i], test_nodes[i], graph,phase_loop_check)
+            
+            
         heatMapName='CPP_heatmap_step' + str(a+1) + '_' + file_name
         heatMapNames.append(heatMapName)
         vis.write_formatted_dot(graph, heatMapName)
@@ -140,19 +151,20 @@ def runHeatMapProcess(parmObj,feeder, set_acts, set_perfs, addon_acts, addon_per
             if node not in cur_act_locs:
                 test_nodes.append(node)
         
+        domeig_lst=[]
         for test in test_nodes: #inner loop
             feas=False # default
             # heatmap color indicates good places to place actuator given chosen loc of perf node (not necessarily colocated)          
             print('evaluating actuator node at ', [test] + cur_act_locs,',\n performance node at ', [addon_perfs[a]] + cur_perf_nodes)
             indicMat,indicMat_table,phase_loop_check = hm.updateStateSpace(parmObj,feeder, n, [test] + cur_act_locs, [addon_perfs[a]] + cur_perf_nodes,file_name)
             if phase_loop_check:  # disallow configs in which the act and perf node phases are not aligned
-                feas, maxError, numfeas,bestF,indicMat = hm.computeFeas_v1(parmObj,feeder, [test] + cur_act_locs, A, B, indicMat, indicMat_table, substation_name,[addon_perfs[a]] + cur_perf_nodes, depths, node_index_map, Vbase_ll, Sbase, False,file_name) # false for printing PV curves
+                feas, maxError, numfeas,bestF,indicMat,min_domeig_mag = hm.computeFeas_v1(parmObj,feeder, [test] + cur_act_locs, A, B, indicMat, indicMat_table, substation_name,[addon_perfs[a]] + cur_perf_nodes, depths, node_index_map, Vbase_ll, Sbase, False,file_name) # false for printing PV curves
                 lzn_error_dic[test] = maxError
+                domeig_lst.append(min_domeig_mag)
             else:
                 maxError=1
                 numfeas=0
-            
-            vis.markFeas(numfeas, test, graph,phase_loop_check)
+ 
             if feas:
                 feas_dic = {}
                 feas_dic['act'] = [test] + cur_act_locs
@@ -161,6 +173,16 @@ def runHeatMapProcess(parmObj,feeder, set_acts, set_perfs, addon_acts, addon_per
                 feas_dic['numfeas']=[numfeas]
                 feas_configs += [feas_dic]        
         
+        # if have time, store domeig_lst and test_nodes into dictionary, then print the dictionary so that it can accompany the heatmap            
+        plt.figure()
+        domeig_lst_less1=[x for x in domeig_lst if x<1]       
+        plt.hist(domeig_lst_less1, density=True, bins=15) # round to nearest hundredth
+        plt.xlabel('RHP: min domeig per config')
+        domeig_range=[max(domeig_lst_less1),min(domeig_lst_less1)]
+        for i in range(len(test_nodes)):
+            vis.markFeas(domeig_range,domeig_lst[i], test_nodes[i], graph,phase_loop_check)
+
+            
         graph.nodes[addon_perfs[a]]['shape'] = 'square'
         # after generate data for heatmap..
         heatMapName = 'NPP_heatmap_step' + str(a+1) + '_' + file_name
@@ -172,7 +194,7 @@ def runHeatMapProcess(parmObj,feeder, set_acts, set_perfs, addon_acts, addon_per
         if a <= len(addon_acts): # choose actuator and finalize assoc perf node
             cur_act_locs = addon_acts[0:a]+set_acts # populate cur_act_locs with subset of addon_acts
             cur_perf_nodes = addon_perfs[0:a]+set_acts
-            lzn_error_run_sum += lzn_error_dic[cur_act_locs[-1]][0]
+            #lzn_error_run_sum += lzn_error_dic[cur_act_locs[-1]][0]
             #print('The total max linearization error after '+ str(a) +' actuators have been placed = '+ str(lzn_error_run_sum))
             
         # end of while loop
@@ -284,7 +306,7 @@ def placeMaxColocActs_stopAtInfeas(parmObj,feeder, file_name, node_index_map, de
         print('evaluating actuator and performance node colocated at ',[rand_test] + act_locs) 
         indicMat,indicMat_table,phase_loop_check = hm.updateStateSpace(parmObj,feeder, n, [rand_test] + act_locs, [rand_test] + act_locs,file_name)
         if phase_loop_check:  # disallow configs in which the act and perf node phases are not aligned
-            feas, maxError, numfeas,bestF,indicMat = hm.computeFeas_v1(parmObj,feeder, [rand_test] + act_locs, A, B, indicMat, indicMat_table,substation_name, [rand_test] + act_locs, depths, node_index_map,Vbase_ll, Sbase, printCurves, file_name)
+            feas, maxError, numfeas,bestF,indicMat,min_domeig_mag = hm.computeFeas_v1(parmObj,feeder, [rand_test] + act_locs, A, B, indicMat, indicMat_table,substation_name, [rand_test] + act_locs, depths, node_index_map,Vbase_ll, Sbase, printCurves, file_name)
         else:
             feas=False
             maxError=1
@@ -345,7 +367,7 @@ def place_max_coloc_acts(parmObj,seedkey,feeder, file_name, node_index_map, dept
         print('evaluating actuator and performance node colocated at ',[rand_test] + act_locs) 
         indicMat,indicMat_table,phase_loop_check = hm.updateStateSpace(parmObj,feeder, n, [rand_test] + act_locs, [rand_test] + act_locs,file_name)
         if phase_loop_check:  # disallow configs in which the act and perf node phases are not aligned
-            feas, maxError, numfeas,bestF,indicMat = hm.computeFeas_v1(parmObj,feeder, [rand_test] + act_locs, A, B,indicMat, indicMat_table,substation_name, [rand_test] + act_locs, depths, node_index_map,Vbase_ll, Sbase, printCurves, file_name)
+            feas, maxError, numfeas,bestF,indicMat,min_domeig_mag = hm.computeFeas_v1(parmObj,feeder, [rand_test] + act_locs, A, B,indicMat, indicMat_table,substation_name, [rand_test] + act_locs, depths, node_index_map,Vbase_ll, Sbase, printCurves, file_name)
         
         else:
             feas=False

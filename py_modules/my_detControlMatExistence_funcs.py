@@ -13,7 +13,7 @@ from setup_nx import *
 from graphviz import Source, render
 from sympy import * # includes Matrix object and solve function
 import scipy.io # need to load .mat
-
+from matplotlib.ticker import FormatStrFormatter # to format plot axis
 import datetime
 import time
 
@@ -81,7 +81,7 @@ def assignF_v2(f_ub_table,n): # algo similar to updateStateSpace
 #         #print('fval=',fval)
                     
        # sample according to gaussians around the chebyCenter
-        sigma=chebyR*2
+        sigma =chebyR*2
         mu=chebyC[k]
         fval=np.random.normal(mu, sigma,1) # mu,sigma,nsamp
         percentExplore=np.append(percentExplore,100*(fval-mu)/mu) # save how far sample is from chebyC
@@ -103,6 +103,7 @@ def assignF_v3(nzrow,sample_starts,std_devs,n): # algo similar to updateStateSpa
     #print('std_devs=',std_devs)
     #print('sample_starts=',sample_starts)
 
+
     F=np.zeros((6*n,6*n)) # make numpy matrix that will hold values not symbolic var
     candFset=np.zeros((1,len(nzrow.keys())))
     percentExplore=np.array([]) # number of cols will be = number of nonzero F ele
@@ -111,7 +112,7 @@ def assignF_v3(nzrow,sample_starts,std_devs,n): # algo similar to updateStateSpa
     #print('nzrow.keys()=',nzrow.keys(),flush=True)
     for i in nzrow.keys(): # for each nonzero row of indicMat
         # sample according to gaussians around the sample_start
-        sigma=std_devs[count]
+        sigma =std_devs[count]
         mu=sample_starts[count]
         for j in nzrow[i]: # make all nz elements in each F row sampled from same distribution
             
@@ -267,7 +268,7 @@ def computeFParamSpace_v4(indicMat,indicMat_table,B):
     for i in range(indicMat.shape[0]): # across rows
         if not (indicMat[i,:]==np.zeros((1,len(indicMat)))).all(): # if not a row of zeros
             foo=np.where(indicMat[i,:]!=0)
-            print('indices not zero are:',foo,flush=True)
+            #print('indices not zero are:',foo,flush=True)
             nzrow[i]=foo # key=row of indicMat that is nz, value=indices that are nz
          #   print(foo)
     print('finished making nzrow dictionary in computeFParamSpace_v4...')
@@ -276,37 +277,29 @@ def computeFParamSpace_v4(indicMat,indicMat_table,B):
     
     y=np.count_nonzero(indicMat!=0) # number of nonzero f elements 
     print('y=',y)
-    sample_starts,std_devs=[],[]
+    sample_starts=[]
     count=0
-    print('there are ',len(nzrow.keys()), ' sets of gaussian parameters:')
+    print('there are ',len(nzrow.keys()), ' sets of gaussian mu parameters:')
     for j in nzrow.keys(): # across cols of B that are assoc with nz rows of F
         count+=1
-        print('making sample # ',count,'...',flush=True)
+        #print('making sample # ',count,'...',flush=True)
         Bcol=B[:,j]
-        sample_start,std_dev=det_sampleStart(Bcol,y)
+        sample_start=det_sampleStart(Bcol,y)
         sample_starts.append(sample_start)            
-        std_devs.append(std_dev)
         
     f_ub_table=indicMat_table # dont add anything to it
-    return nzrow,sample_starts,std_devs, f_ub_table
+    return nzrow,sample_starts,f_ub_table
 
 def det_sampleStart(Bcol,y): # runs for each Gdisc (each row of Hsub)
     # col_idx is index of Hsub that Bcol is in
     # y is number of nonzero ele in Fsub
-
     assert(np.count_nonzero(Bcol==0)==0) # make sure no elements of Bcol are zero, otherwise will get divide by zero error
     bmax=max(np.absolute(Bcol))
     mu=(2/y)*(1/bmax)
-    #sigma=(np.absolute(mu-1/bmax))/2 # distance to 1.2xii should be 2 standard deviations
-    rho=0.2 # parm for how widely to search for gains
-    sigma=max([rho*math.log(math.log(y)),0.0001]) # make positive
+    #print('bmax=',bmax)
+    #print('mu=',np.round(mu,3))   
     
-    print('bmax=',bmax)
-    print('mu=',mu)
-    print('sigma=',sigma)
-
-    
-    return mu,sigma
+    return mu
 
 # helper func in computeFParamSpace_v3
 def multBF(B,i,j,n):
@@ -407,6 +400,12 @@ def eval_Fmat(parmObj,CLmat,domeig_mags): # items we populate for each F tried
     eigs,evecs=LA.eig(CLmat) # closed loop eigenvalues
     eigMags=np.absolute(eigs)
 
+        
+    # find dominant eval, regardles of whether the system is stable or not
+    eigMags_lst=eigMags.tolist()
+    mag_domeig=max(eigMags_lst) 
+        
+        
 #     For version 2 (droop), check that evals are within unit circle,
 #     AND vss for vdbc1 and vdbc2 are in 5% range
     if parmObj.get_version()==2: # volt-var and volt-watt control      
@@ -430,7 +429,8 @@ def eval_Fmat(parmObj,CLmat,domeig_mags): # items we populate for each F tried
         bool2=all(item <0.05 for item in delvss1_cleaned) # check that the remaining are all under 0.05
     else:
         bool2=True # PBC case
-
+   
+    
     if all(np.around(eigMags,decimals=6)<=1):
         # require that all evals=1 have null space full of base
         # evecs (no generalized evecs)
@@ -440,19 +440,18 @@ def eval_Fmat(parmObj,CLmat,domeig_mags): # items we populate for each F tried
         Y = LA.null_space(CLmat-1*np.eye(len(CLmat))) #null(CLmat-eval*eye(size(CLmat,1))); % Y is orthonorm basis matrix
         dimNull=len(Y[0]) # number of cols
         #print('dimNull=',dimNull,' and num1evals=',num1evals)
+       
+        # find dominant eval for case of stable system
+        eigMags_lst=eigMags.tolist()
+        eigMags_lst.sort() # convert to list, then sort vector from smallest to largest
+        #print('eigMags=',eigMags_lst[:5],',...,',eigMags_lst[-5:]) # print smallest and largest 5 eigMags
+        for i in range(num1evals): # remove the k largest eigs, where k=num1evals
+            eigMags_lst.pop() # removes last item
+        mag_domeig=max(eigMags_lst) 
+        
         if bool2 and (dimNull==num1evals):                    
             #print('Found feas F')
             Fstable=1 # means F is stabilizing 
-
-            # find dominant eval
-            eigMags_lst=eigMags.tolist()
-            eigMags_lst.sort() # convert to list, then sort vector from smallest to largest
-            #print('eigMags=',eigMags_lst[:5],',...,',eigMags_lst[-5:]) # print smallest and largest 5 eigMags
-            for i in range(num1evals): # remove the k largest eigs, where k=num1evals
-                eigMags_lst.pop() # removes last item
-            mag_domeig=max(eigMags_lst) 
-            
-            domeig_mags=np.append(domeig_mags,mag_domeig)
 
         else: # if F not feas, print in which way it is
             if not bool2: # save which check failed
@@ -464,6 +463,7 @@ def eval_Fmat(parmObj,CLmat,domeig_mags): # items we populate for each F tried
     else: # outside unit circle
         eigs_outside_circle=1
 
+    domeig_mags=np.append(domeig_mags,mag_domeig)
     val=np.sum(eigMags[np.where(eigMags > 1)])
     return val,ssError_no_contract,eigs_outside_circle,domeig_mags,Fstable 
     
@@ -483,7 +483,7 @@ def detControlMatExistence(parmObj, feeder, A, B, indicMat,indicMat_table,act_lo
     CLmat=np.empty((6*n,6*n))
     eigs_outside_circle,ssError_no_contract=0,0
     print('evaluating kgains sampled from parm space...',flush=True)
-    numsamp=50
+    numsamp =50
 
     #-------------------------------------------------
     if sample_way=='old-heuristic':
@@ -511,7 +511,7 @@ def detControlMatExistence(parmObj, feeder, A, B, indicMat,indicMat_table,act_lo
                     CLmat=A-np.dot(B,F) # CLmat=A-BF
                     candFset=np.zeros((1,2))
                     candFset[0][0],candFset[0][1]=Fq,Fp # save fvals into vec
-                    val,ssErr_bool,ecirc_bool,domeig_mags,Fstable=eval_Fmat(parmObj,CLmat,domeig_mags)
+                    val,ssErr_bool,ecirc_bool,domeig_mags,Fstable=eval_Fmat(parmObj,CLmat,domeig_mags) # evaluate a single F matrix
 
                     if Fstable:
                         print('found stabilizing F!')
@@ -524,68 +524,138 @@ def detControlMatExistence(parmObj, feeder, A, B, indicMat,indicMat_table,act_lo
     #-------------------------------------------------
     elif sample_way=='new-heuristic':  # new-heuristic way to compute the sample space
         print('in new-heuristic route',flush=True)
-        nzrow,sample_starts,std_devs,f_ub_table=computeFParamSpace_v4(indicMat,indicMat_table,B) # format is [APNP_number indicMat_row indicMat_col f_lb f_ub]
+        
+        
+        nzrow,sample_starts,f_ub_table=computeFParamSpace_v4(indicMat,indicMat_table,B) # format is [APNP_number indicMat_row indicMat_col f_lb f_ub]
         # create f_ub_table, formatted as [act_name perf_name indicMat_row indicMat_col f_lb f_ub]
  #       f_ub_table=computeFParamSpace_v3(B, indicMat,indicMat_table) # format is [APNP_number indicMat_row indicMat_col f_lb f_ub]
 
         str_arr=np.array([], dtype=np.int64).reshape(0,2)
-        print('ex=',[act_locs[int(0)], perf_nodes[int(0)]])
         for idx in f_ub_table[:,0]: # pull APNP idx from first col of f_ub_table
             str_arr=np.append(str_arr,[np.array([act_locs[int(idx)], perf_nodes[int(idx)]])],axis=0) # adds 2x1 col for each APNP pair
         print('parm space table =\n',np.append(str_arr,f_ub_table[:,1:],axis=1),' << formated as [act_name perf_name indicMat_row indicMat_col f_lb f_ub]',flush=True)
                 
-        feasFs=np.array([], dtype=np.int64).reshape(0,len(f_ub_table)) # number of cols will be = number of nonzero F ele
-        myFbases=np.array([], dtype=np.int64).reshape(0,len(f_ub_table))
-        for k in range(numsamp):
-        #    F,candFset=assignF_v2(f_ub_table,n) # design F matrix
-            F,candFset=assignF_v3(nzrow,sample_starts,std_devs,n) # design F matrix
-            CLmat=A-np.dot(B,F) # CLmat=A-BF
-            val,ssErr_bool,ecirc_bool,domeig_mags,Fstable=eval_Fmat(parmObj,CLmat,domeig_mags)
-            #print('cand F set=',candFset,flush=True)
-            if Fstable:
-                print('found stabilizing F!')
-                feasFs=np.append(feasFs,candFset,axis=0) # if Fstable, add Fset to new row of feasFs
-            eigs_outside_circle+=ecirc_bool
-            ssError_no_contract+=ssErr_bool
-            myCosts=np.append(myCosts,[[val]],axis=0) # temp
-            myFbases=np.append(myFbases,candFset,axis=0) # save all Fs tried, not just feas ones
+        
+        #------------------------------------------
+        
+        prev=1 # starting min domeig to compare to 
+        step0=0.07 # original step size
+        step=step0 # initalize sigma step size
+        sigma=0.3  # arbitrary starting point for sigma
+        sigma_vec,min_domeig_vec,tol,sig_try=[],[],0.001,10
+        for sig_count in range(sig_try): # try this many different sigma, and take the case with the lowest domeig 
+            sigma_vec.append(sigma)
+            min_domeig_vec.append(prev)
+            
+            std_devs=[sigma]*len(sample_starts) 
+            print('------------------------')
+            print('sigma=',sigma)
+            print('before adding step, step=',step)
+            sigma=sigma+step
+            domeig_mags,stable_domeig_mags=[],[]
+            feasFs=np.array([], dtype=np.int64).reshape(0,len(f_ub_table)) # number of cols will be = number of nonzero F ele
+            myFbases=np.array([], dtype=np.int64).reshape(0,len(f_ub_table))
+            #--------------------------
+            for k in range(numsamp): # numsamp is number of F matrices to try
+            #    F,candFset=assignF_v2(f_ub_table,n) # design F matrix
+                F,candFset=assignF_v3(nzrow,sample_starts,std_devs,n) # design F matrix
+                CLmat=A-np.dot(B,F) # CLmat=A-BF
+                val,ssErr_bool,ecirc_bool,domeig_mags,Fstable=eval_Fmat(parmObj,CLmat,domeig_mags)  # evaluate a single F matrix
+                #print('cand F set=',candFset,flush=True)
+                # domeig_mags is added to for every iteration k
+                
+                
+                if Fstable:
+                    #print('found stabilizing F!')
+                    feasFs=np.append(feasFs,candFset,axis=0) # if Fstable, add Fset to new row of feasFs
+                    stable_domeig_mags=np.append(stable_domeig_mags,domeig_mags[-1]) # latest entry is current domeig
+                eigs_outside_circle+=ecirc_bool
+                ssError_no_contract+=ssErr_bool
+                myCosts=np.append(myCosts,[[val]],axis=0) # temp
+                myFbases=np.append(myFbases,candFset,axis=0) # save all Fs tried, not just feas ones
+            #------------------
+            percent_feas=len(feasFs)/numsamp
+            print(100*percent_feas,' percent of Fs were feas')
+            curr=min(domeig_mags)
+            print('(curr,prev) domeig=(',np.round(curr,4),',',np.round(prev,4),')')
+
+            if sig_count==0: # initialized
+                save_lst=[domeig_mags,stable_domeig_mags,feasFs,myFbases,sigma] # save items assoc with best sigma case
+            if sig_count>0.3*sig_try and np.absolute(curr-prev)<tol: # when min_domeig stops changing so much
+                print('----domeig has converged across sigmas----')
+                print('case1')
+                break
+            if np.absolute(step)<np.absolute(step0*0.1): # if step has gotten too small, change direction and reset step size to 50% of original
+                step=-0.5*np.sign(step)*step0  # negate the step
+                print('case2')
+            elif percent_feas<0.1 or curr>1 or curr>=prev: # if not enough stable Fs to choose from
+                sigma=sigma-2*step
+                step=step*0.5 # reduce step size
+                print('step=',step)
+                print('case3')
+            else: # curr<prev:
+                prev=curr
+                save_lst=[domeig_mags,stable_domeig_mags,feasFs,myFbases,sigma] # save items assoc with best sigma case
+                print('new min_domeig=',curr)
+                print('case4')
+        
+        
+        fig, (ax1, ax2) = plt.subplots(2)
+        ax1.plot(sigma_vec, c='red', lw=2,label='sigma')
+        ax1.legend(loc='upper left')
+        ax2.plot(min_domeig_vec, c='green',lw=2,label='min dominant eig')
+        plt.ylim([0.99*min(min_domeig_vec), 1.01*max(min_domeig_vec)])
+        ax2.legend(loc='upper left')
+        plt.show()
+        plt.grid()
+
 
         #-------------------------------------------------
     else:
         raise Exception("unrecognized string value for sample_way")
         
 # [for both heuristic and non-heuristic] gather result
-    threshold=(0.1)*(numsamp) # your choice, defines when node color is yellow vs. blue
+    [domeig_mags,stable_domeig_mags,feasFs,myFbases,sigma]=save_lst[:]
+    min_domeig_mag=min(domeig_mags)
     numfeas=np.append(numfeas,[[len(feasFs)]],axis=0) # number of rows
     #print('feasFs=',np.around(feasFs,3))
-    
+    percent_feas=len(feasFs)/numsamp
+    print('percent feas=',np.around(percent_feas,3))
+
+    print('smallest dom eig mag=',min_domeig_mag)
+    # histogram(domeig_mags)
+    #print('domeig_mags=',domeig_mags)
+    if len(stable_domeig_mags)>1:
+        plt.hist([round(num, 3) for num in stable_domeig_mags], density=True, bins=15) # round to nearest hundredth
+        plt.ylabel('mag of dominant eig')
+        mystr='different stable Fs for sigma='+str(sigma)
+        plt.xlabel(mystr);
+        
+
    # if feas==True:
-    if len(feasFs)>=threshold:
+    if percent_feas>0.1: # arbitrary
         print("Config good!",flush=True)
         print('feasF shape=',feasFs.shape)
-        print('smallest dom eig mag=',min(domeig_mags))
-        bestF=feasFs[np.argmin(domeig_mags)][:] # the set of F ele that results in the most stable dominant eval
+        print('domeig_mags shape=',domeig_mags.shape)
+
+        bestF=feasFs[np.argmin(stable_domeig_mags)][:] # the set of F ele that results in the most stable dominant eval
         #print("Best F is (Fp Fq)=",bestF) # typically really tiny, not interesting to print
         feas=True
         
-        # histogram(domeig_mags)
-        plt.hist(domeig_mags, density=True, bins=10)  # density=False would make counts
-        plt.ylabel('mag of dominant eig')
-        plt.xlabel('stable F');
 
     else:
         bestF=float("NaN")
         feas=False
         print("No F found for config --> bad config",flush=True)
-        print("Unit circle fails=",eigs_outside_circle,', ss_error contraction fails=',ssError_no_contract)
+        #print("Unit circle fails=",eigs_outside_circle,', ss_error contraction fails=',ssError_no_contract)
 
-    dataFull=np.concatenate((myFbases,myCosts),axis=1) # [Fp Fq myCost]  for all tried Fs
+    #dataFull=np.concatenate((myFbases,myCosts),axis=1) # [Fp Fq myCost]  for all tried Fs
     #print("[Fp,Fq,myCost]=\n",dataFull) # print useful data
-    numTried=len(myCosts) # number of rows
+    numTried=len(myFbases) # number of rows
     num_act=np.count_nonzero(indicMat)/2
        
     # return feas,feasFs,num_act,numfeas,numTried
-    return feas,feasFs,numfeas,numTried,num_act,bestF,indicMat
+    return feas,feasFs,numfeas,numTried,num_act,bestF,indicMat,min_domeig_mag
 
 def eval_config_F(parmObj,bestFparm,indicMat,feeder,depths,node_index_map):
                     # NEED FIX
@@ -614,5 +684,5 @@ def eval_config_F(parmObj,bestFparm,indicMat,feeder,depths,node_index_map):
     else:
         feas=False
 
-    print('Actuator configuration is feasible') if feas else print('Actuator configuration is not feasible')
+    print('Actuator configuration has enough stability margin') if feas else print('Actuator configuration does not have enough stability margin')
     return feas

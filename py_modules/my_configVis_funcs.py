@@ -64,24 +64,29 @@ def markActLoc(graph, act_loc):
     graph.nodes[act_loc]['shape'] = 'circle'
     return
 
-def markFeas(numfeas, test_act_loc, graph,phase_loop_check):
+def markFeas(range_vec,domeig,test_act_loc, graph,phase_loop_check):
     #if controllability can be achieved with actuator at test_act_loc then mark green, if only a few controllable configurations (given by thresh_yellowgreen) exist mark yellow, otherwise mark red
     #feas = True or False
     #test_act_loc = node name as string
     #graph = networkx graph object (feeder.network)
     graph.nodes[test_act_loc]['style'] = 'filled'
     graph.nodes[test_act_loc]['shape'] = 'circle'
+    
+    level=(domeig-range_vec[0])/(range_vec[1]-range_vec[0]) # percentage indicating where you are in the range
 
-    thresh_yellowgreen = 15 # you choose
-    # for more colors see https://graphviz.org/doc/info/attrs.html
+    # for more colors see https://graphviz.org/doc/info/colors.html
     if not phase_loop_check:
         graph.nodes[test_act_loc]['fillcolor'] = 'firebrick'
-    elif numfeas >= thresh_yellowgreen:
-        graph.nodes[test_act_loc]['fillcolor'] = 'turquoise'
-    elif numfeas >= 1:
-        graph.nodes[test_act_loc]['fillcolor'] = 'yellow'
-    else:
+    elif domeig >= 1:
         graph.nodes[test_act_loc]['fillcolor'] = 'red'
+    elif level<0.25:
+        graph.nodes[test_act_loc]['fillcolor'] = 'turquoise'
+    elif level<0.5:
+        graph.nodes[test_act_loc]['fillcolor'] = 'yellow'
+    elif level<0.75:
+        graph.nodes[test_act_loc]['fillcolor'] = 'gold'
+    else:
+        graph.nodes[test_act_loc]['fillcolor'] = 'darkorange'
     return
 
 def write_formatted_dot(graph, file_name):
