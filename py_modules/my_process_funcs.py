@@ -79,7 +79,7 @@ def find_good_colocated(parmObj,feeder, set_acts, addon_acts, node_index_map,sub
             if node not in cur_act_locs:
                 test_nodes.append(node)
 
-        domest_lst=[]
+        domeig_lst=[]
         for test in test_nodes:
             feas=False # default
             print('evaluating act and perf colocated at ',[test] + cur_act_locs) 

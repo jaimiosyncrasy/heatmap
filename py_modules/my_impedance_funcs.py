@@ -269,3 +269,16 @@ def get_largest_imped_to_sub(feeder, depths, num_impeds):
         edge_imps.pop(max_z_edge)
     
     return max_edge_imps
+
+def get_z2sub_for_config(feeder, act_locs,depths):
+    # compute sum of z2subs for a given config
+    mysum=np.zeros((1,3))
+    for act_name in act_locs:
+        z2sub=get_total_impedance_from_substation(feeder, act_name,depths) # returns 3x3 complex matrix
+        zself=[[z2sub[0][0], z2sub[1][1], z2sub[2][2]]]
+        #print('zzelf=',zself)
+        abs_z=np.absolute(zself)
+        #print('abs_z=',abs_z)
+        mysum=mysum+np.array(abs_z)
+        
+    return mysum
