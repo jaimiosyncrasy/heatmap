@@ -1,23 +1,11 @@
 import importlib
 import setup_nx # your own module, setup.nx.py
-import numpy as np
-import math as m
-import statistics as st
-import cmath
-import matplotlib.pyplot as plt 
-import itertools
 import random
-from operator import add
+
 importlib.reload(setup_nx)
 from setup_nx import *
-from graphviz import Source, render
-import datetime
-import time
 import my_feeder_funcs as ff
-import my_impedance_funcs as imp
 import my_configVis_funcs as vis
-import my_detControlMatExistence_funcs as ctrl
-import my_detLznRange_funcs as lzn
 import my_heatmapSetup_funcs as hm
 
 
@@ -80,7 +68,10 @@ def find_good_colocated(parmObj,feeder, set_acts, addon_acts, node_index_map,sub
                 test_nodes.append(node)
 
         domeig_lst=[]
-        for test in test_nodes:
+        for i in range(len(test_nodes)):
+            test=test_nodes[i]
+            print('making CPP heatmap: percent done=', np.round(100*i / len(test_nodes),1),flush=True)
+            # todo print progress
             feas=False # default
             print('evaluating act and perf colocated at ',[test] + cur_act_locs) 
             indicMat,indicMat_table,phase_loop_check = hm.updateStateSpace(parmObj,feeder, n, [test] + cur_act_locs, [test] + cur_act_locs,file_name) # (n,act,perf,dictionary)
@@ -100,10 +91,10 @@ def find_good_colocated(parmObj,feeder, set_acts, addon_acts, node_index_map,sub
                 feas_dic['numfeas'] = [numfeas]
                 feas_configs += [feas_dic]
  
-        plt.figure()
-        domeig_lst_less1=[x for x in domeig_lst if x<1]       
-        plt.hist(domeig_lst_less1, density=True, bins=15) # round to nearest hundredth
-        plt.xlabel('RHP: min domeig per config')
+        # plt.figure()
+        domeig_lst_less1=[x for x in domeig_lst if x<1]
+        # plt.hist(domeig_lst_less1, density=True, bins=15) # round to nearest hundredth
+        # plt.xlabel('RHP: min domeig per config')
         domeig_range=[max(domeig_lst_less1),min(domeig_lst_less1)]
         for i in range(len(test_nodes)):
             vis.markFeas(domeig_range,domeig_lst[i], test_nodes[i], graph,phase_loop_check)
@@ -321,9 +312,7 @@ def placeMaxColocActs_stopAtInfeas(parmObj,feeder, file_name, node_index_map, de
             print('Random choice of co-located APNP yields unstable  configuration. Generating heatmap by checking all remaining feeder nodes...')
             feas_configs, heatMapNames = find_good_colocated(parmObj,feeder,[],act_locs, node_index_map, substation_name, depths,file_name, Vbase_ll, Sbase) # makes a heatmap, assume set_acts=[]
 
-            
-            (parmObj,feeder, set_acts, addon_acts, node_index_map,substation_name, depths, file_name, Vbase_ll, Sbase)
-            
+
             break
     
     ff.clear_graph(feeder)

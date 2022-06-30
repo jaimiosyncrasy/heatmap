@@ -1,23 +1,14 @@
 import importlib
 import setup_nx # your own module, setup.nx.py
-import numpy as np
 import math as m
-import statistics as st
 import cmath
-import matplotlib.pyplot as plt 
-import itertools
 import xlrd
 from operator import add
 importlib.reload(setup_nx)
 from setup_nx import *
-from graphviz import Source, render
 
-import datetime
-import time
-import my_feeder_funcs as ff
 import my_impedance_funcs as imp
 import my_configVis_funcs as vis
-import my_detControlMatExistence_funcs as ctrl
 import my_heatmapSetup_funcs as hm
 
 
@@ -206,7 +197,7 @@ def calc_line_losses_to_fork(node_index_map, feeder, edge_node, Iforks, S, Sloss
     ic = ic_load + sum([i[2] for i in Iforks[edge_node]])
     
     impedance = feeder.network.get_edge_data(pred_node[0], edge_node, default=None)['connector']
-    z_3by3 = impedance.Z if isinstance(impedance, setup_nx.line) else np.zeros((3,3)) # not pu
+    z_3by3 = impedance.Z if isinstance(impedance, setup_nx.line) else np.zeros((3, 3)) # not pu
     z_3by3 = z_3by3/Zbase # convert to pu 
     
     V_drop = np.dot(z_3by3, np.array([ia, ib, ic]))
@@ -242,7 +233,7 @@ def calc_line_losses_to_fork(node_index_map, feeder, edge_node, Iforks, S, Sloss
 
         ia, ib, ic = ia_load + ia_prev, ib_load + ib_prev, ic_load + ic_prev 
         impedance = feeder.network.get_edge_data(pred_node[0], cur_node, default=None)['connector']
-        z_3by3 = impedance.Z if isinstance(impedance, setup_nx.line) else np.zeros((3,3)) # not pu
+        z_3by3 = impedance.Z if isinstance(impedance, setup_nx.line) else np.zeros((3, 3)) # not pu
         z_3by3 = z_3by3/Zbase # convert to pu 
         V_drop = np.dot(z_3by3, np.array([ia, ib, ic]))
         conj_ia = complex(ia.real, (-1) * ia.imag)

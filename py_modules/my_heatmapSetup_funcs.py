@@ -1,24 +1,11 @@
 import importlib
 import setup_nx # your own module, setup.nx.py
-import numpy as np
-import math as m
-import statistics as st
-import cmath
-import matplotlib.pyplot as plt 
-import itertools
-import random
-from operator import add
+
 importlib.reload(setup_nx)
 from setup_nx import *
-from graphviz import Source, render
-import datetime
-import time
-import my_feeder_funcs as ff
 import my_impedance_funcs as imp
-import my_configVis_funcs as vis
 import my_detControlMatExistence_funcs as ctrl
-import my_detLznRange_funcs as lzn
-import my_process_funcs as prc
+
 
 def remove_subst_nodes(feeder, file_name):
     #remove the substation nodes/node from the network's node list, print(node_index_map) to determine the idx
@@ -116,7 +103,7 @@ def createRXmatrices_3ph(feeder, depths,file_name):
             
             for edge in intersection_list: #iterates through shared edges and sums their impedances
                 impedance = feeder.network.get_edge_data(edge[1], edge[0], default = None)['connector']
-                tot_edge_impedance = impedance.Z if isinstance(impedance, setup_nx.line) else np.zeros((3,3)) 
+                tot_edge_impedance = impedance.Z if isinstance(impedance, setup_nx.line) else np.zeros((3, 3))
                 #print('impedance=',tot_edge_impedance) # temp
                 imped_sum += tot_edge_impedance
             for i_row in range(3):    # goes 0-->1-->2

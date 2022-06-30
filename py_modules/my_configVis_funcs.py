@@ -1,23 +1,12 @@
 import importlib
 import setup_nx # your own module, setup.nx.py
-import numpy as np
-import math as m
-import statistics as st
-import cmath
-import matplotlib.pyplot as plt 
-import itertools
 import random
-from operator import add
+
 importlib.reload(setup_nx)
 from setup_nx import *
-from graphviz import Source, render
-import datetime
-import time
+from graphviz import render
 import matplotlib.pyplot as plt
 import my_feeder_funcs as ff
-import my_impedance_funcs as imp
-import my_detControlMatExistence_funcs as ctrl
-import my_detLznRange_funcs as lzn
 import my_heatmapSetup_funcs as hm
 import re # regex
 
@@ -79,14 +68,10 @@ def markFeas(range_vec,domeig,test_act_loc, graph,phase_loop_check):
         graph.nodes[test_act_loc]['fillcolor'] = 'firebrick'
     elif domeig >= 1:
         graph.nodes[test_act_loc]['fillcolor'] = 'red'
-    elif level<0.25:
+    elif level<0.5: #Lower half of stable domeigs
         graph.nodes[test_act_loc]['fillcolor'] = 'turquoise'
-    elif level<0.5:
-        graph.nodes[test_act_loc]['fillcolor'] = 'yellow'
-    elif level<0.75:
-        graph.nodes[test_act_loc]['fillcolor'] = 'gold'
     else:
-        graph.nodes[test_act_loc]['fillcolor'] = 'darkorange'
+        graph.nodes[test_act_loc]['fillcolor'] = 'yellow'
     return
 
 def write_formatted_dot(graph, file_name):
@@ -471,7 +456,7 @@ def phaseCouplingPerNode(feeder, depths, file_name):
         for edge in edge_path:
             rat_A,rat_B,rat_C=0,0,0
             impedance_test = graph.get_edge_data(edge[1], edge[0], default=None)['connector']
-            impedance = impedance_test.Z if isinstance(impedance_test, setup_nx.line) else np.zeros((3,3))
+            impedance = impedance_test.Z if isinstance(impedance_test, setup_nx.line) else np.zeros((3, 3))
             #print('Z=',impedance)
             self_imped_A = impedance[0][0] 
             self_imped_B = impedance[1][1]

@@ -1,26 +1,14 @@
 import importlib
 import setup_nx # your own module, setup.nx.py
-import numpy as np
 import scipy.linalg as LA
 import math
-import statistics as st
-import cmath
-import matplotlib.pyplot as plt 
-import itertools
-from operator import add
+
 importlib.reload(setup_nx)
 from setup_nx import *
-from graphviz import Source, render
 from sympy import * # includes Matrix object and solve function
 import scipy.io # need to load .mat
-from matplotlib.ticker import FormatStrFormatter # to format plot axis
-import datetime
-import time
 
-import my_feeder_funcs as ff
 import my_impedance_funcs as imp
-import my_configVis_funcs as vis
-import my_detLznRange_funcs as lzn
 import my_heatmapSetup_funcs as hm
 
 
@@ -302,14 +290,14 @@ def det_sampleStart(Bcol,y): # runs for each Gdisc (each row of Hsub)
     return mu
 
 # helper func in computeFParamSpace_v3
-def multBF(B,i,j,n):
-    # returns B*F faster than if did B.multiply(Fsymb)
-    # uses how the only nonzero ele of F is at Fij, so only one col of BF is nonzero
-    Bcol=B[:,i]
-    var('f') # declare symbolic
-    BF=zeros(6*n) # faster than creating array and converting to matrix object
-    BF[:,j]=Bcol*f
-    return BF
+# def multBF(B,i,j,n):
+#     # returns B*F faster than if did B.multiply(Fsymb)
+#     # uses how the only nonzero ele of F is at Fij, so only one col of BF is nonzero
+#     Bcol=B[:,i]
+#     var('f') # declare symbolic
+#     BF=zeros(6*n) # faster than creating array and converting to matrix object
+#     BF[:,j]=Bcol*f
+#     return BF
 
 # helper func in computeFParamSpace_v3, calls det_Gdisc and solve_Gdisc_conds
 def det_Gdisc_Franges(indicMat_table, n, B, c, r):
@@ -361,36 +349,36 @@ def det_Gdisc(c,r,myBF,nnz_idx,n):
         r[i]=sum
     return c,r,nnz_idx
 
-# helper func in computeFParamSpace_v3
-def solve_Gdisc_conds(c,r,nnz_idx,k,bigBox_range): # for each Gdisc, update one row of bigBox_range
-    # must pass in bixBox_range so can update it across calls of this func
-    # modify indicMat_table by adding 2 columns to end, for [flb fub] computed from gdisc cond
-                 
-    #print('r=',r)
-    #print('c=',c)
-    cond1=c[nnz_idx]+r[nnz_idx]-2 # <0, c+r<2
-    print('cond1=',cond1)
-    cond2=-c[nnz_idx]+r[nnz_idx] # <0, c-r>0
-    print('cond2=',cond2)
-    cond3=c[nnz_idx] # =0, c>0
-    #print('cond3=',cond3)
-
-    sol1=solve(cond1,dict=True) # eqn is set to zero and solved
-    sol2=solve(cond2,dict=True) 
-    print('sol1=',sol1)
-    print('sol2=',sol2)
-    
-    if sol1 and sol2: # if both give solns
-        if sol1[0][f]<sol2[0][f]:
-            bigBox_range[k][3:5]=[sol1[0][f], sol2[0][f]] # row of bigBox_range
-        else:
-            bigBox_range[k][3:5]=[sol2[0][f], sol1[0][f]]
-        #print('range=',bigBox_range[k][:])
-    else:
-        print('No solution to conditions')
-     
-        
-    return bigBox_range
+# # helper func in computeFParamSpace_v3
+# def solve_Gdisc_conds(c,r,nnz_idx,k,bigBox_range): # for each Gdisc, update one row of bigBox_range
+#     # must pass in bixBox_range so can update it across calls of this func
+#     # modify indicMat_table by adding 2 columns to end, for [flb fub] computed from gdisc cond
+#
+#     #print('r=',r)
+#     #print('c=',c)
+#     cond1=c[nnz_idx]+r[nnz_idx]-2 # <0, c+r<2
+#     print('cond1=',cond1)
+#     cond2=-c[nnz_idx]+r[nnz_idx] # <0, c-r>0
+#     print('cond2=',cond2)
+#     cond3=c[nnz_idx] # =0, c>0
+#     #print('cond3=',cond3)
+#
+#     sol1=solve(cond1,dict=True) # eqn is set to zero and solved
+#     sol2=solve(cond2,dict=True)
+#     print('sol1=',sol1)
+#     print('sol2=',sol2)
+#
+#     if sol1 and sol2: # if both give solns
+#         if sol1[0][f]<sol2[0][f]:
+#             bigBox_range[k][3:5]=[sol1[0][f], sol2[0][f]] # row of bigBox_range
+#         else:
+#             bigBox_range[k][3:5]=[sol2[0][f], sol1[0][f]]
+#         #print('range=',bigBox_range[k][:])
+#     else:
+#         print('No solution to conditions')
+#
+#
+#     return bigBox_range
 
 #-------------------------------------------------------------------------------------------------------------
     
@@ -549,7 +537,7 @@ def detControlMatExistence(parmObj, feeder, A, B, indicMat,indicMat_table,act_lo
             
             std_devs=[sigma]*len(sample_starts) 
             print('------------------------')
-            print('sigma=',sigma)
+            print('sig iteration ',sig_count+1,'; sigma=',sigma)
             print('before adding step, step=',step)
             sigma=sigma+step
             domeig_mags,stable_domeig_mags=[],[]
@@ -600,14 +588,14 @@ def detControlMatExistence(parmObj, feeder, A, B, indicMat,indicMat_table,act_lo
                 print('case4')
         
         
-        fig, (ax1, ax2) = plt.subplots(2)
-        ax1.plot(sigma_vec, c='red', lw=2,label='sigma')
-        ax1.legend(loc='upper left')
-        ax2.plot(min_domeig_vec, c='green',lw=2,label='min dominant eig')
-        plt.ylim([0.99*min(min_domeig_vec), 1.01*max(min_domeig_vec)])
-        ax2.legend(loc='upper left')
-        plt.show()
-        plt.grid()
+        # fig, (ax1, ax2) = plt.subplots(2)
+        # ax1.plot(sigma_vec, c='red', lw=2,label='sigma')
+        # ax1.legend(loc='upper left')
+        # ax2.plot(min_domeig_vec, c='green',lw=2,label='min dominant eig')
+        # plt.ylim([0.99*min(min_domeig_vec), 1.01*max(min_domeig_vec)])
+        # ax2.legend(loc='upper left')
+        # plt.show()
+        # plt.grid()
 
 
         #-------------------------------------------------
@@ -620,9 +608,9 @@ def detControlMatExistence(parmObj, feeder, A, B, indicMat,indicMat_table,act_lo
     numfeas=np.append(numfeas,[[len(feasFs)]],axis=0) # number of rows
     #print('feasFs=',np.around(feasFs,3))
     percent_feas=len(feasFs)/numsamp
-    print('percent feas=',np.around(percent_feas,3))
+    print('percent feas=',np.around(percent_feas,3),flush=True)
 
-    print('smallest dom eig mag=',min_domeig_mag)
+    print('smallest dom eig mag=',min_domeig_mag,flush=True)
     # histogram(domeig_mags)
     #print('domeig_mags=',domeig_mags)
     if len(stable_domeig_mags)>1:

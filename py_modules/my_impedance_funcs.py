@@ -1,19 +1,9 @@
 import importlib
 import setup_nx # your own module, setup.nx.py
-import numpy as np
-import math as m
-import statistics as st
-import cmath
-import matplotlib.pyplot as plt 
-import itertools
-from operator import add
+
 importlib.reload(setup_nx)
 from setup_nx import *
-from graphviz import Source, render
-import datetime
-import time
 import matplotlib.pyplot as plt
-import my_feeder_funcs as ff
 
 "-----Notes on the following two methods-----"
 #1)Does not account for the presence of artifically added transformer windings -- would have to separate out the line impedance information
@@ -44,7 +34,7 @@ def get_total_impedance_from_substation(feeder, node_name, depths):
             print("WARNING: No connection between nodes " + str(pred_list[0]) + " and " + str(current_node) + ".")
             return 0
         else:
-            imp_dict = impedance.Z if isinstance(impedance, setup_nx.line) else np.zeros((3,3), dtype = complex)
+            imp_dict = impedance.Z if isinstance(impedance, setup_nx.line) else np.zeros((3, 3), dtype = complex)
             total_impedance += imp_dict
             current_node = pred_list[0]
             pred_list = list(feeder.network.predecessors(current_node))
@@ -83,7 +73,7 @@ def get_total_impedance_between_two_buses(feeder, node_name_1, node_name_2, dept
             print("WARNING: No connection between nodes " + str(pred_list_max[0]) + " and " + str(max_depth_bus) + ".")
             return 0
         else:
-            imp_dict = impedance.Z if isinstance(impedance, setup_nx.line) else np.zeros((3,3), dtype = complex)
+            imp_dict = impedance.Z if isinstance(impedance, setup_nx.line) else np.zeros((3, 3), dtype = complex)
             total_impedance += imp_dict
             #Case of where we the two buses are directly linked by purely upstream connections, allowing us to
             #terminate our calculations earlier
@@ -108,7 +98,7 @@ def get_total_impedance_between_two_buses(feeder, node_name_1, node_name_2, dept
             print("WARNING: No connection between nodes " + str(pred_list_min[0]) + " and " + str(min_depth_bus) + ".")
             return 0
         else:
-            imp_dict_min = impedance_bus_min.Z if isinstance(impedance_bus_min, setup_nx.line) else np.zeros((3,3), dtype = complex)
+            imp_dict_min = impedance_bus_min.Z if isinstance(impedance_bus_min, setup_nx.line) else np.zeros((3, 3), dtype = complex)
             
             total_impedance += imp_dict_min
             min_depth_bus = pred_list_min[0]
@@ -119,7 +109,7 @@ def get_total_impedance_between_two_buses(feeder, node_name_1, node_name_2, dept
             print("WARNING: No connection between nodes " + str(pred_list_max[0]) + " and " + str(max_depth_bus) + ".")
             return 0
         else:
-            imp_dict_max = impedance_bus_max.Z if isinstance(impedance_bus_max, setup_nx.line) else np.zeros((3,3), dtype = complex)
+            imp_dict_max = impedance_bus_max.Z if isinstance(impedance_bus_max, setup_nx.line) else np.zeros((3, 3), dtype = complex)
             
             total_impedance += imp_dict_max
             max_depth_bus = pred_list_max[0]
@@ -135,7 +125,7 @@ def get_total_impedance_between_two_buses(feeder, node_name_1, node_name_2, dept
         print("WARNING: No connection between nodes " + str(pred_list_min[0]) + " and " + str(min_depth_bus) + ".")
         return 0
     else:
-        imp_dict_min = impedance_bus_min.Z if isinstance(impedance_bus_min, setup_nx.line) else np.zeros((3,3), dtype = complex)
+        imp_dict_min = impedance_bus_min.Z if isinstance(impedance_bus_min, setup_nx.line) else np.zeros((3, 3), dtype = complex)
         total_impedance += imp_dict_min
     
     impedance_bus_max = feeder.network.get_edge_data(pred_list_max[0], max_depth_bus, default=None)['connector']
@@ -143,7 +133,7 @@ def get_total_impedance_between_two_buses(feeder, node_name_1, node_name_2, dept
         print("WARNING: No connection between nodes " + str(pred_list_max[0]) + " and " + str(max_depth_bus) + ".")
         return 0
     else:
-        imp_dict_max = impedance_bus_max.Z if isinstance(impedance_bus_max, setup_nx.line) else np.zeros((3,3), dtype = complex)
+        imp_dict_max = impedance_bus_max.Z if isinstance(impedance_bus_max, setup_nx.line) else np.zeros((3, 3), dtype = complex)
         total_impedance += imp_dict_max
         
     return total_impedance
