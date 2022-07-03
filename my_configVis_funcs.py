@@ -53,7 +53,7 @@ def markActLoc(graph, act_loc):
     graph.nodes[act_loc]['shape'] = 'circle'
     return
 
-def markFeas(range_vec,domeig,test_act_loc, graph,phase_loop_check):
+def markFeas(range_vec,test_value,test_act_loc, graph):
     #if controllability can be achieved with actuator at test_act_loc then mark green, if only a few controllable configurations (given by thresh_yellowgreen) exist mark yellow, otherwise mark red
     #feas = True or False
     #test_act_loc = node name as string
@@ -61,17 +61,18 @@ def markFeas(range_vec,domeig,test_act_loc, graph,phase_loop_check):
     graph.nodes[test_act_loc]['style'] = 'filled'
     graph.nodes[test_act_loc]['shape'] = 'circle'
     
-    level=(domeig-range_vec[0])/(range_vec[1]-range_vec[0]) # percentage indicating where you are in the range
+    level=(test_value-range_vec[0])/(range_vec[1]-range_vec[0]) # percentage indicating where you are in the range
+    assert level>=0 and range_vec[1]>range_vec[0]
 
     # for more colors see https://graphviz.org/doc/info/colors.html
-    if not phase_loop_check:
-        graph.nodes[test_act_loc]['fillcolor'] = 'firebrick'
-    elif domeig >= 1:
-        graph.nodes[test_act_loc]['fillcolor'] = 'red'
-    elif level<0.5: #Lower half of stable domeigs
-        graph.nodes[test_act_loc]['fillcolor'] = 'turquoise'
-    else:
+    if round(test_value,3) >= 1: # anything at 0.9995 and above
+        graph.nodes[test_act_loc]['fillcolor'] = 'crimson'
+    elif level<0.34: #Lower half of stable domeigs
         graph.nodes[test_act_loc]['fillcolor'] = 'yellow'
+    elif 0.34<level < 0.67:  # Lower half of stable domeigs
+        graph.nodes[test_act_loc]['fillcolor'] = 'gold'
+    else:
+        graph.nodes[test_act_loc]['fillcolor'] = 'darkorange'
     return
 
 def write_formatted_dot(graph, file_name):
@@ -95,6 +96,19 @@ def write_formatted_dot(graph, file_name):
     render('dot', 'png', 'generated_figs/'+file_name+'wide')
     
     return
+
+def make_map(v,cur_act_locs,hm_dic,vals_range,tag_name):
+        # make heatmap
+        ff.clear_graph(v.feeder)  # clear any previous modifictions made to graph
+        graph = v.feeder.network
+
+        for act in cur_act_locs:  # mark placed acts in grey
+            markActLoc(graph, act)
+        for k, val in hm_dic.items():
+            markFeas(vals_range, val[1], k, graph)
+        heatMapName = tag_name+'_heatmap_'+ v.file_name
+        write_formatted_dot(graph, heatMapName)
+        return
 
 def write_formatted_dot2(graph, file_name): # special version, for ecoblock report
     # remove node labels, widen graph

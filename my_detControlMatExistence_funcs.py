@@ -104,8 +104,8 @@ def assignF_v3(nzrow,sample_starts,std_devs,n): # algo similar to updateStateSpa
         mu=sample_starts[count]
         for j in nzrow[i]: # make all nz elements in each F row sampled from same distribution
             
-            lb,ub=0.01,10 # sample until fval is in [lb ub] range
-            for k in range(100): # sample up to 100 times to get
+            lb,ub=0.01,100 # sample until fval is in [lb ub] range
+            for k in range(100): # resample up to 100 times to get
                 fval=np.random.normal(mu, sigma,1) # mu,sigma,nsamp
                 if fval>lb and fval<ub:
                     break
@@ -113,7 +113,7 @@ def assignF_v3(nzrow,sample_starts,std_devs,n): # algo similar to updateStateSpa
                     raise Exception("could not sample a fval in [lb ub] range")
             
             percentExplore=np.append(percentExplore,100*(fval-mu)/(mu+0.00001)) # save how far sample is from chebyC
-            candFset[0,count]=max([fval, 0]) # save fvals into vec, replace with zero if negative
+            candFset[0,count]=fval # save fvals into vec, replace with zero if negative
             # assume all blocks are 3ph for now, will correct later in this funcc
             #print('F(j,k)=',j,' and ',k)
             F[i,j]=fval
@@ -422,7 +422,7 @@ def eval_Fmat(parmObj,CLmat,domeig_mags): # items we populate for each F tried
     if all(np.around(eigMags,decimals=6)<=1):
         # require that all evals=1 have null space full of base
         # evecs (no generalized evecs)
-        tol=0.0001
+        tol=0.0005
         num1evals=sum(np.absolute(eigMags-1)<tol) # numel(find(abs(abs(eigs)-1)<tol))   
         #num1evals=sum(np.absolute(eigs)==1) # numel(find(abs(abs(eigs)-1)<tol))   
         Y = LA.null_space(CLmat-1*np.eye(len(CLmat))) #null(CLmat-eval*eye(size(CLmat,1))); % Y is orthonorm basis matrix
@@ -471,7 +471,7 @@ def detControlMatExistence(parmObj, feeder, A, B, indicMat,indicMat_table,act_lo
     CLmat=np.empty((6*n,6*n))
     eigs_outside_circle,ssError_no_contract=0,0
     print('evaluating kgains sampled from parm space...',flush=True)
-    numsamp =50
+    numsamp =25 # todo change '5' back to 50
 
     #-------------------------------------------------
     if sample_way=='old-heuristic':
@@ -484,7 +484,6 @@ def detControlMatExistence(parmObj, feeder, A, B, indicMat,indicMat_table,act_lo
         Fp_range=np.linspace(0.0001, Fp_ub, round(sqrt(numsamp)))  
         
         feasFs=np.array([], dtype=np.int64).reshape(0,2)
-        myFbases=np.array([], dtype=np.int64).reshape(0,2)
         
         # heuristic iter
         for Fq in Fq_range:
@@ -507,13 +506,11 @@ def detControlMatExistence(parmObj, feeder, A, B, indicMat,indicMat_table,act_lo
                     eigs_outside_circle+=ecirc_bool
                     ssError_no_contract+=ssErr_bool
                     myCosts=np.append(myCosts,[[val]],axis=0) # temp
-                    myFbases=np.append(myFbases,candFset,axis=0) # save all Fs tried, not just feas ones
    
     #-------------------------------------------------
     elif sample_way=='new-heuristic':  # new-heuristic way to compute the sample space
         print('in new-heuristic route',flush=True)
-        
-        
+
         nzrow,sample_starts,f_ub_table=computeFParamSpace_v4(indicMat,indicMat_table,B) # format is [APNP_number indicMat_row indicMat_col f_lb f_ub]
         # create f_ub_table, formatted as [act_name perf_name indicMat_row indicMat_col f_lb f_ub]
  #       f_ub_table=computeFParamSpace_v3(B, indicMat,indicMat_table) # format is [APNP_number indicMat_row indicMat_col f_lb f_ub]
@@ -521,28 +518,28 @@ def detControlMatExistence(parmObj, feeder, A, B, indicMat,indicMat_table,act_lo
         str_arr=np.array([], dtype=np.int64).reshape(0,2)
         for idx in f_ub_table[:,0]: # pull APNP idx from first col of f_ub_table
             str_arr=np.append(str_arr,[np.array([act_locs[int(idx)], perf_nodes[int(idx)]])],axis=0) # adds 2x1 col for each APNP pair
-        print('parm space table =\n',np.append(str_arr,f_ub_table[:,1:],axis=1),' << formated as [act_name perf_name indicMat_row indicMat_col f_lb f_ub]',flush=True)
-                
-        
+        #print('parm space table =\n',np.append(str_arr,f_ub_table[:,1:],axis=1),' << formated as [act_name perf_name indicMat_row indicMat_col f_lb f_ub]',flush=True)
+
         #------------------------------------------
         
-        prev=1 # starting min domeig to compare to 
+        prev=10 # starting min domeig to compare to
         step0=0.07 # original step size
         step=step0 # initalize sigma step size
         sigma=0.3  # arbitrary starting point for sigma
-        sigma_vec,min_domeig_vec,tol,sig_try=[],[],0.001,10
+        sigma_vec,min_domeig_vec,tol,sig_try=[],[],0.001,10 # todo change '1' back to 10
         for sig_count in range(sig_try): # try this many different sigma, and take the case with the lowest domeig 
             sigma_vec.append(sigma)
             min_domeig_vec.append(prev)
-            
-            std_devs=[sigma]*len(sample_starts) 
+
             print('------------------------')
             print('sig iteration ',sig_count+1,'; sigma=',sigma)
-            print('before adding step, step=',step)
+            print('step=',step)
             sigma=sigma+step
+            std_devs=[sigma]*len(sample_starts)
             domeig_mags,stable_domeig_mags=[],[]
             feasFs=np.array([], dtype=np.int64).reshape(0,len(f_ub_table)) # number of cols will be = number of nonzero F ele
-            myFbases=np.array([], dtype=np.int64).reshape(0,len(f_ub_table))
+            feasFmats=np.array([], dtype=np.int64).reshape(0,6*n) # number of cols will be = number of nonzero F ele
+
             #--------------------------
             for k in range(numsamp): # numsamp is number of F matrices to try
             #    F,candFset=assignF_v2(f_ub_table,n) # design F matrix
@@ -556,11 +553,12 @@ def detControlMatExistence(parmObj, feeder, A, B, indicMat,indicMat_table,act_lo
                 if Fstable:
                     #print('found stabilizing F!')
                     feasFs=np.append(feasFs,candFset,axis=0) # if Fstable, add Fset to new row of feasFs
+                    feasFmats=np.append(feasFmats,F,axis=0)
                     stable_domeig_mags=np.append(stable_domeig_mags,domeig_mags[-1]) # latest entry is current domeig
+
                 eigs_outside_circle+=ecirc_bool
                 ssError_no_contract+=ssErr_bool
                 myCosts=np.append(myCosts,[[val]],axis=0) # temp
-                myFbases=np.append(myFbases,candFset,axis=0) # save all Fs tried, not just feas ones
             #------------------
             percent_feas=len(feasFs)/numsamp
             print(100*percent_feas,' percent of Fs were feas')
@@ -568,7 +566,7 @@ def detControlMatExistence(parmObj, feeder, A, B, indicMat,indicMat_table,act_lo
             print('(curr,prev) domeig=(',np.round(curr,4),',',np.round(prev,4),')')
 
             if sig_count==0: # initialized
-                save_lst=[domeig_mags,stable_domeig_mags,feasFs,myFbases,sigma] # save items assoc with best sigma case
+                save_lst=[domeig_mags,stable_domeig_mags,feasFs,feasFmats,sigma] # save items assoc with best sigma case
             if sig_count>0.3*sig_try and np.absolute(curr-prev)<tol: # when min_domeig stops changing so much
                 print('----domeig has converged across sigmas----')
                 print('case1')
@@ -579,11 +577,10 @@ def detControlMatExistence(parmObj, feeder, A, B, indicMat,indicMat_table,act_lo
             elif percent_feas<0.1 or curr>1 or curr>=prev: # if not enough stable Fs to choose from
                 sigma=sigma-2*step
                 step=step*0.5 # reduce step size
-                print('step=',step)
                 print('case3')
             else: # curr<prev:
                 prev=curr
-                save_lst=[domeig_mags,stable_domeig_mags,feasFs,myFbases,sigma] # save items assoc with best sigma case
+                save_lst=[domeig_mags,stable_domeig_mags,feasFs,feasFmats,sigma] # save items assoc with best sigma case
                 print('new min_domeig=',curr)
                 print('case4')
         
@@ -603,7 +600,7 @@ def detControlMatExistence(parmObj, feeder, A, B, indicMat,indicMat_table,act_lo
         raise Exception("unrecognized string value for sample_way")
         
 # [for both heuristic and non-heuristic] gather result
-    [domeig_mags,stable_domeig_mags,feasFs,myFbases,sigma]=save_lst[:]
+    [domeig_mags,stable_domeig_mags,feasFs,feasFmats,sigma]=save_lst[:]
     min_domeig_mag=min(domeig_mags)
     numfeas=np.append(numfeas,[[len(feasFs)]],axis=0) # number of rows
     #print('feasFs=',np.around(feasFs,3))
@@ -626,24 +623,24 @@ def detControlMatExistence(parmObj, feeder, A, B, indicMat,indicMat_table,act_lo
         print('feasF shape=',feasFs.shape)
         print('domeig_mags shape=',domeig_mags.shape)
 
-        bestF=feasFs[np.argmin(stable_domeig_mags)][:] # the set of F ele that results in the most stable dominant eval
+        idx=np.argmin(stable_domeig_mags)
+        bestF_asvec=feasFs[idx][:] # the set of F ele that results in the most stable dominant eval
+        bestF_asmat=feasFmats[idx][:]
         #print("Best F is (Fp Fq)=",bestF) # typically really tiny, not interesting to print
         feas=True
         
 
     else:
-        bestF=float("NaN")
+        bestF_asvec=float("NaN")
+        bestF_asmat = float("NaN")
         feas=False
         print("No F found for config --> bad config",flush=True)
         #print("Unit circle fails=",eigs_outside_circle,', ss_error contraction fails=',ssError_no_contract)
 
-    #dataFull=np.concatenate((myFbases,myCosts),axis=1) # [Fp Fq myCost]  for all tried Fs
-    #print("[Fp,Fq,myCost]=\n",dataFull) # print useful data
-    numTried=len(myFbases) # number of rows
     num_act=np.count_nonzero(indicMat)/2
        
     # return feas,feasFs,num_act,numfeas,numTried
-    return feas,feasFs,numfeas,numTried,num_act,bestF,indicMat,min_domeig_mag
+    return feas,feasFs,percent_feas,numsamp,num_act,bestF_asvec,bestF_asmat,indicMat,min_domeig_mag
 
 def eval_config_F(parmObj,bestFparm,indicMat,feeder,depths,node_index_map):
                     # NEED FIX

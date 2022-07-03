@@ -48,7 +48,7 @@ def exp1b(v):
     # print(np.around(z2sub_cfg2,2))
 
     parmObj.set_ctrlTypes(['PBC'] * len(cfg3))
-    feas, maxError, numfeas, bestF, indicMat = prc.eval_config(parmObj, v.feeder, cfg3, cfg3, v.node_index_map,
+    feas, maxError, numfeas, bestF_asvec,bestF_asmat, indicMat = prc.eval_config(parmObj, v.feeder, cfg3, cfg3, v.node_index_map,
                                                                v.substation_name, v.depths, v.file_name, v.Vbase_ll, v.Sbase)
     # parmObj.set_ctrlTypes(['PBC']*len(cfg2))
     # feas, maxError,numfeas,bestF,indicMat =prc.eval_config(parmObj,feeder,cfg2,cfg2, node_index_map,substation_name,depths,file_name,Vbase_ll, Sbase)
