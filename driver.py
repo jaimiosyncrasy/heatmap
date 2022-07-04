@@ -19,6 +19,8 @@ if exp_num=='1.a':
     run_evalConfig.exp1a(grid_vars_obj)
 elif exp_num=='1.b':
     run_evalConfig.exp1b(grid_vars_obj)
+elif exp_num=='1view':
+    run_evalConfig.exp1_markGraph(grid_vars_obj)
 elif exp_num=='2':
     run_evalConfig.exp2(grid_vars_obj)
 elif exp_num == '3':
@@ -29,7 +31,7 @@ elif exp_num == '4.a':
     run_CPP.exp4a(grid_vars_obj)
 elif exp_num == '4.b':
     run_CPP.exp4b(grid_vars_obj)
-elif exp_num == '4.c':
+elif exp_num == '4view':
     run_CPP.make_CPP_heatmaps(grid_vars_obj)
 else:
     raise Exception("unrecognized run-config parm for experiment number")

@@ -471,7 +471,7 @@ def detControlMatExistence(parmObj, feeder, A, B, indicMat,indicMat_table,act_lo
     CLmat=np.empty((6*n,6*n))
     eigs_outside_circle,ssError_no_contract=0,0
     print('evaluating kgains sampled from parm space...',flush=True)
-    numsamp =25 # todo change '5' back to 50
+    numsamp =20 # todo change '5' back to 20
 
     #-------------------------------------------------
     if sample_way=='old-heuristic':
@@ -526,7 +526,7 @@ def detControlMatExistence(parmObj, feeder, A, B, indicMat,indicMat_table,act_lo
         step0=0.07 # original step size
         step=step0 # initalize sigma step size
         sigma=0.3  # arbitrary starting point for sigma
-        sigma_vec,min_domeig_vec,tol,sig_try=[],[],0.001,10 # todo change '1' back to 10
+        sigma_vec,min_domeig_vec,tol,sig_try=[],[],0.001,10 # todo change '3' back to 10
         for sig_count in range(sig_try): # try this many different sigma, and take the case with the lowest domeig 
             sigma_vec.append(sigma)
             min_domeig_vec.append(prev)
@@ -571,9 +571,6 @@ def detControlMatExistence(parmObj, feeder, A, B, indicMat,indicMat_table,act_lo
                 print('----domeig has converged across sigmas----')
                 print('case1')
                 break
-            if np.absolute(step)<np.absolute(step0*0.1): # if step has gotten too small, change direction and reset step size to 50% of original
-                step=-0.5*np.sign(step)*step0  # negate the step
-                print('case2')
             elif percent_feas<0.1 or curr>1 or curr>=prev: # if not enough stable Fs to choose from
                 sigma=sigma-2*step
                 step=step*0.5 # reduce step size
@@ -583,7 +580,10 @@ def detControlMatExistence(parmObj, feeder, A, B, indicMat,indicMat_table,act_lo
                 save_lst=[domeig_mags,stable_domeig_mags,feasFs,feasFmats,sigma] # save items assoc with best sigma case
                 print('new min_domeig=',curr)
                 print('case4')
-        
+
+            if np.absolute(step) < np.absolute(step0 * 0.1):  # if step has gotten too small, change direction and reset step size to 50% of original
+                step = -0.5 * np.sign(step) * step0  # negate the step
+                print('changing step direction..')
         
         # fig, (ax1, ax2) = plt.subplots(2)
         # ax1.plot(sigma_vec, c='red', lw=2,label='sigma')

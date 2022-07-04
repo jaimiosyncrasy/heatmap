@@ -20,10 +20,10 @@ def exp3(v):
     parmObj.set_version(1)  # 1 for PBC
 
     # run RHP on neighborhood config for 7th step only:
-    set_act_locs = ['bus_82', 'bus_87', 'bus_77', 'bus_49', 'bus_41', 'bus_44','bus_66']
-    set_perf = ['bus_77', 'bus_77', 'bus_77', 'bus_44', 'bus_44', 'bus_44','bus_66']
-    addon_act_nodes = ['bus_60']
-    addon_perf_nodes = ['bus_66']
+    set_act_locs = ['bus_82', 'bus_87', 'bus_77', 'bus_49', 'bus_41', 'bus_44','bus_105']
+    set_perf = ['bus_77', 'bus_77', 'bus_77', 'bus_44', 'bus_44', 'bus_44','bus_105']
+    addon_act_nodes = ['bus_60'] # arbitrary
+    addon_perf_nodes = ['bus_105']
 
     parmObj.set_ctrlTypes(['PBC'] * len(set_act_locs + addon_act_nodes))
 
@@ -52,7 +52,7 @@ def exp3_viewResults(v):
     plt.grid()
 
     vals_range = [min(domeig_lst), max(domeig_lst)]
-    set_act_locs = ['bus_82', 'bus_87', 'bus_77', 'bus_49', 'bus_41', 'bus_44','bus_66']
+    set_act_locs = ['bus_82', 'bus_87', 'bus_77', 'bus_49', 'bus_41', 'bus_44','bus_105']
     cur_act_locs = set_act_locs
     vis.make_map(v, cur_act_locs, heatmap_dic, vals_range, 'RHP_NBHD')
 

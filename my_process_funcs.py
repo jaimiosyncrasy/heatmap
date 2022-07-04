@@ -20,14 +20,14 @@ def eval_config(parmObj,feeder, all_act_locs, perf_nodes, node_index_map, substa
     assert A.shape==(6*n,6*n), "issue: A (from setupStateSpace) or n have incorrect dims"
     indicMat,indicMat_table,phase_loop_check = hm.updateStateSpace(parmObj,feeder, n, all_act_locs, perf_nodes,file_name)
     if phase_loop_check:  # disallow configs in which the act and perf node phases are not aligned
-        feas, maxError, numfeas,bestF_asvec,bestF_asmat,indicMat,min_domeig_mag = hm.computeFeas_v1(parmObj,feeder, all_act_locs, A, B, indicMat, indicMat_table, substation_name, perf_nodes, depths, node_index_map, Vbase_ll, Sbase,  printCurves,file_name)
+        feas, maxError, percent_feas,bestF_asvec,bestF_asmat,indicMat,min_domeig_mag = hm.computeFeas_v1(parmObj,feeder, all_act_locs, A, B, indicMat, indicMat_table, substation_name, perf_nodes, depths, node_index_map, Vbase_ll, Sbase,  printCurves,file_name)
     else:
         raise Exception("configs has act and perf node phases not aligned")
 
     vis.markActuatorConfig(all_act_locs, feeder, file_name) # create diagram with actuator locs marked
     
     print('Actuator configuration is feasible') if feas else print('Actuator configuration is not feasible')
-    return feas, maxError, numfeas,bestF_asvec,bestF_asmat, indicMat
+    return feas, maxError, percent_feas,bestF_asvec,bestF_asmat, indicMat
 
     
 def find_good_colocated(parmObj,feeder, set_acts, addon_acts, node_index_map,substation_name, depths, file_name, Vbase_ll, Sbase):

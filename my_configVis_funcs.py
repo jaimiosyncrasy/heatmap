@@ -25,23 +25,24 @@ def markActuatorConfig(lst_act_locs, feeder, file_name):
 
     return
 
-def markTwoActatorConfig(lst1,lst2,feeder,file_name):
+def markMultiple_actConfig(group_of_lsts,feeder,file_name):
     #creates diagram of actuator-configuration (though leaves out performance nodes)
     # lst1 = actautors that will be colored first
     # lst2 = actutors that will be colored in second 
     #file_name = string that will be used as the file name of the returned network graph
     ff.clear_graph(feeder)
     graph = feeder.network
-    
-    for loc in lst1:
-        graph.nodes[loc]['style'] = 'filled'
-        graph.nodes[loc]['fillcolor'] = 'indigo'
-    
-    for loc in lst2:
-        graph.nodes[loc]['style'] = 'filled'
-        graph.nodes[loc]['fillcolor'] = 'tomato'
+
+    colors=['indigo','tomato','webgreen']
+    assert len(group_of_lsts)<=len(colors)
+
+    for i in range(len(group_of_lsts)):
+        lst=group_of_lsts[i]
+        for loc in lst:
+            graph.nodes[loc]['style'] = 'filled'
+            graph.nodes[loc]['fillcolor'] = colors[i]
         
-    write_formatted_dot2(graph, 'actConfig_'+ file_name)
+    write_formatted_dot(graph, 'actConfig_'+ file_name)
     return
 
 def markActLoc(graph, act_loc):
@@ -79,7 +80,16 @@ def write_formatted_dot(graph, file_name):
     # fix fontsize to 20
     for node in graph.nodes:
         graph.nodes[node]['fontsize'] = 20
-       
+
+    for edge in graph.edges: # line, switch, or xfmr objects
+        graph.edges[edge]['penwidth'] = 3 # increase thickness of all edges
+        conn=graph.edges[edge]['connector']
+        if hasattr(conn, 'from_phases'): # switches and lines, but not xfmrs, have from_phase attribute
+            numph=min([len(conn.from_phases),len(conn.to_phases)])
+            if numph>1: # make 2 and 3ph lines darker grey edges
+                #graph.edges[edge]['style'] = 'dashed'
+                graph.edges[edge]['color'] = "#585858"
+
     # specify node separation (horiz) and rank separation (vertical)
     nx.nx_pydot.write_dot(graph, 'generated_figs/'+file_name)
     f_old = open('generated_figs/'+file_name)
@@ -87,7 +97,18 @@ def write_formatted_dot(graph, file_name):
     for line in f_old:
         f_new.write(line)
         if 'strict digraph  {' in line:
-            f_new.write("nodesep=0.45;\nranksep=0.5;\n") # nodesep is horizontal separation, ranksep is vertical separation
+            f_new.write("nodesep=0.45;\nranksep=0.4;\n") # nodesep is horizontal separation, ranksep is vertical separation
+    #
+    # pos2 = dict((land, position[land]) for land in graph.nodes())
+    # collection = nx.draw_networkx_edges(graph, pos2, width=2, edge_color='grey')
+    # for patch in collection:
+    #     patch.set_linestyle('dotted')
+    #
+    # nx.draw_networkx_nodes(G, pos, with_labels=True, node_size=[[200, 20, 20, 200, 20]], node_color='red')
+    #
+    # collection = nx.draw_networkx_edges(G, pos, color='white', width=[7, 3, 3, 3, 3], edge_color='b')
+    # for patch in collection:
+    #     patch.set_linestyle('dashdot')
 
     f_old.close()
     f_new.close()        
@@ -124,7 +145,7 @@ def write_formatted_dot2(graph, file_name): # special version, for ecoblock repo
     for line in f_old: # go through every line of dot file
         f_new.write(re.sub("xlabel=n\d+", "",line)); # regex, remove node labels
         if 'strict digraph  {' in line:
-            f_new.write("nodesep=0.7;\nranksep=0.2;\n") # nodesep is horizontal separation, ranksep is vertical separation
+            f_new.write("nodesep=0.7;\nranksep=0.25;\n") # nodesep is horizontal separation, ranksep is vertical separation
             
     f_old.close()
     f_new.close()        
