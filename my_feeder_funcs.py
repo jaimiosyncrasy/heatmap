@@ -5,7 +5,7 @@ importlib.reload(setup_nx)
 from setup_nx import *
 from graphviz import render
 import datetime
-
+import my_configVis_funcs as vis
 
 def feeder_init(modelpath, loadfolder, loadpath, timesteps, Vbase_ll, Sbase, depths, leaves):
     #initialize the feeder object
@@ -55,9 +55,10 @@ def make_graph(feeder, file_name):
     for e in edges:
         graph.edges[e]['arrowhead'] = 'none'
         graph.edges[e]['color'] = 'gray'
-    
-    nx.nx_pydot.write_dot(graph, 'generated_figs/'+file_name+'_blank')
-    render('dot', 'png', 'generated_figs/'+file_name+'_blank')  
+
+    vis.write_formatted_dot(graph, file_name+'_blank')
+    # nx.nx_pydot.write_dot(graph, 'generated_figs/'+file_name+'_blank')
+    # render('dot', 'png', 'generated_figs/'+file_name+'_blank')
     return
 
 def clear_graph(feeder):

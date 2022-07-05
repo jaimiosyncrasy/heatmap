@@ -5,7 +5,7 @@ importlib.reload(setup_nx)
 from setup_nx import *
 import my_impedance_funcs as imp
 import my_detControlMatExistence_funcs as ctrl
-
+import numpy as np
 
 def remove_subst_nodes(feeder, file_name):
     #remove the substation nodes/node from the network's node list, print(node_index_map) to determine the idx
@@ -49,28 +49,6 @@ def getKey(dictionary, value):
                 key = k
     return key 
 
-def get_path_to_substation(feeder, node, depths):
-    #returns list of edges (not impedances) between node and substation
-    #node = node name as string
-    #feeder = initiaized feeder object
-    graph = feeder.network
-    node_path = []
-    current_node = node
-    
-    for i in range(depths[node]):
-        pred_node = list(graph.predecessors(current_node)) #retrieves parent node of current_node
-        node_path += [(current_node, pred_node[0])]
-        current_node = pred_node[0]
-    return node_path
-
-
-def getKey(dictionary, value):
-    #use to retrieve node name from node_index_map using node index
-    #value = node index
-    for k, v in dictionary.items(): 
-         if value == v:
-                key = k
-    return key 
 
 def createRXmatrices_3ph(feeder, depths,file_name):
     #returns 2 (3n)x(3n) matrices containing R and X values for the network 
@@ -87,7 +65,7 @@ def createRXmatrices_3ph(feeder, depths,file_name):
     P = {} #initializing line path dictionary
   
     for node in graph_noSub:
-        P[node] = get_path_to_substation(feeder, node,depths)
+        P[node] = imp.get_path_from_substation(feeder, node, depths)
     
     index_outer=0
     for n_outer in graph_noSub: #outer loop

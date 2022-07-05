@@ -4,6 +4,7 @@ import run_RHP
 import run_evalConfig
 import run_createPowerGrid
 import run_CPP
+import run_OCPP
 import matplotlib.pyplot as plt
 
 print('im in driver')
@@ -33,6 +34,8 @@ elif exp_num == '4.b':
     run_CPP.exp4b(grid_vars_obj)
 elif exp_num == '4view':
     run_CPP.make_CPP_heatmaps(grid_vars_obj)
+elif exp_num == '5':
+    run_OCPP.exp5(grid_vars_obj)
 else:
     raise Exception("unrecognized run-config parm for experiment number")
 print('------ Complete! close any plotting windows to finish the run-config -------------')

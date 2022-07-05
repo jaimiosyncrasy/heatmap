@@ -173,7 +173,7 @@ def computeFParamSpace_v2(parmObj,feeder, act_locs, perf_nodes,R,X,depths,node_i
         Zgood=np.empty((3,3))
         Zgood=(R[act_idx*3:(act_idx*3+3),perf_idx*3:(perf_idx*3+3)])/2+(X[act_idx*3:(act_idx*3+3),perf_idx*3:(perf_idx*3+3)])/2*1j # 3x3 matrix        
         Z_toSubst=imp.get_total_impedance_from_substation(feeder,act,depths)
-        Z_actperf=imp.get_total_impedance_between_two_buses(feeder,act,perf,depths)
+        Z_actperf=imp.get_common_node_impedance_two_buses(feeder, act, perf, depths)
 
         Zbad1=np.subtract(Z_toSubst,Zgood) # >=0
         Zbad2=np.subtract(Z_actperf,Zbad1) # >=0

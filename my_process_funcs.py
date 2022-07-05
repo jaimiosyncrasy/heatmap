@@ -7,7 +7,7 @@ from setup_nx import *
 import my_feeder_funcs as ff
 import my_configVis_funcs as vis
 import my_heatmapSetup_funcs as hm
-
+import my_impedance_funcs as imp
 
 def eval_config(parmObj,feeder, all_act_locs, perf_nodes, node_index_map, substation_name, depths, file_name, Vbase_ll, Sbase):
     #returns whether controllability can be achieved for a given actuator performance node configuration
@@ -199,7 +199,7 @@ def design_config(parmObj,seedkey,numAct,feeder, file_name, node_index_map, dept
         parmObj.set_ctrlTypes(ctrlTypes)
         print('control types=',ctrlTypes)
         print('evaluating actuator and performance node colocated at ',rand_test) 
-        feas, maxError,numfeas,bestFparm,indicMat=eval_config(parmObj,feeder, rand_test, rand_test, node_index_map, substation_name, depths, file_name, Vbase_ll, Sbase)
+        feas, maxError,numfeas,bestFparm,indicMat=eval_config(parmObj,feeder, rand_test, rand_test, node_index_map, substation_name, depths, file_name, Vbase_ll, Sbase) # todo: fix all calls to eval_config in my_process_funcs
         
         if feas:
             break # break out of loop
@@ -352,3 +352,61 @@ def place_max_coloc_acts(parmObj,seedkey,feeder, file_name, node_index_map, dept
     ff.clear_graph(feeder)
     vis.markActuatorConfig(act_locs, feeder, 'auto-CPP_seed'+str(seedkey))
     return act_locs, parmObj
+
+
+def place_max_coloc_acts_v2(parmObj,seedkey,feeder,node_index_map,substation_name,depths,file_name,Vbase_ll,Sbase):
+    # place maximum number of colocated actuators
+    # place on only lower half of feeder, and place to maximize the common-node impedance
+    random.seed(seedkey)  # initialize random num generator so results are reproducable
+
+    # compute z2sub for all nodes, put into list
+    graphNodes_nosub = hm.remove_subst_nodes(feeder,file_name)  # dont consider co-located at substation nodes, node 650 and 651
+    myabsZs=imp.compute_z2sub_lstNodes(graphNodes_nosub, feeder, depths)
+    z2sub_dic={}
+    for i in range(len(myabsZs)):
+        z2sub_dic[graphNodes_nosub[i]]=np.mean(myabsZs[i])
+
+    # sort the list and select the lower half of the nodes --> set N
+    sorted_dic={}
+    sorted_keys=sorted(z2sub_dic,key=z2sub_dic.get,reverse=True)
+    for w in sorted_keys:
+        sorted_dic[w]=z2sub_dic[w]
+    for i in range(round(len(graphNodes_nosub)/2)):
+        sorted_dic.popitem()
+
+    N=list(sorted_dic.keys()) # list of buses on lower half of feeder
+    M = N.copy()  # initialize set of remaining DERs where you could place
+    n = len(N)
+    p = round(0.1 * n)
+    actLocs = []  # initialize
+    actLocs.append(random.sample(N, 1)[0])  # place first DER randomly
+    M.remove(actLocs[0])
+    while len(M) > 0:  # while there are remaining DERs to try
+        m = len(M)
+        if m < p:
+            p = m
+        P = random.sample(M, p)  # sample p candidate locations from M
+        zvals = [] # holds 1 scalar per cand_loc
+        for cand_loc in P:
+            zabs_mat=np.absolute(imp.get_commonNodeZ_for_config(actLocs + [cand_loc],feeder,depths))
+            z_scalar=max([zabs_mat[0][0],zabs_mat[1][1],zabs_mat[2][2]])
+            zvals.append(z_scalar)
+        minval = min(zvals)
+        idx = zvals.index(minval)
+        chosen_loc = P[idx]
+
+        parmObj.set_ctrlTypes(['PBC'] * len(actLocs+[chosen_loc]))
+        feas, maxError, percent_feas, bestF_asvec, bestF_asmat, indicMat = \
+            eval_config(parmObj, feeder, actLocs+[chosen_loc], actLocs+[chosen_loc],
+                        node_index_map,substation_name, depths, file_name, Vbase_ll, Sbase)
+        if feas:
+            actLocs.append(chosen_loc)
+            print('OCPP: new stable config is ', actLocs)
+            M.remove(chosen_loc)
+        else:
+            for cand_loc in P:
+                M.remove(cand_loc)
+
+    vis.markActuatorConfig(actLocs, feeder, file_name)  # create diagram with actuator locs marked
+
+    return actLocs

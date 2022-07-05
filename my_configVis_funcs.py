@@ -483,7 +483,7 @@ def phaseCouplingPerNode(feeder, depths, file_name):
     graphNodes_nosub = hm.remove_subst_nodes(feeder, file_name) #dont consider substation nodes, node 650 and 651 for 13NF
     
     for node in graphNodes_nosub:
-        edge_path = hm.get_path_to_substation(feeder, node, depths)
+        edge_path = hm.get_total_impedance_from_substation(feeder, node, depths)
         couplingRatio_runSum = np.zeros((1, 3), dtype = complex)
         #print('---------------new path-----------------')
 
