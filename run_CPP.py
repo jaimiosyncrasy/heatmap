@@ -10,8 +10,8 @@ import pickle
 
 #endregion
 
-CPP_dataFile_badBr="CPP_7.2_badBr.pkl"
-CPP_dataFile_goodBr="CPP_7.2_goodBr.pkl"
+CPP_dataFile_badBr="exp4_CPP_7.2_badBr.pkl"
+CPP_dataFile_goodBr="exp4_CPP_7.2_goodBr.pkl"
 
 def exp4a(v): # bad branch scenario
     # ----- good vs. bad branch scenario, 1-step heatmap
@@ -68,19 +68,21 @@ def make_CPP_heatmaps(v):
     heatmap_vals=lst1+lst2 # concatenate the min domeig values
     plt.hist(heatmap_vals, density=True, bins=15)  # round to nearest hundredth
     plt.xlabel('RHP: min domeig per config')
-    vals_range = [min(heatmap_vals), max(heatmap_vals)]
-    print('heatmap_vals range from', round(vals_range[0], 4), ' to ', round(vals_range[1], 4))
+    lst_less1 = [round(x,4) for x in heatmap_vals if x < 1]
+    vals_range = [min(lst_less1), max(lst_less1)]
+    print('stable heatmap_vals range from', round(vals_range[0], 4), ' to ', round(vals_range[1], 4))
 
     set_acts = ['bus_8','bus_53','bus_57','bus_74'] # has good branch
     addon_acts= ['bus_152'] # arbitrary
     cur_act_locs = set_acts + addon_acts
-    vis.make_map(v, cur_act_locs, heatmap_dic1, vals_range, 'CPP_goodBr')
+    level_vals1=vis.make_map(v, cur_act_locs, heatmap_dic1, vals_range, 'CPP_goodBr')
+    print('level vals1=',level_vals1)
 
     set_acts = ['bus_8','bus_53','bus_57','bus_66'] # has bad branch
     addon_acts= ['bus_152'] # arbitrary
     cur_act_locs = set_acts + addon_acts
-    vis.make_map(v, cur_act_locs, heatmap_dic2, vals_range, 'CPP_badBr')
-
+    level_vals2=vis.make_map(v, cur_act_locs, heatmap_dic2, vals_range, 'CPP_badBr')
+    print('level vals2=',level_vals2) # todo check that level_vals1 and level_vals2 are same
 
 
     return

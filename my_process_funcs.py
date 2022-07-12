@@ -354,7 +354,7 @@ def place_max_coloc_acts(parmObj,seedkey,feeder, file_name, node_index_map, dept
     return act_locs, parmObj
 
 
-def place_max_coloc_acts_v2(parmObj,seedkey,feeder,node_index_map,substation_name,depths,file_name,Vbase_ll,Sbase):
+def place_max_coloc_acts_v2(parmObj,seedkey,feeder,node_index_map,substation_name,depths,file_name,Vbase_ll,Sbase,select):
     # place maximum number of colocated actuators
     # place on only lower half of feeder, and place to maximize the common-node impedance
     random.seed(seedkey)  # initialize random num generator so results are reproducable
@@ -386,27 +386,34 @@ def place_max_coloc_acts_v2(parmObj,seedkey,feeder,node_index_map,substation_nam
         if m < p:
             p = m
         P = random.sample(M, p)  # sample p candidate locations from M
-        zvals = [] # holds 1 scalar per cand_loc
-        for cand_loc in P:
-            zabs_mat=np.absolute(imp.get_commonNodeZ_for_config(actLocs + [cand_loc],feeder,depths))
-            z_scalar=max([zabs_mat[0][0],zabs_mat[1][1],zabs_mat[2][2]])
-            zvals.append(z_scalar)
-        minval = min(zvals)
-        idx = zvals.index(minval)
-        chosen_loc = P[idx]
+
+        if select=='commonNodeZ':
+            # select using commonNodeZ
+            zvals = [] # holds 1 scalar per cand_loc
+            for cand_loc in P:
+                zabs_mat=np.absolute(imp.get_commonNodeZ_for_config(actLocs + [cand_loc],feeder,depths))
+                z_scalar=max([zabs_mat[0][0],zabs_mat[1][1],zabs_mat[2][2]])
+                zvals.append(z_scalar)
+            minval = min(zvals)
+            idx = zvals.index(minval)
+            chosen_loc = P[idx]
+        elif select=='rdm':
+            # select at random
+            chosen_loc = random.sample(P,1)[0]
+        else:
+            raise Exception('OCPP: select value not recognized')
 
         parmObj.set_ctrlTypes(['PBC'] * len(actLocs+[chosen_loc]))
         feas, maxError, percent_feas, bestF_asvec, bestF_asmat, indicMat = \
             eval_config(parmObj, feeder, actLocs+[chosen_loc], actLocs+[chosen_loc],
                         node_index_map,substation_name, depths, file_name, Vbase_ll, Sbase)
-        if feas:
-            actLocs.append(chosen_loc)
-            print('OCPP: new stable config is ', actLocs)
-            M.remove(chosen_loc)
-        else:
-            for cand_loc in P:
-                M.remove(cand_loc)
 
+        if feas:
+            actLocs.append(chosen_loc) # place APNP
+            print('OCPP: new stable config is ', actLocs)
+        M.remove(chosen_loc) # remove the candidate whether you placed it or not
+
+    ff.clear_graph(feeder)
     vis.markActuatorConfig(actLocs, feeder, file_name)  # create diagram with actuator locs marked
 
     return actLocs

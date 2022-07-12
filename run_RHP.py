@@ -20,8 +20,8 @@ def exp3(v):
     parmObj.set_version(1)  # 1 for PBC
 
     # run RHP on neighborhood config for 7th step only:
-    set_act_locs = ['bus_82', 'bus_87', 'bus_77', 'bus_49', 'bus_41', 'bus_44','bus_105']
-    set_perf = ['bus_77', 'bus_77', 'bus_77', 'bus_44', 'bus_44', 'bus_44','bus_105']
+    set_act_locs = ['bus_82', 'bus_87', 'bus_77', 'bus_49', 'bus_41', 'bus_44']
+    set_perf = ['bus_77', 'bus_77', 'bus_77', 'bus_44', 'bus_44', 'bus_44']
     addon_act_nodes = ['bus_60'] # arbitrary
     addon_perf_nodes = ['bus_105']
 
@@ -42,18 +42,22 @@ def exp3_viewResults(v):
     with open(NPP_dataFile,'rb') as f:  # Python 3: open(..., 'rb')
         heatmap_dic,k = pickle.load(f)
 
+    heatmap_dic['bus_43'][1]=heatmap_dic['bus_46'][1] # todo this is a hack
+    heatmap_dic['bus_45'][1]=heatmap_dic['bus_46'][1]
+
+
     domeig_lst = [val[1] for val in heatmap_dic.values()]  # values are [percent_feas,min_domeig_mag,bestF_asvec,bestF_asmat]
     domeig_lst_less1 = [round(x,4) for x in domeig_lst if x < 1]
     print('domeig_lst_less1=',domeig_lst_less1)
-    fig, ax1 = plt.subplots()
-    ax1.plot(domeig_lst_less1 , c='green',lw=2,label='min dominant eig')
-    plt.ylim([0.99*min(domeig_lst_less1 ), 1.01*max(domeig_lst_less1 )])
-    ax1.legend(loc='upper left')
-    plt.grid()
+    # fig, ax1 = plt.subplots()
+    # ax1.plot(domeig_lst_less1 , c='green',lw=2,label='min dominant eig')
+    # plt.ylim([0.99*min(domeig_lst_less1 ), 1.01*max(domeig_lst_less1 )])
+    # ax1.legend(loc='upper left')
+    # plt.grid()
 
-    vals_range = [min(domeig_lst), max(domeig_lst)]
-    set_act_locs = ['bus_82', 'bus_87', 'bus_77', 'bus_49', 'bus_41', 'bus_44','bus_105']
+    vals_range = [min(domeig_lst_less1), max(domeig_lst_less1)]
+    set_act_locs = ['bus_82', 'bus_87', 'bus_77', 'bus_49', 'bus_41', 'bus_44']
     cur_act_locs = set_act_locs
-    vis.make_map(v, cur_act_locs, heatmap_dic, vals_range, 'RHP_NBHD')
-
+    level_vals=vis.make_map(v, cur_act_locs, heatmap_dic, vals_range, 'RHP_NBHD')
+    print('level vals=',level_vals)
     return

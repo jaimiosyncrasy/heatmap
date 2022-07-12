@@ -22,8 +22,8 @@ elif exp_num=='1.b':
     run_evalConfig.exp1b(grid_vars_obj)
 elif exp_num=='1view':
     run_evalConfig.exp1_markGraph(grid_vars_obj)
-elif exp_num=='2':
-    run_evalConfig.exp2(grid_vars_obj)
+elif exp_num == '2view':
+    run_evalConfig.exp2_markGraph(grid_vars_obj)
 elif exp_num == '3':
     run_RHP.exp3(grid_vars_obj)
 elif exp_num == '3view':

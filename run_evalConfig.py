@@ -6,13 +6,18 @@ import my_heatmapSetup_funcs as hm
 import my_process_funcs as prc  # new
 import my_configVis_funcs as vis
 import pickle
+import my_feeder_funcs as ff
 
 #endregion
 
+#exp 1
 cfg1 = ['bus_300', 'bus_197', 'bus_104', 'bus_108', 'bus_106']  # bad config 1, cluster in one portion of feeder
 cfg2 = ['bus_76', 'bus_49', 'bus_109', 'bus_251',
         'bus_66']  # good config 1, same z2sub as config 1 but greater stability
 cfg3 = ['bus_10', 'bus_85', 'bus_56', 'bus_350', 'bus_43']  # bad config 2, evenly spaced
+
+# exp2
+cfg5 = ['bus_87', 'bus_90', 'bus_92', 'bus_95', 'bus_80', 'bus_73', 'bus_70', 'bus_67', 'bus_160', 'bus_61']
 
 
 def exp1a(v): # run bad config 1 and good config 1
@@ -81,7 +86,6 @@ def exp2(v):
 
     perf_node = ['bus_76']
     cfg4 = perf_node
-    cfg5 = ['bus_87', 'bus_90', 'bus_92', 'bus_95', 'bus_80','bus_73', 'bus_70', 'bus_67', 'bus_160', 'bus_61']
     cfg6 = v.graphNodes_nosub
     cfg6.remove(perf_node[0])
 
@@ -103,5 +107,14 @@ def exp2(v):
     return
 
 def exp1_markGraph(v):
+
+    with open('exp1_cfg2_7.3.pkl','rb') as f:  #open results from the good config
+        [feas, percent_feas, bestF_asvec, bestF_asmat] = pickle.load(f)
+
     vis.markMultiple_actConfig([cfg1,cfg2,cfg3], v.feeder, v.file_name)
+    return
+
+def exp2_markGraph(v):
+    ff.clear_graph(v.feeder)
+    vis.markActuatorConfig(cfg5, v.feeder, v.file_name)  # create diagram with actuator locs marked
     return
