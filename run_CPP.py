@@ -82,7 +82,7 @@ def make_CPP_heatmaps(v):
     addon_acts= ['bus_152'] # arbitrary
     cur_act_locs = set_acts + addon_acts
     level_vals2=vis.make_map(v, cur_act_locs, heatmap_dic2, vals_range, 'CPP_badBr')
-    print('level vals2=',level_vals2) # todo check that level_vals1 and level_vals2 are same
+    print('level vals2=',level_vals2)
 
 
     return

@@ -199,7 +199,7 @@ def design_config(parmObj,seedkey,numAct,feeder, file_name, node_index_map, dept
         parmObj.set_ctrlTypes(ctrlTypes)
         print('control types=',ctrlTypes)
         print('evaluating actuator and performance node colocated at ',rand_test) 
-        feas, maxError,numfeas,bestFparm,indicMat=eval_config(parmObj,feeder, rand_test, rand_test, node_index_map, substation_name, depths, file_name, Vbase_ll, Sbase) # todo: fix all calls to eval_config in my_process_funcs
+        feas, maxError,numfeas,bestFparm,indicMat=eval_config(parmObj,feeder, rand_test, rand_test, node_index_map, substation_name, depths, file_name, Vbase_ll, Sbase)
         
         if feas:
             break # break out of loop

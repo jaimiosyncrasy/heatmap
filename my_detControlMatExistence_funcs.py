@@ -12,6 +12,18 @@ import my_impedance_funcs as imp
 import my_heatmapSetup_funcs as hm
 
 
+def reduceF(Fbig,nzrows,zcols):
+    assert isinstance(Fbig, np.ndarray)
+    # remove rows having all zeroes
+    F = Fbig.copy()
+#    F = F[~np.all(F == 0, axis=1)]
+    F = F[nzrows]
+    # remove rows having all zeroes
+    idx = np.argwhere(np.all(F[..., :] == 0, axis=0))
+ #   idx = zcols
+    F = np.delete(F, idx, axis=1)
+    return F
+
 def assignF(parmObj,Fp,Fq,indicMat): # algo similar to updateStateSpace
 
     n=int(len(indicMat)/6) # indicMat has 6n rows for all versions
@@ -82,9 +94,9 @@ def assignF_v2(f_ub_table,n): # algo similar to updateStateSpace
 
     return F,candFset
    
-def assignF_v3(nzrow,sample_starts,std_devs,n): # algo similar to updateStateSpace
+def assignF_v3(nzrow_dict,sample_starts,std_devs,n): # algo similar to updateStateSpace
     # create one F matrix from parm space
-    # nzrow is a dict whos keys are the nonzero cols of indicMat, and who's values are the nonzero elements of each nonzero col
+    # nzrow_dict is a dict whos keys are the nonzero cols of indicMat, and who's values are the nonzero elements of each nonzero col
     # sample_starts is sx1 vector of starting values for f elements
     # std_dev is sx1 vector of standard deviations for gaussian sampling from the sample_starts
 
@@ -93,17 +105,19 @@ def assignF_v3(nzrow,sample_starts,std_devs,n): # algo similar to updateStateSpa
 
 
     F=np.zeros((6*n,6*n)) # make numpy matrix that will hold values not symbolic var
-    candFset=np.zeros((1,len(nzrow.keys())))
+    candFset=np.zeros((1,len(nzrow_dict.keys())))
     percentExplore=np.array([]) # number of cols will be = number of nonzero F ele
     
-    count=0 
-    #print('nzrow.keys()=',nzrow.keys(),flush=True)
-    for i in nzrow.keys(): # for each nonzero row of indicMat
+    count=0
+    zcols=[]
+    #print('nzrow_dict.keys()=',nzrow_dict.keys(),flush=True)
+    for i in nzrow_dict.keys(): # for each nonzero row of indicMat
         # sample according to gaussians around the sample_start
         sigma =std_devs[count]
         mu=sample_starts[count]
-        for j in nzrow[i]: # make all nz elements in each F row sampled from same distribution
-            
+        for j in nzrow_dict[i]: # make all nz elements in each F row sampled from same distribution
+            zcols.append([x for x in range(len(F)) if x not in nzrow_dict[i]])
+
             lb,ub=0.01,100 # sample until fval is in [lb ub] range
             for k in range(100): # resample up to 100 times to get
                 fval=np.random.normal(mu, sigma,1) # mu,sigma,nsamp
@@ -117,13 +131,15 @@ def assignF_v3(nzrow,sample_starts,std_devs,n): # algo similar to updateStateSpa
             # assume all blocks are 3ph for now, will correct later in this funcc
             #print('F(j,k)=',j,' and ',k)
             F[i,j]=fval
-            
+
         count+=1
         
 #     mystr='gaussian variance making percentExplore too high; max='+str(max(np.absolute(percentExplore)))
 #     assert max(np.absolute(percentExplore))<1500,mystr
     #print('percentage change from starting point =',percentExplore,flush=True)
-    return F,candFset
+
+
+    return F,candFset,list(nzrow_dict.keys()),zcols
         
 # version 1, workaround
 def computeFParamSpace_v1(feeder, act_locs, perf_nodes):
@@ -511,7 +527,8 @@ def detControlMatExistence(parmObj, feeder, A, B, indicMat,indicMat_table,act_lo
     elif sample_way=='new-heuristic':  # new-heuristic way to compute the sample space
         print('in new-heuristic route',flush=True)
 
-        nzrow,sample_starts,f_ub_table=computeFParamSpace_v4(indicMat,indicMat_table,B) # format is [APNP_number indicMat_row indicMat_col f_lb f_ub]
+        # todo: why do you need to call this line every iteration?
+        nzrow_dict,sample_starts,f_ub_table=computeFParamSpace_v4(indicMat,indicMat_table,B) # format is [APNP_number indicMat_row indicMat_col f_lb f_ub]
         # create f_ub_table, formatted as [act_name perf_name indicMat_row indicMat_col f_lb f_ub]
  #       f_ub_table=computeFParamSpace_v3(B, indicMat,indicMat_table) # format is [APNP_number indicMat_row indicMat_col f_lb f_ub]
 
@@ -538,12 +555,12 @@ def detControlMatExistence(parmObj, feeder, A, B, indicMat,indicMat_table,act_lo
             std_devs=[sigma]*len(sample_starts)
             domeig_mags,stable_domeig_mags=[],[]
             feasFs=np.array([], dtype=np.int64).reshape(0,len(f_ub_table)) # number of cols will be = number of nonzero F ele
-            feasFmats=np.array([], dtype=np.int64).reshape(0,6*n) # number of cols will be = number of nonzero F ele
+            feasFmats=[] # list of the best Fmats
 
-            #--------------------------
+#          #--------------------------
             for k in range(numsamp): # numsamp is number of F matrices to try
             #    F,candFset=assignF_v2(f_ub_table,n) # design F matrix
-                F,candFset=assignF_v3(nzrow,sample_starts,std_devs,n) # design F matrix
+                F,candFset,nzrows,zcols=assignF_v3(nzrow_dict,sample_starts,std_devs,n) # design F matrix
                 CLmat=A-np.dot(B,F) # CLmat=A-BF
                 val,ssErr_bool,ecirc_bool,domeig_mags,Fstable=eval_Fmat(parmObj,CLmat,domeig_mags)  # evaluate a single F matrix
                 #print('cand F set=',candFset,flush=True)
@@ -553,7 +570,7 @@ def detControlMatExistence(parmObj, feeder, A, B, indicMat,indicMat_table,act_lo
                 if Fstable:
                     #print('found stabilizing F!')
                     feasFs=np.append(feasFs,candFset,axis=0) # if Fstable, add Fset to new row of feasFs
-                    feasFmats=np.append(feasFmats,F,axis=0)
+                    feasFmats.append(F)
                     stable_domeig_mags=np.append(stable_domeig_mags,domeig_mags[-1]) # latest entry is current domeig
 
                 eigs_outside_circle+=ecirc_bool
@@ -577,7 +594,7 @@ def detControlMatExistence(parmObj, feeder, A, B, indicMat,indicMat_table,act_lo
                 print('case3')
             else: # curr<prev:
                 prev=curr
-                save_lst=[domeig_mags,stable_domeig_mags,feasFs,feasFmats,sigma] # save items assoc with best sigma case
+                save_lst=[domeig_mags,stable_domeig_mags,feasFs,feasFmats,sigma,nzrows,zcols] # save items assoc with best sigma case
                 print('new min_domeig=',curr)
                 print('case4')
 
@@ -600,7 +617,7 @@ def detControlMatExistence(parmObj, feeder, A, B, indicMat,indicMat_table,act_lo
         raise Exception("unrecognized string value for sample_way")
         
 # [for both heuristic and non-heuristic] gather result
-    [domeig_mags,stable_domeig_mags,feasFs,feasFmats,sigma]=save_lst[:]
+    [domeig_mags,stable_domeig_mags,feasFs,feasFmats,sigma,nzrows,zcols]=save_lst[:]
     min_domeig_mag=min(domeig_mags)
     numfeas=np.append(numfeas,[[len(feasFs)]],axis=0) # number of rows
     #print('feasFs=',np.around(feasFs,3))
@@ -625,7 +642,8 @@ def detControlMatExistence(parmObj, feeder, A, B, indicMat,indicMat_table,act_lo
 
         idx=np.argmin(stable_domeig_mags)
         bestF_asvec=feasFs[idx][:] # the set of F ele that results in the most stable dominant eval
-        bestF_asmat=feasFmats[idx][:]
+        Fbig=feasFmats[idx] # the F matrix that is best
+        bestF_asmat=reduceF(Fbig,nzrows,zcols)
         #print("Best F is (Fp Fq)=",bestF) # typically really tiny, not interesting to print
         feas=True
         
@@ -660,8 +678,8 @@ def eval_config_F(parmObj,bestFparm,indicMat,feeder,depths,node_index_map):
 
     CLmat=np.empty((6*n,6*n))
     CLmat=A-np.dot(B,F) # CLmat=A-BF
-    val,ssError_no_contract,eigs_outside_circle,domeig_mags,feasFs=eval_Fmat(parmObj,CLmat,candFset,
-                                                                             ssError_no_contract,eigs_outside_circle,domeig_mags,feasFs)
+    val,ssError_no_contract,eigs_outside_circle,domeig_mags,feasFs=eval_Fmat(parmObj,CLmat,domeig_mags)
+
     # feasFs=0 if F unstable, feasFs=1 if F is stable
     print('len feasFs=',len(feasFs))
     if len(feasFs)>=1:
