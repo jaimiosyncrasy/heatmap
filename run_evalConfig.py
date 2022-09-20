@@ -14,10 +14,10 @@ import scipy.io
 #endregion
 
 #exp 1
-cfg1 = ['bus_300', 'bus_197', 'bus_104', 'bus_108', 'bus_106']  # bad config 1, cluster in one portion of feeder
-cfg2 = ['bus_76', 'bus_49', 'bus_109', 'bus_251',
+cfg2 = ['bus_300', 'bus_197', 'bus_104', 'bus_108', 'bus_106']  # bad config 1, cluster in one portion of feeder
+cfg3 = ['bus_76', 'bus_49', 'bus_109', 'bus_251',
         'bus_66']  # good config 1, same z2sub as config 1 but greater stability
-cfg3 = ['bus_10', 'bus_85', 'bus_56', 'bus_350', 'bus_43']  # bad config 2, evenly spaced
+cfg1 = ['bus_10', 'bus_85', 'bus_56', 'bus_350', 'bus_43']  # bad config 2, evenly spaced
 
 # exp2
 cfg5 = ['bus_87', 'bus_90', 'bus_92', 'bus_95', 'bus_80', 'bus_73', 'bus_70', 'bus_67', 'bus_160', 'bus_61']
@@ -31,17 +31,23 @@ cfg6y=['bus_41','bus_44','bus_49','bus_77','bus_82','bus_87','bus_104'] # yellow
 cfg7 = ['bus_8', 'bus_53', 'bus_57', 'bus_66','bus_86']  # has bad branch
 cfg8 = ['bus_8','bus_53','bus_57','bus_74','bus_86']
 
+# test2_act=['bus_83','bus_84','bus_79','bus_57','bus_56','bus_62']
+# test2_perf=['bus_83','bus_83','bus_83','bus_57','bus_57','bus_57']
+# test2_act=['bus_83','bus_68','bus_57'] # only on phA
+test2_act=['bus_83','bus_87','bus_57'] # only on phB
+test2_perf=['bus_83','bus_83','bus_57']
+
 current_date = str(date.today())[-5:]  # extract 'MM-DD'
-results_foldername = 'results_' + current_date
+results_foldername = 'results_' + current_date # eval_config results get exported to this dir
 main_dir=os.getcwd()
 
 def exp1(v): # eval 3 configs: 2 bad and one good
 
     exp_name='exp1'
     cfg_lst=[cfg1,cfg2,cfg3]
-    cfg_num_lst=[8,9,10]
+    test_num_lst=[8,9,10]
     perf_lst=cfg_lst # co-located
-    justEval(cfg_lst, cfg_num_lst,perf_lst, v, exp_name)
+    justEval(cfg_lst, test_num_lst,perf_lst, v, exp_name)
     return
 
 def exp2(v):
@@ -87,6 +93,17 @@ def exp4(v): # eval 3 configs: 2 bad and one good
     justEval(cfg_lst, cfg_num_lst,perf_lst, v, exp_name)
     return
 
+def test2(v):
+    # --------- validate nbhd config --------------
+
+    cfg_lst=[test2_act]
+    cfg_num_lst=[2]
+    perf_lst=[test2_perf]
+    #perf_lst.append(perf_lst)
+    exp_name = 'test2'
+    justEval(cfg_lst, cfg_num_lst,perf_lst, v, exp_name)
+    return
+
 def exp1_markGraph(v):
 
     with open('exp1_cfg2_7.3.pkl','rb') as f:  #open results from the good config
@@ -121,14 +138,14 @@ def justEval(cfg_lst,cfg_num_lst,perf_lst,v,exp_name):
 
         parmObj.set_ctrlTypes(['PBC'] * len(cfg))
         os.chdir(main_dir)
-        feas, maxError, percent_feas, bestF_asvec,bestF_asmat, indicMat = prc.eval_config(parmObj, v.feeder, cfg, perf, v.node_index_map,
+        feas, maxError, percent_feas,min_domeig_mag, bestF_asvec,bestF_asmat, indicMat = prc.eval_config(parmObj, v.feeder, cfg, perf, v.node_index_map,
                                                                                           v.substation_name, v.depths, v.file_name, v.Vbase_ll, v.Sbase)
         # Saving results:
         os.chdir(results_dir)  # changes the current working directory to the given path
         # with open(exp_name+'_cfg'+str(cfg_num)+'_'+current_date+'.pkl', 'wb') as f:  # Python 3: open(..., 'wb')
         #     pickle.dump([feas, percent_feas, bestF_asvec,bestF_asmat], f)
 
-        matdict = {'feas': feas,'percent_feas':percent_feas,'bestF_asvec':bestF_asvec,'bestF_asmat':bestF_asmat}
-        scipy.io.savemat(exp_name+'_cfg'+str(cfg_num)+'_'+current_date+'.mat', matdict)
+        matdict = {'feas': feas,'percent_feas':percent_feas,'min_domeig_mag':min_domeig_mag,'bestF_asvec':bestF_asvec,'bestF_asmat':bestF_asmat}
+        scipy.io.savemat('kgains_test'+str(cfg_num)+'_'+current_date+'.mat', matdict)
 
         cfg_num=cfg_num+1

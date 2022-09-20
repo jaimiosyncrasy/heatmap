@@ -18,7 +18,7 @@ def reduceF(Fbig,nzrows,zcols):
     F = Fbig.copy()
 #    F = F[~np.all(F == 0, axis=1)]
     F = F[nzrows]
-    # remove rows having all zeroes
+    # remove cols having all zeroes
     idx = np.argwhere(np.all(F[..., :] == 0, axis=0))
  #   idx = zcols
     F = np.delete(F, idx, axis=1)
@@ -96,7 +96,7 @@ def assignF_v2(f_ub_table,n): # algo similar to updateStateSpace
    
 def assignF_v3(nzrow_dict,sample_starts,std_devs,n): # algo similar to updateStateSpace
     # create one F matrix from parm space
-    # nzrow_dict is a dict whos keys are the nonzero cols of indicMat, and who's values are the nonzero elements of each nonzero col
+    # nzrow_dict is a dict whos keys are the nonzero rows of indicMat, and who's values are the nonzero elements of each nonzero col
     # sample_starts is sx1 vector of starting values for f elements
     # std_dev is sx1 vector of standard deviations for gaussian sampling from the sample_starts
 
@@ -583,7 +583,7 @@ def detControlMatExistence(parmObj, feeder, A, B, indicMat,indicMat_table,act_lo
             print('(curr,prev) domeig=(',np.round(curr,4),',',np.round(prev,4),')')
 
             if sig_count==0: # initialized
-                save_lst=[domeig_mags,stable_domeig_mags,feasFs,feasFmats,sigma] # save items assoc with best sigma case
+                save_lst=[domeig_mags,stable_domeig_mags,feasFs,feasFmats,sigma,nzrows,zcols] # save items assoc with best sigma case
             if sig_count>0.3*sig_try and np.absolute(curr-prev)<tol: # when min_domeig stops changing so much
                 print('----domeig has converged across sigmas----')
                 print('case1')

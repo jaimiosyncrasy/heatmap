@@ -27,7 +27,7 @@ def eval_config(parmObj,feeder, all_act_locs, perf_nodes, node_index_map, substa
     vis.markActuatorConfig(all_act_locs, feeder, file_name) # create diagram with actuator locs marked
     
     print('Actuator configuration is feasible') if feas else print('Actuator configuration is not feasible')
-    return feas, maxError, percent_feas,bestF_asvec,bestF_asmat, indicMat
+    return feas, maxError, percent_feas,min_domeig_mag,bestF_asvec,bestF_asmat, indicMat
 
     
 def find_good_colocated(parmObj,feeder, set_acts, addon_acts, node_index_map,substation_name, depths, file_name, Vbase_ll, Sbase):
@@ -199,7 +199,7 @@ def design_config(parmObj,seedkey,numAct,feeder, file_name, node_index_map, dept
         parmObj.set_ctrlTypes(ctrlTypes)
         print('control types=',ctrlTypes)
         print('evaluating actuator and performance node colocated at ',rand_test) 
-        feas, maxError,numfeas,bestFparm,indicMat=eval_config(parmObj,feeder, rand_test, rand_test, node_index_map, substation_name, depths, file_name, Vbase_ll, Sbase)
+        feas, maxError, percent_feas,min_domeig_mag, bestF_asvec,bestF_asmat, indicMat=eval_config(parmObj,feeder, rand_test, rand_test, node_index_map, substation_name, depths, file_name, Vbase_ll, Sbase)
         
         if feas:
             break # break out of loop
@@ -239,7 +239,7 @@ def eval_random_configs(parmObj, seedkey,numAct,numEval,feeder, file_name, node_
         parmObj.set_ctrlTypes(ctrlTypes)
         print('control types=',ctrlTypes)
         print('evaluating actuator and performance node colocated at ',rand_test) 
-        feas, maxError,numfeas,bestFparm,indicMat=eval_config(parmObj,feeder, rand_test, rand_test, node_index_map, substation_name, depths, file_name, Vbase_ll, Sbase)
+        feas, maxError, percent_feas,min_domeig_mag, bestF_asvec,bestF_asmat, indicMat=eval_config(parmObj,feeder, rand_test, rand_test, node_index_map, substation_name, depths, file_name, Vbase_ll, Sbase)
         
         if feas:
             feas_vec.append(1)
@@ -404,7 +404,7 @@ def place_max_coloc_acts_v2(parmObj,seedkey,feeder,node_index_map,substation_nam
             raise Exception('OCPP: select value not recognized')
 
         parmObj.set_ctrlTypes(['PBC'] * len(actLocs+[chosen_loc]))
-        feas, maxError, percent_feas, bestF_asvec, bestF_asmat, indicMat = \
+        feas, maxError, percent_feas,min_domeig_mag, bestF_asvec,bestF_asmat, indicMat = \
             eval_config(parmObj, feeder, actLocs+[chosen_loc], actLocs+[chosen_loc],
                         node_index_map,substation_name, depths, file_name, Vbase_ll, Sbase)
 

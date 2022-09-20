@@ -178,12 +178,12 @@ def updateStateSpace(parmObj,feeder, n, act_locs, perf_nodes,file_name):
         if not(ctrlType=='PBC' or ctrlType=='VVC' or ctrlType=='VWC'):
             raise Exception('Actuator node first 3 chars should be PBC, VVC, or VWC')
         
-        act_phases = feeder.busdict[act[4:]].phases # [7:] extracts the YYY bus number from 'XXXbus_YYY'
+        act_phases = feeder.loaddict[act[4:]].phases # [7:] extracts the YYY bus number from 'XXXbus_YYY'
         perf_phases = feeder.busdict[perf[4:]].phases
         
         act_index=graph_noSub.index(act)
         perf_index=graph_noSub.index(perf)
-       
+
         phase_intrsct = [ph for ph in act_phases if ph in perf_phases]
         if phase_intrsct == []: # disallow configs in which the act and perf node phases are not aligned. Results in kgain=0.0001 and thinks it's feasible
             print('WARNING: act_node ' + act + ' can NOT track perf_node ' + perf + ' --> no common phases')
@@ -198,6 +198,7 @@ def updateStateSpace(parmObj,feeder, n, act_locs, perf_nodes,file_name):
                     phase_intrsct[i] = 1
                 elif phase_intrsct[i] == 'c':
                     phase_intrsct[i] = 2
+
 
         #print('act=',act,', perf=',perf,', ctrlType=',ctrlType,', phaseItrsct=',phase_intrsct)
         for ph in phase_intrsct:
