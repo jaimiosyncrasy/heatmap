@@ -52,7 +52,7 @@ elif exp_name== '1234':
     run_evalConfig.exp3eval(grid_vars_obj)
     run_evalConfig.exp4(grid_vars_obj)
 elif exp_name == 'run_other':
-    run_evalConfig.test2(grid_vars_obj)
+    run_evalConfig.test5(grid_vars_obj)
 else:
     raise Exception("unrecognized run-config parm for experiment number")
 print('------ Complete! close any plotting windows to finish the run-config -------------')

@@ -14,10 +14,9 @@ import scipy.io
 #endregion
 
 #exp 1
-cfg2 = ['bus_300', 'bus_197', 'bus_104', 'bus_108', 'bus_106']  # bad config 1, cluster in one portion of feeder
-cfg3 = ['bus_76', 'bus_49', 'bus_109', 'bus_251',
-        'bus_66']  # good config 1, same z2sub as config 1 but greater stability
-cfg1 = ['bus_10', 'bus_85', 'bus_56', 'bus_350', 'bus_43']  # bad config 2, evenly spaced
+cfg1 = ['bus_66', 'bus_83', 'bus_56', 'bus_350', 'bus_251']  # bad config 2, evenly spaced
+cfg2 = ['bus_86', 'bus_88', 'bus_91', 'bus_96', 'bus_80']  # bad config 1, cluster in most extreme voltage of feeder
+cfg3 = ['bus_79', 'bus_103', 'bus_109', 'bus_80','bus_63']  # good config 1, same z2sub as config 1 but greater stability
 
 # exp2
 cfg5 = ['bus_87', 'bus_90', 'bus_92', 'bus_95', 'bus_80', 'bus_73', 'bus_70', 'bus_67', 'bus_160', 'bus_61']
@@ -33,9 +32,8 @@ cfg8 = ['bus_8','bus_53','bus_57','bus_74','bus_86']
 
 # test2_act=['bus_83','bus_84','bus_79','bus_57','bus_56','bus_62']
 # test2_perf=['bus_83','bus_83','bus_83','bus_57','bus_57','bus_57']
-# test2_act=['bus_83','bus_68','bus_57'] # only on phA
-test2_act=['bus_83','bus_87','bus_57'] # only on phB
-test2_perf=['bus_83','bus_83','bus_57']
+test5_act=['bus_85','bus_83','bus_80','bus_41','bus_44','bus_49'] # only on phB
+test5_perf=['bus_83','bus_83','bus_83','bus_49','bus_49','bus_49']
 
 current_date = str(date.today())[-5:]  # extract 'MM-DD'
 results_foldername = 'results_' + current_date # eval_config results get exported to this dir
@@ -93,14 +91,14 @@ def exp4(v): # eval 3 configs: 2 bad and one good
     justEval(cfg_lst, cfg_num_lst,perf_lst, v, exp_name)
     return
 
-def test2(v):
+def test5(v):
     # --------- validate nbhd config --------------
 
-    cfg_lst=[test2_act]
-    cfg_num_lst=[2]
-    perf_lst=[test2_perf]
+    cfg_lst=[test5_act]
+    cfg_num_lst=[5]
+    perf_lst=[test5_perf]
     #perf_lst.append(perf_lst)
-    exp_name = 'test2'
+    exp_name = 'test5'
     justEval(cfg_lst, cfg_num_lst,perf_lst, v, exp_name)
     return
 
@@ -140,6 +138,7 @@ def justEval(cfg_lst,cfg_num_lst,perf_lst,v,exp_name):
         os.chdir(main_dir)
         feas, maxError, percent_feas,min_domeig_mag, bestF_asvec,bestF_asmat, indicMat = prc.eval_config(parmObj, v.feeder, cfg, perf, v.node_index_map,
                                                                                           v.substation_name, v.depths, v.file_name, v.Vbase_ll, v.Sbase)
+        print('min domeig:',min_domeig_mag)
         # Saving results:
         os.chdir(results_dir)  # changes the current working directory to the given path
         # with open(exp_name+'_cfg'+str(cfg_num)+'_'+current_date+'.pkl', 'wb') as f:  # Python 3: open(..., 'wb')
